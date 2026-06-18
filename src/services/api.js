@@ -16,6 +16,8 @@ import {
   REVIEW_QUEUE,
   BATCH_SYNC_QUEUE,
   SEED_SUBMISSIONS,
+  ONE_ROSTER,
+  REVIEW_CHECKS,
 } from './mockData.js'
 
 // Module-level mutable copies so submit/decision/sync actions persist across
@@ -90,7 +92,19 @@ export async function fetchMyRequests() {
 
 export async function fetchReviewQueue() {
   await delay()
-  return clone(queue)
+  // Join the per-request rubric verification (checks) at the read seam, the way
+  // a real backend would attach evaluateAgainstRubric output to each request.
+  return clone(queue).map((r) => ({ ...r, checks: REVIEW_CHECKS[r.id] ?? [] }))
+}
+
+// Authoritative SIS record for a student, pulled from the OneRoster API. The
+// review detail view shows this alongside the student's submitted form so a
+// counselor can see what the system of record says vs. what was claimed.
+// Real version: server-side OneRoster fetch; here, canned from mock data.
+export async function fetchOneRosterRecord(studentId) {
+  await delay(300)
+  const record = ONE_ROSTER[studentId]
+  return record ? clone(record) : null
 }
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it
