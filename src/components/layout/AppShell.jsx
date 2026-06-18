@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
 import { LiquidGlassCard, LiquidGlassFilter } from '../ui/LiquidGlass.jsx'
+import { fetchNotifications, dismissNotification } from '../../services/api.js'
 
 const COLLAPSE_KEY = 'ccc:sidebar-collapsed'
 
@@ -66,6 +67,17 @@ const NAV = {
         </svg>
       ),
     },
+    {
+      to: '/admin/rejected',
+      label: 'Rejected',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="8" cy="8" r="6" />
+          <line x1="6" y1="6" x2="10" y2="10" />
+          <line x1="10" y1="6" x2="6" y2="10" />
+        </svg>
+      ),
+    },
   ],
 }
 
@@ -91,6 +103,44 @@ const IconExpand = () => (
     <polyline points="8 6 10 8 8 10" />
   </svg>
 )
+
+function NotificationBanner({ studentId }) {
+  const [notes, setNotes] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchNotifications(studentId).then((n) => { if (!cancelled) setNotes(n) })
+    return () => { cancelled = true }
+  }, [studentId])
+
+  const dismiss = async (id) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id))
+    await dismissNotification(id)
+  }
+
+  if (notes.length === 0) return null
+  return (
+    <div className="mb-4 space-y-2">
+      {notes.map((n) => (
+        <div
+          key={n.id}
+          className="glass-card flex items-center justify-between gap-3 px-4 py-3 ring-1 ring-success-200"
+        >
+          <p className="text-sm text-ink">
+            A spot opened in <strong>{n.courseName}</strong> — you can request a change for this class.
+          </p>
+          <button
+            type="button"
+            onClick={() => dismiss(n.id)}
+            className="shrink-0 text-xs font-medium text-muted transition hover:text-ink"
+          >
+            Dismiss
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function AppShell({ portal }) {
   const navigate = useNavigate()
@@ -301,6 +351,7 @@ export function AppShell({ portal }) {
 
         <main className="flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
+            {portal === 'student' && <NotificationBanner studentId={user?.id ?? 'demo-student'} />}
             <Outlet />
           </div>
         </main>

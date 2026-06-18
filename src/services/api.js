@@ -25,6 +25,8 @@ import { evaluateAgainstRubric } from '../utils/schedulingLogic.js'
 import { freezeRuleVersion } from '../utils/ruleVersion.js'
 import { canSubmit } from '../utils/rateLimiter.js'
 import { buildSyncPackage } from '../utils/batchProcessor.js'
+import { releaseSeat } from '../utils/seatAvailability.js'
+import * as waitlist from './waitlist.js'
 
 // Module-level mutable copies so submit/decision/sync actions persist across
 // calls within a session (simulates a backend without one).
@@ -33,6 +35,7 @@ let criteria = RUBRIC_CRITERIA.map((c) => ({ ...c }))
 let queue = REVIEW_QUEUE.map((r) => ({ ...r }))
 let batch = BATCH_SYNC_QUEUE.map((b) => ({ ...b }))
 let submissions = SEED_SUBMISSIONS.map((s) => ({ ...s })) // seeded for demo; new submits prepend
+let deniedHistory = []
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 const clone = (v) => JSON.parse(JSON.stringify(v))
@@ -146,6 +149,8 @@ export async function submitWaiver(payload) {
       documents: payload.documents ?? [],
       courseList: payload.courseList ?? [],
       studentNote: payload.studentNote ?? '',
+      fromCourse: payload.fromCourse ?? null,
+      toCourse: payload.toCourse ?? null,
       recommendation,
       ruleVersion: freezeRuleVersion(criteria),
     },
@@ -192,12 +197,24 @@ export async function fetchOneRosterRecord(studentId) {
 }
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it
-// joins the batch-sync queue awaiting the next Infinite Campus push.
+// joins the batch-sync queue and frees the dropped course's seat (notifying
+// anyone waitlisted for it); on deny it's kept in the rejected-history log.
 export async function submitDecision(requestId, decision, note = '') {
   await delay(350)
   const idx = queue.findIndex((r) => r.id === requestId)
   const request = idx >= 0 ? queue[idx] : null
   if (request) queue = queue.filter((r) => r.id !== requestId)
+
+  const subIdx = submissions.findIndex((s) => s.id === requestId)
+  if (subIdx >= 0) {
+    submissions[subIdx] = {
+      ...submissions[subIdx],
+      status: decision === 'admit' ? 'approved' : 'denied',
+      recommendation: request?.recommendation,
+      counselorNote: note,
+    }
+  }
+
   if (request && decision === 'admit') {
     batch = [
       ...batch,
@@ -209,10 +226,42 @@ export async function submitDecision(requestId, decision, note = '') {
         synced: false,
       },
     ]
+    if (request.fromCourse) {
+      releaseSeat(request.fromCourse)
+      waitlist.notifySubscribers(request.fromCourse)
+    }
   }
+  if (request && decision === 'deny') {
+    deniedHistory = [{ ...request, decision, counselorNote: note, deniedAt: new Date().toISOString() }, ...deniedHistory]
+  }
+
   console.info(`[audit] ${requestId} -> ${decision}${note ? ` (${note})` : ''}`)
   const next = queue[0]?.id ?? null
   return { ok: true, requestId, decision, nextId: next, remaining: queue.length }
+}
+
+// Past denied requests — surfaced to counselors as a reference log.
+export async function fetchRejectedRequests() {
+  await delay()
+  return clone(deniedHistory)
+}
+
+// Student opts into being notified if a seat opens up in a course they were denied.
+export async function subscribeToWaitlist(studentId, courseName, requestId) {
+  await delay(200)
+  waitlist.subscribe(studentId, courseName, requestId)
+  return { ok: true }
+}
+
+export async function fetchNotifications(studentId) {
+  await delay(200)
+  return clone(waitlist.getNotifications(studentId))
+}
+
+export async function dismissNotification(notificationId) {
+  await delay(150)
+  waitlist.dismissNotification(notificationId)
+  return { ok: true }
 }
 
 export async function fetchRubricCriteria() {

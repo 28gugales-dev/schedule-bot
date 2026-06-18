@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
-import { fetchMyRequests, fetchAllWaivers } from '../../services/api.js'
+import { fetchMyRequests, fetchAllWaivers, subscribeToWaitlist } from '../../services/api.js'
+import { useAuth } from '../auth/AuthProvider.jsx'
 import { RequestTracker, StatusBadge } from './RequestTracker.jsx'
+
+const wasDeniedForSeat = (request) =>
+  request.status === 'denied' && request.recommendation?.checks?.some((c) => c.id === 'seat' && c.passed === false)
 
 const formatDate = (iso) =>
   iso
@@ -8,10 +12,18 @@ const formatDate = (iso) =>
     : null
 
 export function MyRequests() {
+  const { user } = useAuth()
+  const studentId = user?.id ?? 'demo-student'
   const [requests, setRequests] = useState([])
   const [waiverMap, setWaiverMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [notifyRequested, setNotifyRequested] = useState(() => new Set())
+
+  const requestNotify = async (request) => {
+    setNotifyRequested((prev) => new Set(prev).add(request.id))
+    await subscribeToWaitlist(studentId, request.toCourse, request.id)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +105,23 @@ export function MyRequests() {
                 <p className="text-sm text-muted italic">
                   {request.studentNote}
                 </p>
+              )}
+
+              {wasDeniedForSeat(request) && (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-black/[0.03] px-3 py-2.5 text-sm">
+                  <span className="text-ink">"{request.toCourse}" was full at the time of review.</span>
+                  {notifyRequested.has(request.id) ? (
+                    <span className="shrink-0 text-xs font-medium text-success-700">We'll notify you ✓</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => requestNotify(request)}
+                      className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-700"
+                    >
+                      Notify me when a spot opens
+                    </button>
+                  )}
+                </div>
               )}
 
               <RequestTracker requestId={request.id} />
