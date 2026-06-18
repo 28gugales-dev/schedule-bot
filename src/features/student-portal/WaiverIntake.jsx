@@ -1,13 +1,30 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchAvailableWaivers, uploadStudentDocuments, submitWaiver } from '../../services/api.js'
+import { useAuth } from '../auth/AuthProvider.jsx'
+import { extractTextFromFile } from '../../utils/pdfText.js'
+import { parseTranscriptData } from '../../utils/schedulingLogic.js'
+import { parseCourseListText } from '../../utils/courseListParser.js'
+import { saveTranscript, getSavedTranscripts, saveCourseList, getSavedCourseLists } from '../../services/transcriptStore.js'
 import { UploadZone } from './UploadZone.jsx'
 import { WaiverSelectGrid } from './WaiverSelectGrid.jsx'
 import { RequestTracker } from './RequestTracker.jsx'
+import { CourseSwapPanel } from './CourseSwapPanel.jsx'
 
 // Guided student intake: Documents -> Waiver type -> Review & submit -> Tracker.
 // This component is the integration root for the student portal: it owns all
 // wizard state and the runtime prop contracts of its three leaf components.
 const STEPS = ['Documents', 'Waiver type', 'Review & submit']
+
+// Waiver types where the student is naming a course to drop/replace.
+const SWAP_WAIVER_IDS = new Set(['prereq-override', 'grad-substitution', 'schedule-conflict', 'late-add-drop'])
+
+function serializeParsedTranscript(parsed) {
+  return { ...parsed, completed: [...parsed.completed] }
+}
+
+function deserializeParsedTranscript(saved) {
+  return { ...saved, completed: new Set(saved.completed ?? []) }
+}
 
 function WizardSteps({ current }) {
   return (
@@ -34,7 +51,53 @@ function WizardSteps({ current }) {
   )
 }
 
+function RecognizedCourseChips({ recognized = [], unrecognized = [] }) {
+  if (recognized.length === 0 && unrecognized.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {recognized.map((r, i) => (
+        <span
+          key={`${r.matched}-${i}`}
+          title={r.exact ? 'Exact match' : `Closest match (${Math.round(r.similarity * 100)}% similar)`}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            r.exact ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+          }`}
+        >
+          {r.matched}{!r.exact && ' ~'}
+        </span>
+      ))}
+      {unrecognized.map((raw, i) => (
+        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted">
+          {raw} ?
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function PreviousDocSelect({ label, saved, onApply }) {
+  if (!saved.length) return null
+  return (
+    <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm">
+      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].fileName}</strong>. Apply?</span>
+      <select
+        defaultValue=""
+        onChange={(e) => e.target.value && onApply(saved.find((s) => s.id === e.target.value))}
+        className="ml-auto rounded-md border border-brand-300 bg-white px-2 py-1 text-xs"
+      >
+        <option value="" disabled>Choose…</option>
+        {saved.map((s) => (
+          <option key={s.id} value={s.id}>{s.fileName} ({new Date(s.savedAt).toLocaleDateString()})</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function WaiverIntake() {
+  const { user } = useAuth()
+  const studentId = user?.id ?? 'demo-student'
+
   const [step, setStep] = useState(0)
   const [transcript, setTranscript] = useState([])
   const [courseList, setCourseList] = useState([])
@@ -46,6 +109,17 @@ export function WaiverIntake() {
   const [submitting, setSubmitting] = useState(false)
   const [submittedId, setSubmittedId] = useState(null)
   const [error, setError] = useState(null)
+
+  // Parsed-document state (transcriptParser / courseListParser output).
+  const [transcriptData, setTranscriptData] = useState(null) // { gpa, studentGrade, completed: Set, recognized, unrecognized }
+  const [transcriptFileName, setTranscriptFileName] = useState(null)
+  const [parsingTranscript, setParsingTranscript] = useState(false)
+  const [courseListData, setCourseListData] = useState(null) // { courseNames, recognized, unrecognized }
+  const [courseListFileName, setCourseListFileName] = useState(null)
+  const [parsingCourseList, setParsingCourseList] = useState(false)
+  const [savedTranscripts, setSavedTranscripts] = useState(() => getSavedTranscripts(studentId))
+  const [savedCourseLists, setSavedCourseLists] = useState(() => getSavedCourseLists(studentId))
+  const [swap, setSwap] = useState({ fromCourse: null, toCourse: null })
 
   useEffect(() => {
     let cancelled = false
@@ -67,13 +141,65 @@ export function WaiverIntake() {
     () => waivers.find((w) => w.id === selectedWaiverId) ?? null,
     [waivers, selectedWaiverId],
   )
+  const needsSwap = selectedWaiverId && SWAP_WAIVER_IDS.has(selectedWaiverId)
 
-  // Step gating: docs step needs both required uploads; waiver step needs a pick.
+  const handleTranscriptFiles = useCallback(async (files) => {
+    setTranscript(files)
+    if (files.length === 0) return
+    const file = files[files.length - 1]
+    setParsingTranscript(true)
+    setError(null)
+    try {
+      const text = await extractTextFromFile(file)
+      const parsed = parseTranscriptData(text)
+      setTranscriptData(parsed)
+      setTranscriptFileName(file.name)
+      saveTranscript(studentId, { fileName: file.name, rawText: text, parsed: serializeParsedTranscript(parsed) })
+      setSavedTranscripts(getSavedTranscripts(studentId))
+    } catch (e) {
+      setError(`Could not read transcript: ${e?.message ?? 'unknown error'}`)
+    } finally {
+      setParsingTranscript(false)
+    }
+  }, [studentId])
+
+  const handleCourseListFiles = useCallback(async (files) => {
+    setCourseList(files)
+    if (files.length === 0) return
+    const file = files[files.length - 1]
+    setParsingCourseList(true)
+    setError(null)
+    try {
+      const text = await extractTextFromFile(file)
+      const parsed = parseCourseListText(text)
+      setCourseListData(parsed)
+      setCourseListFileName(file.name)
+      saveCourseList(studentId, { fileName: file.name, parsed })
+      setSavedCourseLists(getSavedCourseLists(studentId))
+    } catch (e) {
+      setError(`Could not read course list: ${e?.message ?? 'unknown error'}`)
+    } finally {
+      setParsingCourseList(false)
+    }
+  }, [studentId])
+
+  const applySavedTranscript = useCallback((saved) => {
+    setTranscriptData(deserializeParsedTranscript(saved.parsed))
+    setTranscriptFileName(saved.fileName)
+  }, [])
+
+  const applySavedCourseList = useCallback((saved) => {
+    setCourseListData(saved.parsed)
+    setCourseListFileName(saved.fileName)
+  }, [])
+
+  // Step gating: docs step needs both (an upload or an applied previous doc);
+  // waiver step needs a pick, plus a from/to course pair for swap-style waivers.
   const canAdvance =
     step === 0
-      ? transcript.length > 0 && courseList.length > 0
+      ? Boolean(transcriptFileName) && Boolean(courseListFileName)
       : step === 1
-        ? Boolean(selectedWaiverId)
+        ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
         : true
 
   const handleSubmit = useCallback(async () => {
@@ -90,10 +216,15 @@ export function WaiverIntake() {
       ]
       const upload = await uploadStudentDocuments(docs)
       const res = await submitWaiver({
+        studentId,
         waiverTypeId: selectedWaiverId,
         uploadId: upload.uploadId,
         documents: upload.files,
         studentNote: note.trim(),
+        courseList: courseListData?.courseNames ?? [],
+        fromCourse: swap.fromCourse,
+        toCourse: swap.toCourse,
+        transcriptData,
       })
       setSubmittedId(res.requestId)
     } catch (e) {
@@ -101,7 +232,7 @@ export function WaiverIntake() {
     } finally {
       setSubmitting(false)
     }
-  }, [transcript, courseList, supporting, selectedWaiverId, note])
+  }, [transcript, courseList, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
 
   const reset = () => {
     setStep(0)
@@ -112,6 +243,7 @@ export function WaiverIntake() {
     setNote('')
     setSubmittedId(null)
     setError(null)
+    setSwap({ fromCourse: null, toCourse: null })
   }
 
   // Post-submit: confirmation + live tracker.
@@ -153,22 +285,44 @@ export function WaiverIntake() {
 
       {step === 0 && (
         <div className="space-y-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <UploadZone
-            label="Transcript (PDF)"
-            hint="Required. Your official or unofficial transcript."
-            docType="transcript"
-            accept=".pdf"
-            files={transcript}
-            onFilesChange={setTranscript}
-          />
-          <UploadZone
-            label="Course list"
-            hint="Required. PDF, CSV or XLSX of your current/planned courses."
-            docType="course-list"
-            accept=".pdf,.csv,.xlsx"
-            files={courseList}
-            onFilesChange={setCourseList}
-          />
+          <div>
+            <PreviousDocSelect label="transcript" saved={savedTranscripts} onApply={applySavedTranscript} />
+            <UploadZone
+              label="Transcript (PDF)"
+              hint="Required. Your official or unofficial transcript."
+              docType="transcript"
+              accept=".pdf,.txt"
+              files={transcript}
+              onFilesChange={handleTranscriptFiles}
+            />
+            {parsingTranscript && <p className="mt-2 text-xs text-muted">Reading transcript…</p>}
+            {transcriptData && (
+              <>
+                <p className="mt-3 text-xs font-medium text-ink">
+                  Recognized courses {transcriptData.studentGrade ? `· Grade ${transcriptData.studentGrade}` : ''} {transcriptData.gpa ? `· GPA ${transcriptData.gpa}` : ''}
+                </p>
+                <RecognizedCourseChips recognized={transcriptData.recognized} unrecognized={transcriptData.unrecognized} />
+              </>
+            )}
+          </div>
+          <div>
+            <PreviousDocSelect label="course list" saved={savedCourseLists} onApply={applySavedCourseList} />
+            <UploadZone
+              label="Course list"
+              hint="Required. PDF, CSV, TXT or pasted list of your current/planned courses."
+              docType="course-list"
+              accept=".pdf,.csv,.txt"
+              files={courseList}
+              onFilesChange={handleCourseListFiles}
+            />
+            {parsingCourseList && <p className="mt-2 text-xs text-muted">Reading course list…</p>}
+            {courseListData && (
+              <>
+                <p className="mt-3 text-xs font-medium text-ink">Recognized courses</p>
+                <RecognizedCourseChips recognized={courseListData.recognized} unrecognized={courseListData.unrecognized} />
+              </>
+            )}
+          </div>
           <UploadZone
             label="Supporting documents"
             hint="Optional. Add any extra files to support your request."
@@ -182,7 +336,7 @@ export function WaiverIntake() {
       )}
 
       {step === 1 && (
-        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="space-y-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           {waiversLoading ? (
             <p className="text-sm text-muted">Loading waiver types…</p>
           ) : (
@@ -191,6 +345,17 @@ export function WaiverIntake() {
               selectedId={selectedWaiverId}
               onSelect={setSelectedWaiverId}
             />
+          )}
+          {needsSwap && (
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">Course swap</p>
+              <CourseSwapPanel
+                courseListNames={courseListData?.courseNames ?? []}
+                student={{ currentGrade: transcriptData?.studentGrade ?? 9, completed: transcriptData?.completed ?? new Set() }}
+                value={swap}
+                onChange={setSwap}
+              />
+            </div>
           )}
         </div>
       )}
@@ -206,12 +371,18 @@ export function WaiverIntake() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Transcript</dt>
-                <dd className="font-medium text-ink">{transcript.length ? transcript[0].name : '—'}</dd>
+                <dd className="font-medium text-ink">{transcriptFileName ?? '—'}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Course list</dt>
-                <dd className="font-medium text-ink">{courseList.length ? courseList[0].name : '—'}</dd>
+                <dd className="font-medium text-ink">{courseListFileName ?? '—'}</dd>
               </div>
+              {needsSwap && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted">Course swap</dt>
+                  <dd className="font-medium text-ink">{swap.fromCourse} → {swap.toCourse}</dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Supporting docs</dt>
                 <dd className="font-medium text-ink">{supporting.length} file{supporting.length === 1 ? '' : 's'}</dd>

@@ -17,6 +17,9 @@ import {
   BATCH_SYNC_QUEUE,
   SEED_SUBMISSIONS,
 } from './mockData.js'
+import { hashRequestKey } from '../utils/dedupeHash.js'
+import { priorityOrderQueue } from '../utils/priorityQueue.js'
+import { evaluateAgainstRubric } from '../utils/schedulingLogic.js'
 
 // Module-level mutable copies so submit/decision/sync actions persist across
 // calls within a session (simulates a backend without one).
@@ -58,9 +61,30 @@ export async function fetchAllWaivers() {
   return clone(waivers)
 }
 
+// Prevent duplicate in-flight requests (same student, waiver type, course
+// swap) via a Set of fingerprint hashes over the current submissions.
+function existingRequestHashes() {
+  return new Set(
+    submissions.map((s) =>
+      hashRequestKey({ studentId: s.studentId, waiverTypeId: s.waiverTypeId, fromCourse: s.fromCourse, toCourse: s.toCourse }),
+    ),
+  )
+}
+
 // Create a waiver request. Returns the new request id + initial tracker status.
 export async function submitWaiver(payload) {
   await delay(600)
+
+  const hash = hashRequestKey({
+    studentId: payload.studentId,
+    waiverTypeId: payload.waiverTypeId,
+    fromCourse: payload.fromCourse,
+    toCourse: payload.toCourse,
+  })
+  if (existingRequestHashes().has(hash)) {
+    throw new Error('An identical request is already pending — check My Requests before resubmitting.')
+  }
+
   const request = {
     id: `req-${Date.now()}`,
     ...payload,
@@ -68,6 +92,34 @@ export async function submitWaiver(payload) {
     submittedAt: new Date().toISOString(),
   }
   submissions = [request, ...submissions]
+
+  // Wire the new request into the counselor-facing review queue too — these
+  // used to be disconnected mock arrays, so a student submission never
+  // actually reached ReviewQueue.jsx. The recommendation is computed for
+  // real (rule engine against the active rubric), not canned sample data.
+  const recommendation = payload.transcriptData
+    ? evaluateAgainstRubric({ ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse }, criteria)
+    : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
+
+  queue = [
+    ...queue,
+    {
+      id: request.id,
+      student: {
+        name: payload.studentId ?? 'Student',
+        id: payload.studentId ?? request.id,
+        grade: payload.transcriptData?.studentGrade ?? 9,
+        gpa: payload.transcriptData?.gpa ?? 0,
+      },
+      waiverTypeId: payload.waiverTypeId,
+      submittedAt: request.submittedAt,
+      documents: payload.documents ?? [],
+      courseList: payload.courseList ?? [],
+      studentNote: payload.studentNote ?? '',
+      recommendation,
+    },
+  ]
+
   // Stubbed confirmation email — real version triggers a server-side mailer.
   console.info(`[stub email] confirmation queued for request ${request.id}`)
   return { requestId: request.id, status: request.status }
@@ -88,9 +140,11 @@ export async function fetchMyRequests() {
 
 // ---- Admin / counselor portal -------------------------------------------
 
+// Priority-queue ordered (graduation risk + submission age), not raw
+// insertion order — see utils/priorityQueue.js.
 export async function fetchReviewQueue() {
   await delay()
-  return clone(queue)
+  return clone(priorityOrderQueue(queue))
 }
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it
