@@ -1,14 +1,94 @@
 @import "tailwindcss";
 
-/* Design tokens (Tailwind v4 @theme). Extend as the design system grows. */
+/* ═════════════════════════════════════════════════════════════════════════
+ * DESIGN SYSTEM — "Apple-glass" (Brenda v1 lineage)
+ *
+ * A frosted-glass light theme. Faithful to Brenda v1's Apple aesthetic
+ * (system blue #0071e3, Hanken/Newsreader type, generous radii, soft
+ * shadows) and elevated with an ambient aurora backdrop so the glass
+ * surfaces actually refract instead of disappearing on flat white.
+ *
+ * SINGLE SOURCE OF TRUTH. Every screen pulls its palette from the semantic
+ * Tailwind v4 tokens below — `--color-brand-600` becomes `bg-brand-600`,
+ * `text-brand-600`, `ring-brand-600`, `border-brand-600`. Retune a value
+ * here and it propagates app-wide. Screens never hardcode hex.
+ *
+ *   • brand   → primary accent (buttons, active nav, links)   — Apple blue
+ *   • success → approved / passed / synced                    — Brenda green
+ *   • warning → pending / attention                           — Brenda amber
+ *   • danger  → denied / errors / destructive                 — Brenda red
+ *   • ink     → primary text      • muted → secondary text
+ *   • canvas  → app background     • surface → solid card fill (crisp chips)
+ *   • border / border-strong → hairlines + input edges
+ *
+ * Frosted panels use the `.glass-card` / `.glass-panel` utility classes
+ * (translucency + backdrop-blur can't live on a color token).
+ * ═════════════════════════════════════════════════════════════════════════ */
 @theme {
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #d9e6ff;
-  --color-brand-500: #3b6fff;
-  --color-brand-600: #2456e6;
-  --color-brand-700: #1b43b8;
-  --color-ink: #0f172a;
-  --color-muted: #64748b;
+  /* Type — Brenda's four faces, loaded in index.html */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-hero: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Brand — Apple system blue (anchor: 600 = #0071e3, 700 = hover #0058b8) */
+  --color-brand-50: #eaf3fd;
+  --color-brand-100: #d4e6fb;
+  --color-brand-200: #aed0f6;
+  --color-brand-300: #7eb4f0;
+  --color-brand-400: #4a93ea;
+  --color-brand-500: #0a84ff;
+  --color-brand-600: #0071e3;
+  --color-brand-700: #0058b8;
+  --color-brand-800: #0a4794;
+  --color-brand-900: #0d3a76;
+
+  /* Success — Brenda green (#1a9c4a) */
+  --color-success-50: #e9f9ef;
+  --color-success-100: #cdefd9;
+  --color-success-300: #76d39a;
+  --color-success-400: #3cbd6e;
+  --color-success-500: #22a956;
+  --color-success-600: #1a9c4a;
+  --color-success-700: #157a3a;
+
+  /* Warning — Brenda amber (#e08600) */
+  --color-warning-50: #fff6e6;
+  --color-warning-100: #fde7bd;
+  --color-warning-300: #f6c560;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #e08600;
+  --color-warning-700: #b45309;
+
+  /* Danger — Brenda red (#e5322a) */
+  --color-danger-50: #fdecea;
+  --color-danger-100: #fbd5d2;
+  --color-danger-200: #f6b2ac;
+  --color-danger-300: #f08a82;
+  --color-danger-400: #ec5d54;
+  --color-danger-500: #e5322a;
+  --color-danger-600: #cf2118;
+  --color-danger-700: #a81a13;
+
+  /* Text — Apple near-black ink + zinc-500 muted */
+  --color-ink: #1d1d1f;
+  --color-muted: #71717a;
+
+  /* Neutrals / surfaces */
+  --color-canvas: #f5f5f7;        /* app background base (aurora wash on top) */
+  --color-surface: #ffffff;        /* solid fill for crisp chips/badges        */
+  --color-border: #e4e4e7;         /* hairline dividers (zinc-200)             */
+  --color-border-strong: #d4d4d8;  /* input borders (zinc-300)                 */
+
+  /* Radii — Brenda scale */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Motion — shared easing so every transition feels like one system */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html,
@@ -17,9 +97,172 @@ body,
   height: 100%;
 }
 
+/* ── Ambient aurora canvas ──
+   Three faint, oversized radial glows fixed behind the whole app. This is the
+   light that the frosted `.glass-*` panels refract — remove it and the glass
+   reads as flat milky white. Kept very low alpha so content stays calm. */
 body {
   margin: 0;
-  background: #f6f8fb;
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern", "liga", "calt";
+  -webkit-tap-highlight-color: transparent;
+  background-color: #f4f6fa;
+  background-image:
+    radial-gradient(1200px 820px at 8% -12%, rgba(0, 113, 227, 0.16), transparent 60%),
+    radial-gradient(1050px 760px at 102% 4%, rgba(120, 99, 240, 0.13), transparent 56%),
+    radial-gradient(960px 760px at 50% 118%, rgba(10, 147, 194, 0.11), transparent 58%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* ── Frosted surfaces ─────────────────────────────────────────────────────
+   .glass-card  → standard content panel (replaces `bg-white shadow ring-1`)
+   .glass-panel → chrome (sidebar / header) — slightly more opaque + a top
+                  highlight gradient so it lifts off the canvas
+   .glass-input → form fields
+   The translucency lets the aurora show through; the inset highlight + soft
+   drop shadow give the pane of-glass edge. */
+.glass-card {
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  backdrop-filter: blur(22px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 0 0 1px rgba(15, 23, 42, 0.035),
+    0 16px 44px -18px rgba(15, 23, 42, 0.24),
+    0 3px 10px -4px rgba(15, 23, 42, 0.06);
+}
+
+.glass-panel {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.55)
+  );
+  -webkit-backdrop-filter: blur(26px) saturate(175%);
+  backdrop-filter: blur(26px) saturate(175%);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.glass-input:focus,
+.glass-input:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
+}
+
+/* Interactive lift — for clickable glass cards (waiver picks, request rows). */
+.glass-hover {
+  transition: transform 0.22s var(--ease-spring), box-shadow 0.22s var(--ease-spring);
+}
+.glass-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 0 0 1px rgba(15, 23, 42, 0.045),
+    0 24px 56px -20px rgba(15, 23, 42, 0.3),
+    0 6px 16px -6px rgba(15, 23, 42, 0.08);
+}
+
+/* ── Typography helpers ──
+   .font-display → Newsreader serif for headings/wordmarks (lighter tracking)
+   .font-hero    → slim Cormorant for big marketing numerals (login title)
+   .eyebrow      → JetBrains-mono uppercase micro-label above sections */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.012em;
+}
+.font-hero {
+  font-family: var(--font-hero);
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-muted);
+}
+
+/* ── Entrance motion — opt-in, compositor-only, reduced-motion safe ──
+   Add `.fade-up` to a section root to rise it on mount; wrap a list in
+   `.stagger-children` and set style={{ '--stagger-index': i }} per child to
+   cascade them (60ms steps). */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up {
+    animation: fade-up 0.5s var(--ease-spring) both;
+  }
+  .stagger-children > * {
+    --stagger-delay: calc(var(--stagger-index, 0) * 60ms);
+    animation: fade-up 0.5s var(--ease-spring) var(--stagger-delay) both;
+  }
+  .animate-toast-in {
+    animation: toast-in 260ms var(--ease-out-quart) both;
+  }
+}
+
+/* ── Headings, focus, selection, scrollbars (Brenda parity) ── */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: var(--color-brand-100);
+  color: var(--color-ink);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+/* iOS: stop zoom-on-focus for form fields on touch devices. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }

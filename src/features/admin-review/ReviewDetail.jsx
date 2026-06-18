@@ -12,9 +12,9 @@ function fmtDate(iso) {
 }
 
 const REC_STYLES = {
-  admit:  { ring: 'ring-emerald-300', bg: 'bg-emerald-50',  text: 'text-emerald-700', label: 'ADMIT'  },
-  deny:   { ring: 'ring-rose-300',    bg: 'bg-rose-50',     text: 'text-rose-700',    label: 'DENY'   },
-  review: { ring: 'ring-amber-300',   bg: 'bg-amber-50',    text: 'text-amber-700',   label: 'REVIEW' },
+  admit:  { ring: 'ring-success-300', bg: 'bg-success-50', dot: 'bg-success-500', text: 'text-success-700', label: 'Admit'  },
+  deny:   { ring: 'ring-danger-300',  bg: 'bg-danger-50',  dot: 'bg-danger-500',  text: 'text-danger-700',  label: 'Deny'   },
+  review: { ring: 'ring-warning-300', bg: 'bg-warning-50', dot: 'bg-warning-500', text: 'text-warning-700', label: 'Review' },
 }
 
 // Small labelled field
@@ -34,8 +34,8 @@ function Field({ label, children }) {
 function SubmissionCard({ request, waiverName }) {
   const { submittedAt, studentNote, documents, courseList } = request
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Submitted by student</p>
+    <div className="glass-card p-5 flex flex-col gap-4">
+      <p className="eyebrow">Submitted by student</p>
 
       <Field label="Waiver type">{waiverName}</Field>
       <Field label="Submitted">{fmtDate(submittedAt)}</Field>
@@ -43,7 +43,7 @@ function SubmissionCard({ request, waiverName }) {
       {studentNote && (
         <div className="flex flex-col gap-1 text-sm">
           <span className="text-xs text-muted">Student note</span>
-          <blockquote className="border-l-4 border-slate-300 pl-4 text-ink leading-relaxed italic">
+          <blockquote className="border-l-4 border-black/10 pl-4 text-ink leading-relaxed italic">
             "{studentNote}"
           </blockquote>
         </div>
@@ -55,7 +55,7 @@ function SubmissionCard({ request, waiverName }) {
           <ul className="flex flex-col gap-1.5">
             {documents.map((doc, i) => (
               <li key={i} className="flex items-center gap-2">
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-muted capitalize">
+                <span className="rounded bg-black/[0.05] px-2 py-0.5 text-xs font-medium text-muted capitalize">
                   {doc.type}
                 </span>
                 <a
@@ -77,7 +77,7 @@ function SubmissionCard({ request, waiverName }) {
           <span className="text-xs text-muted">Requested courses</span>
           <div className="flex flex-wrap gap-2">
             {courseList.map((c, i) => (
-              <span key={i} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-ink">
+              <span key={i} className="rounded-full bg-black/[0.05] px-3 py-1 text-xs font-medium text-ink">
                 {c}
               </span>
             ))}
@@ -95,11 +95,11 @@ function SubmissionCard({ request, waiverName }) {
 function RosterCard({ oneRoster, loadingRoster }) {
   if (loadingRoster) {
     return (
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-3 animate-pulse">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">OneRoster record</p>
-        <div className="h-4 w-40 rounded bg-slate-200" />
-        <div className="h-4 w-56 rounded bg-slate-200" />
-        <div className="h-4 w-32 rounded bg-slate-200" />
+      <div className="glass-card p-5 flex flex-col gap-3 animate-pulse">
+        <p className="eyebrow">OneRoster record</p>
+        <div className="h-4 w-40 rounded bg-black/[0.06]" />
+        <div className="h-4 w-56 rounded bg-black/[0.06]" />
+        <div className="h-4 w-32 rounded bg-black/[0.06]" />
         <p className="text-sm text-muted pt-1">Loading SIS record…</p>
       </div>
     )
@@ -107,8 +107,8 @@ function RosterCard({ oneRoster, loadingRoster }) {
 
   if (!oneRoster) {
     return (
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">OneRoster record</p>
+      <div className="glass-card p-5 flex flex-col gap-2">
+        <p className="eyebrow">OneRoster record</p>
         <p className="text-sm text-muted">No SIS record found.</p>
       </div>
     )
@@ -117,8 +117,8 @@ function RosterCard({ oneRoster, loadingRoster }) {
   const { studentId, gpa, attendanceRate, gradeLevel, enrollmentStatus, completedCourses, currentSchedule, lastSync } = oneRoster
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">OneRoster record</p>
+    <div className="glass-card p-5 flex flex-col gap-4">
+      <p className="eyebrow">OneRoster record</p>
 
       <div className="grid grid-cols-2 gap-3">
         {studentId && <Field label="Student ID">{studentId}</Field>}
@@ -153,7 +153,7 @@ function RosterCard({ oneRoster, loadingRoster }) {
       )}
 
       {lastSync && (
-        <p className="text-xs text-muted border-t border-slate-100 pt-2">
+        <p className="text-xs text-muted border-t border-black/10 pt-2">
           Synced {fmtDate(lastSync)}
         </p>
       )}
@@ -171,7 +171,7 @@ function Chevron({ open }) {
     <svg
       width="14" height="14" viewBox="0 0 16 16" fill="none"
       stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
-      className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+      className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
     >
       <polyline points="4 6 8 10 12 6" />
     </svg>
@@ -201,16 +201,16 @@ function VerificationSection({ checks }) {
   }
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-3">
+    <div className="glass-card p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Rubric verification</p>
+        <p className="eyebrow">Rubric verification</p>
         <span className="text-sm">
           {failedCount > 0 ? (
-            <span className="font-semibold text-rose-600">
+            <span className="font-semibold text-danger-600">
               {failedCount} {failedCount === 1 ? 'check needs' : 'checks need'} attention
             </span>
           ) : (
-            <span className="font-semibold text-emerald-600">All {checks.length} checks passed</span>
+            <span className="font-semibold text-success-700">All {checks.length} checks passed</span>
           )}
           <span className="text-muted"> · {passedCount}/{checks.length} passed</span>
         </span>
@@ -224,7 +224,7 @@ function VerificationSection({ checks }) {
           return (
             <li
               key={check.id}
-              className={`rounded-lg ring-1 overflow-hidden ${ok ? 'ring-slate-200' : 'ring-rose-200'}`}
+              className={`rounded-lg ring-1 overflow-hidden ${ok ? 'ring-black/5' : 'ring-danger-200'}`}
             >
               {/* Whole row toggles — large hit target, status shown by badge + tint */}
               <button
@@ -236,20 +236,20 @@ function VerificationSection({ checks }) {
                   'w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset',
                   ok
-                    ? 'bg-white hover:bg-slate-50 focus-visible:ring-slate-300'
-                    : 'bg-rose-50/70 hover:bg-rose-50 focus-visible:ring-rose-300',
+                    ? 'bg-black/[0.03] hover:bg-black/[0.06] focus-visible:ring-black/10'
+                    : 'bg-danger-50/70 hover:bg-danger-50 focus-visible:ring-danger-300',
                 ].join(' ')}
               >
                 <span className="flex min-w-0 items-center gap-2.5">
-                  {!ok && <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />}
+                  {!ok && <span className="h-2 w-2 shrink-0 rounded-full bg-danger-500" />}
                   <span className="truncate text-sm font-medium text-ink">{check.label}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2.5">
                   <span
                     className={`flex w-7 h-7 items-center justify-center rounded-full text-sm font-bold ring-1 ${
                       ok
-                        ? 'bg-emerald-50 ring-emerald-300 text-emerald-700'
-                        : 'bg-rose-100 ring-rose-300 text-rose-700'
+                        ? 'bg-success-50 ring-success-300 text-success-700'
+                        : 'bg-danger-100 ring-danger-300 text-danger-700'
                     }`}
                   >
                     {ok ? '✓' : '✗'}
@@ -260,15 +260,15 @@ function VerificationSection({ checks }) {
 
               {/* Expanded reasoning: claimed (form) vs actual (SIS) + counselor note */}
               {isOpen && (
-                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 flex flex-col gap-3 text-sm">
+                <div className="border-t border-black/10 px-4 py-3 bg-black/[0.03] flex flex-col gap-3 text-sm">
                   <div className="flex flex-wrap gap-x-8 gap-y-3">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted">Claimed</span>
+                      <span className="eyebrow">Claimed</span>
                       <span className="text-ink font-medium">{check.claimed ?? '—'}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted">Actual (SIS)</span>
-                      <span className={`font-medium ${ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      <span className="eyebrow">Actual (SIS)</span>
+                      <span className={`font-medium ${ok ? 'text-success-700' : 'text-danger-700'}`}>
                         {check.actual ?? '—'}
                       </span>
                     </div>
@@ -296,20 +296,20 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
   const pct = rec?.confidence != null ? `${Math.round(rec.confidence * 100)}%` : ''
 
   return (
-    <section className="flex flex-col gap-5 max-w-5xl mx-auto">
+    <section className="fade-up flex flex-col gap-5 max-w-5xl mx-auto">
 
       {/* 1. Header row */}
       <div className="flex flex-wrap items-start gap-4">
         <button
           onClick={onBack}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted ring-1 ring-slate-200 bg-white hover:bg-slate-50 transition self-center"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 self-center"
         >
           ← Back to queue
         </button>
 
         {/* Student identity */}
         <div className="flex-1 min-w-0">
-          <p className="text-lg font-semibold text-ink">{request.student.name}</p>
+          <p className="font-display text-xl font-semibold text-ink">{request.student.name}</p>
           <div className="flex flex-wrap gap-3 text-sm text-muted mt-0.5">
             <span>ID: <span className="text-ink font-medium">{request.student.id}</span></span>
             <span>Grade: <span className="text-ink font-medium">{request.student.grade}</span></span>
@@ -317,14 +317,15 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
           </div>
         </div>
 
-        {/* Algorithm recommendation pill */}
+        {/* Algorithm recommendation — sleek dot + label, calm tinted container */}
         {rec && (
-          <div className={`rounded-xl px-4 py-2.5 ring-1 ${rs.ring} ${rs.bg} flex flex-col gap-1 max-w-xs shrink-0`}>
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${rs.text} bg-white ring-1 ${rs.ring}`}>
-                {rs.label}{pct ? ` · ${pct}` : ''}
-              </span>
-            </div>
+          <div className={`rounded-xl px-4 py-2.5 ring-1 ${rs.ring} ${rs.bg} flex flex-col gap-1.5 max-w-xs shrink-0`}>
+            <p className={`font-mono text-[11px] font-medium uppercase tracking-[0.12em] ${rs.text}`}>Algorithm recommendation</p>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${rs.dot}`} aria-hidden="true" />
+              {rs.label}
+              {pct && <span className="font-medium text-muted">· {pct}</span>}
+            </span>
             {rec.reason && (
               <p className={`text-xs ${rs.text} leading-snug`}>{rec.reason}</p>
             )}
@@ -344,27 +345,27 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
       )}
 
       {/* 4. Action row */}
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-3">
+      <div className="glass-card p-5 flex flex-col gap-3">
         <input
           type="text"
           value={note}
           onChange={e => setNote(e.target.value)}
           placeholder="Optional note (shown to student)…"
           disabled={submitting}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+          className="glass-input w-full px-3 py-2 text-sm text-ink placeholder:text-muted disabled:opacity-50"
         />
         <div className="flex gap-3">
           <button
             onClick={() => onDecision('admit', note.trim())}
             disabled={submitting}
-            className="flex-1 rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl bg-success-600 py-4 text-base font-semibold text-white transition hover:bg-success-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-success-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Saving…' : '✓ Admit'}
           </button>
           <button
             onClick={() => onDecision('deny', note.trim())}
             disabled={submitting}
-            className="flex-1 rounded-xl bg-rose-600 py-4 text-base font-semibold text-white transition hover:bg-rose-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl bg-danger-600 py-4 text-base font-semibold text-white transition hover:bg-danger-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-danger-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Saving…' : '✗ Deny'}
           </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchBatchSyncQueue, triggerBatchICPush } from '../../services/api.js';
 
 export function BatchSyncDashboard() {
@@ -7,6 +7,11 @@ export function BatchSyncDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [confirmation, setConfirmation] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Keep the interval/zero-effect pointed at the latest runSync without
+  // re-creating the interval on every render.
+  const runSyncRef = useRef(null);
 
   // Load queue on mount
   useEffect(() => {
@@ -14,8 +19,8 @@ export function BatchSyncDashboard() {
       try {
         const data = await fetchBatchSyncQueue();
         setQueue(data);
-      } catch (err) {
-        console.error('Failed to load batch sync queue:', err);
+      } catch {
+        setError("Couldn't load the sync queue. Try again.");
         setQueue([]);
       } finally {
         setLoading(false);
@@ -25,69 +30,63 @@ export function BatchSyncDashboard() {
     loadQueue();
   }, []);
 
-  // Countdown timer
+  // Single sync path used by both the manual button and the auto-trigger.
+  const runSync = async (isAuto = false) => {
+    if (syncing) return; // overlap guard — never start a second sync
+
+    const pendingNow = queue.filter(item => !item.synced).length;
+    // Auto-trigger with an empty queue: reset silently, no push, no toast.
+    if (isAuto && pendingNow === 0) {
+      setCountdown(60);
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      setError(null);
+      const result = await triggerBatchICPush();
+      setQueue(prev => prev.map(item => ({ ...item, synced: true })));
+      setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
+    } catch {
+      setError("Sync failed — couldn't reach Infinite Campus. Try again.");
+    } finally {
+      setSyncing(false);
+      setCountdown(60);
+    }
+  };
+
+  // Always expose the latest runSync to the timer effects.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          // Auto-trigger sync when countdown hits zero
-          handleAutoSync();
-          return 60;
-        }
-        return prev - 1;
-      });
+    runSyncRef.current = runSync;
+  });
+
+  // The interval ONLY ticks the countdown down. Pause it while a sync is in
+  // flight so it doesn't immediately re-fire on top of an active push.
+  useEffect(() => {
+    if (syncing) return;
+    const id = setInterval(() => {
+      setCountdown(c => Math.max(0, c - 1));
     }, 1000);
+    return () => clearInterval(id);
+  }, [syncing]);
 
-    return () => clearInterval(interval);
-  }, []);
+  // Fire the sync from an effect (not from inside the updater) when we hit 0.
+  useEffect(() => {
+    if (countdown === 0) runSyncRef.current?.(true);
+  }, [countdown]);
 
-  // Auto-sync function called when countdown expires
-  const handleAutoSync = async () => {
-    try {
-      setSyncing(true);
-      const result = await triggerBatchICPush();
+  // Auto-dismiss banners via cleanup-safe effects (cleared on unmount / re-fire).
+  useEffect(() => {
+    if (!confirmation) return;
+    const t = setTimeout(() => setConfirmation(null), 3500);
+    return () => clearTimeout(t);
+  }, [confirmation]);
 
-      // Mark synced items locally
-      setQueue(prev =>
-        prev.map(item => ({
-          ...item,
-          synced: true
-        }))
-      );
-
-      setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
-      setTimeout(() => setConfirmation(null), 3000);
-      setCountdown(60);
-    } catch (err) {
-      console.error('Auto-sync failed:', err);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  // Manual sync handler
-  const handleForceSyncNow = async () => {
-    try {
-      setSyncing(true);
-      const result = await triggerBatchICPush();
-
-      // Mark synced items locally
-      setQueue(prev =>
-        prev.map(item => ({
-          ...item,
-          synced: true
-        }))
-      );
-
-      setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
-      setTimeout(() => setConfirmation(null), 3000);
-      setCountdown(60);
-    } catch (err) {
-      console.error('Force sync failed:', err);
-    } finally {
-      setSyncing(false);
-    }
-  };
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 3500);
+    return () => clearTimeout(t);
+  }, [error]);
 
   // Format countdown as MM:SS
   const formatCountdown = (seconds) => {
@@ -111,40 +110,58 @@ export function BatchSyncDashboard() {
 
   const pendingCount = queue.filter(item => !item.synced).length;
   const syncedCount = queue.filter(item => item.synced).length;
+  const allSynced = !loading && queue.length > 0 && pendingCount === 0;
 
   return (
-    <section className="space-y-6">
+    <section className="fade-up space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-ink">Batch Sync Dashboard</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Batch Sync Dashboard</h1>
         <p className="mt-1 text-sm text-muted">
           Manage approved waivers queued for Infinite Campus synchronization
         </p>
       </div>
 
       {/* Countdown & Sync Card */}
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center justify-between">
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-ink">Next automatic sync in</p>
-            <p className="mt-1 text-2xl font-semibold text-brand-600">
+            <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-brand-600">
               {formatCountdown(countdown)}
             </p>
+            {allSynced && (
+              <p className="mt-1 text-xs font-medium text-success-700">All synced ✓</p>
+            )}
           </div>
           <button
-            onClick={handleForceSyncNow}
-            disabled={syncing}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
+            type="button"
+            onClick={() => runSync(false)}
+            disabled={syncing || pendingCount === 0}
+            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {syncing ? 'Syncing…' : 'Force Sync Now'}
           </button>
         </div>
       </div>
 
-      {/* Confirmation message */}
+      {/* Success banner */}
       {confirmation && (
-        <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div
+          role="status"
+          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 ring-1 ring-success-300"
+        >
           {confirmation}
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-200"
+        >
+          {error}
         </div>
       )}
 
@@ -155,36 +172,36 @@ export function BatchSyncDashboard() {
 
       {/* Empty state */}
       {!loading && queue.length === 0 && (
-        <div className="rounded-xl bg-white p-12 shadow-sm ring-1 ring-slate-200 text-center">
+        <div className="glass-card p-12 text-center">
           <p className="text-sm text-muted">No approved waivers awaiting sync.</p>
         </div>
       )}
 
       {/* Loading state */}
       {loading && (
-        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 text-center">
+        <div className="glass-card p-5 text-center">
           <p className="text-sm text-muted">Loading…</p>
         </div>
       )}
 
       {/* Queue table */}
       {!loading && queue.length > 0 && (
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden">
+        <div className="glass-card overflow-hidden">
           <table className="w-full">
-            <thead className="border-b border-slate-200 bg-slate-50">
+            <thead className="border-b border-black/10 bg-white/40">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-medium text-muted">Student</th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-muted">Waiver Type</th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-muted">Approved At</th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-muted">Status</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Student</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Waiver Type</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Approved At</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Status</th>
               </tr>
             </thead>
             <tbody>
               {queue.map(item => (
                 <tr
                   key={item.id}
-                  className={`border-b border-slate-200 ${
-                    item.synced ? 'bg-slate-50 opacity-60' : 'bg-white'
+                  className={`border-b border-black/10 ${
+                    item.synced ? 'bg-black/[0.03] opacity-60' : ''
                   }`}
                 >
                   <td className="px-5 py-3 text-sm text-ink">{item.student}</td>
@@ -192,11 +209,11 @@ export function BatchSyncDashboard() {
                   <td className="px-5 py-3 text-sm text-muted">{formatDate(item.approvedAt)}</td>
                   <td className="px-5 py-3 text-sm">
                     {item.synced ? (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      <span className="inline-flex rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700">
                         Synced
                       </span>
                     ) : (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="inline-flex rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700">
                         Pending
                       </span>
                     )}

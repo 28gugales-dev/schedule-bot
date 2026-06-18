@@ -6,13 +6,13 @@ export function LoginPage() {
   const { demoMode, setRole, signInWithGoogle, isConfigured } = useAuth()
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+    <div className="fade-up flex min-h-screen items-center justify-center px-4">
+      <div className="glass-card w-full max-w-sm p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">
             W
           </div>
-          <h1 className="text-xl font-semibold text-ink">Waiver Platform</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Waiver Platform</h1>
           <p className="mt-1 text-sm text-muted">
             {demoMode
               ? 'Local demo — choose a portal to explore.'
@@ -29,7 +29,7 @@ export function LoginPage() {
                   setRole('student')
                   navigate('/')
                 }}
-                className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
+                className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
               >
                 Enter as Student
               </button>
@@ -39,7 +39,7 @@ export function LoginPage() {
                   setRole('admin')
                   navigate('/')
                 }}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-slate-50"
+                className="glass-input w-full rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-white/80"
               >
                 Continue as Counselor
               </button>
@@ -54,14 +54,14 @@ export function LoginPage() {
               type="button"
               onClick={signInWithGoogle}
               disabled={!isConfigured}
-              className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="glass-input flex w-full items-center justify-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <GoogleGlyph />
               Continue with Google
             </button>
 
             {!isConfigured && (
-              <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <p className="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 ring-1 ring-warning-100">
                 Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
                 <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> to enable sign-in.
               </p>
