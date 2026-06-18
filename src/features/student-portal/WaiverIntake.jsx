@@ -9,6 +9,9 @@ import { UploadZone } from './UploadZone.jsx'
 import { WaiverSelectGrid } from './WaiverSelectGrid.jsx'
 import { RequestTracker } from './RequestTracker.jsx'
 import { CourseSwapPanel } from './CourseSwapPanel.jsx'
+import { CourseListEntry } from './CourseListEntry.jsx'
+
+const EMPTY_COURSE_BOXES = Array(7).fill('')
 
 // Guided student intake: Documents -> Waiver type -> Review & submit -> Tracker.
 // This component is the integration root for the student portal: it owns all
@@ -79,7 +82,7 @@ function PreviousDocSelect({ label, saved, onApply }) {
   if (!saved.length) return null
   return (
     <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm">
-      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].fileName}</strong>. Apply?</span>
+      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
       <select
         defaultValue=""
         onChange={(e) => e.target.value && onApply(saved.find((s) => s.id === e.target.value))}
@@ -87,7 +90,7 @@ function PreviousDocSelect({ label, saved, onApply }) {
       >
         <option value="" disabled>Choose…</option>
         {saved.map((s) => (
-          <option key={s.id} value={s.id}>{s.fileName} ({new Date(s.savedAt).toLocaleDateString()})</option>
+          <option key={s.id} value={s.id}>{s.label} ({new Date(s.savedAt).toLocaleDateString()})</option>
         ))}
       </select>
     </div>
@@ -100,7 +103,7 @@ export function WaiverIntake() {
 
   const [step, setStep] = useState(0)
   const [transcript, setTranscript] = useState([])
-  const [courseList, setCourseList] = useState([])
+  const [courseListEntries, setCourseListEntries] = useState(EMPTY_COURSE_BOXES)
   const [supporting, setSupporting] = useState([])
   const [waivers, setWaivers] = useState([])
   const [waiversLoading, setWaiversLoading] = useState(true)
@@ -114,9 +117,6 @@ export function WaiverIntake() {
   const [transcriptData, setTranscriptData] = useState(null) // { gpa, studentGrade, completed: Set, recognized, unrecognized }
   const [transcriptFileName, setTranscriptFileName] = useState(null)
   const [parsingTranscript, setParsingTranscript] = useState(false)
-  const [courseListData, setCourseListData] = useState(null) // { courseNames, recognized, unrecognized }
-  const [courseListFileName, setCourseListFileName] = useState(null)
-  const [parsingCourseList, setParsingCourseList] = useState(false)
   const [savedTranscripts, setSavedTranscripts] = useState(() => getSavedTranscripts(studentId))
   const [savedCourseLists, setSavedCourseLists] = useState(() => getSavedCourseLists(studentId))
   const [swap, setSwap] = useState({ fromCourse: null, toCourse: null })
@@ -143,6 +143,13 @@ export function WaiverIntake() {
   )
   const needsSwap = selectedWaiverId && SWAP_WAIVER_IDS.has(selectedWaiverId)
 
+  // Re-derived live from the text boxes — exact-then-Levenshtein matched
+  // against the catalog (see CourseListEntry for the per-box version).
+  const courseListData = useMemo(
+    () => parseCourseListText(courseListEntries.filter((e) => e.trim()).join('\n')),
+    [courseListEntries],
+  )
+
   const handleTranscriptFiles = useCallback(async (files) => {
     setTranscript(files)
     if (files.length === 0) return
@@ -154,32 +161,12 @@ export function WaiverIntake() {
       const parsed = parseTranscriptData(text)
       setTranscriptData(parsed)
       setTranscriptFileName(file.name)
-      saveTranscript(studentId, { fileName: file.name, rawText: text, parsed: serializeParsedTranscript(parsed) })
+      saveTranscript(studentId, { label: file.name, fileName: file.name, rawText: text, parsed: serializeParsedTranscript(parsed) })
       setSavedTranscripts(getSavedTranscripts(studentId))
     } catch (e) {
       setError(`Could not read transcript: ${e?.message ?? 'unknown error'}`)
     } finally {
       setParsingTranscript(false)
-    }
-  }, [studentId])
-
-  const handleCourseListFiles = useCallback(async (files) => {
-    setCourseList(files)
-    if (files.length === 0) return
-    const file = files[files.length - 1]
-    setParsingCourseList(true)
-    setError(null)
-    try {
-      const text = await extractTextFromFile(file)
-      const parsed = parseCourseListText(text)
-      setCourseListData(parsed)
-      setCourseListFileName(file.name)
-      saveCourseList(studentId, { fileName: file.name, parsed })
-      setSavedCourseLists(getSavedCourseLists(studentId))
-    } catch (e) {
-      setError(`Could not read course list: ${e?.message ?? 'unknown error'}`)
-    } finally {
-      setParsingCourseList(false)
     }
   }, [studentId])
 
@@ -189,15 +176,24 @@ export function WaiverIntake() {
   }, [])
 
   const applySavedCourseList = useCallback((saved) => {
-    setCourseListData(saved.parsed)
-    setCourseListFileName(saved.fileName)
+    setCourseListEntries(saved.entries?.length ? saved.entries : EMPTY_COURSE_BOXES)
   }, [])
 
-  // Step gating: docs step needs both (an upload or an applied previous doc);
-  // waiver step needs a pick, plus a from/to course pair for swap-style waivers.
+  // Persist the typed course list once the student moves past it, rather
+  // than on every keystroke (which would spam the "previous course list" list).
+  const persistCourseList = useCallback(() => {
+    const nonEmpty = courseListEntries.filter((e) => e.trim())
+    if (nonEmpty.length === 0) return
+    saveCourseList(studentId, { label: nonEmpty.join(', ').slice(0, 80), entries: courseListEntries })
+    setSavedCourseLists(getSavedCourseLists(studentId))
+  }, [studentId, courseListEntries])
+
+  // Step gating: docs step needs a transcript (uploaded or applied previous)
+  // plus at least one recognized course; waiver step needs a pick, plus a
+  // from/to course pair for swap-style waivers.
   const canAdvance =
     step === 0
-      ? Boolean(transcriptFileName) && Boolean(courseListFileName)
+      ? Boolean(transcriptFileName) && courseListData.courseNames.length > 0
       : step === 1
         ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
         : true
@@ -211,7 +207,6 @@ export function WaiverIntake() {
       // assigned here, at the seam, from which list each file came.
       const docs = [
         ...transcript.map((f) => ({ name: f.name, size: f.size, docType: 'transcript' })),
-        ...courseList.map((f) => ({ name: f.name, size: f.size, docType: 'course-list' })),
         ...supporting.map((f) => ({ name: f.name, size: f.size, docType: 'supporting' })),
       ]
       const upload = await uploadStudentDocuments(docs)
@@ -221,7 +216,7 @@ export function WaiverIntake() {
         uploadId: upload.uploadId,
         documents: upload.files,
         studentNote: note.trim(),
-        courseList: courseListData?.courseNames ?? [],
+        courseList: courseListData.courseNames,
         fromCourse: swap.fromCourse,
         toCourse: swap.toCourse,
         transcriptData,
@@ -232,12 +227,12 @@ export function WaiverIntake() {
     } finally {
       setSubmitting(false)
     }
-  }, [transcript, courseList, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
+  }, [transcript, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
 
   const reset = () => {
     setStep(0)
     setTranscript([])
-    setCourseList([])
+    setCourseListEntries(EMPTY_COURSE_BOXES)
     setSupporting([])
     setSelectedWaiverId(null)
     setNote('')
@@ -307,21 +302,11 @@ export function WaiverIntake() {
           </div>
           <div>
             <PreviousDocSelect label="course list" saved={savedCourseLists} onApply={applySavedCourseList} />
-            <UploadZone
-              label="Course list"
-              hint="Required. PDF, CSV, TXT or pasted list of your current/planned courses."
-              docType="course-list"
-              accept=".pdf,.csv,.txt"
-              files={courseList}
-              onFilesChange={handleCourseListFiles}
-            />
-            {parsingCourseList && <p className="mt-2 text-xs text-muted">Reading course list…</p>}
-            {courseListData && (
-              <>
-                <p className="mt-3 text-xs font-medium text-ink">Recognized courses</p>
-                <RecognizedCourseChips recognized={courseListData.recognized} unrecognized={courseListData.unrecognized} />
-              </>
-            )}
+            <p className="text-sm font-medium text-ink mb-1">Course list</p>
+            <p className="text-xs text-muted mb-3">
+              Required. Type each current/planned course — one box per period. Add more for special cases.
+            </p>
+            <CourseListEntry values={courseListEntries} onChange={setCourseListEntries} />
           </div>
           <UploadZone
             label="Supporting documents"
@@ -375,7 +360,7 @@ export function WaiverIntake() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Course list</dt>
-                <dd className="font-medium text-ink">{courseListFileName ?? '—'}</dd>
+                <dd className="font-medium text-ink text-right">{courseListData.courseNames.join(', ') || '—'}</dd>
               </div>
               {needsSwap && (
                 <div className="flex justify-between gap-4">
@@ -418,7 +403,10 @@ export function WaiverIntake() {
         {step < 2 ? (
           <button
             type="button"
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+            onClick={() => {
+              if (step === 0) persistCourseList()
+              setStep((s) => Math.min(STEPS.length - 1, s + 1))
+            }}
             disabled={!canAdvance}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
