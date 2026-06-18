@@ -156,41 +156,41 @@ export function ReviewQueue() {
       headerName: 'Student',
       valueGetter: p => p.data.student.name,
       flex: 2,
-      minWidth: 140,
+      minWidth: 118,
     },
     {
       headerName: 'ID',
       valueGetter: p => p.data.student.id,
-      minWidth: 90,
+      minWidth: 76,
     },
     {
       headerName: 'Grade',
       valueGetter: p => p.data.student.grade,
-      minWidth: 80,
+      minWidth: 60,
     },
     {
       headerName: 'GPA',
       valueGetter: p => p.data.student.gpa,
       valueFormatter: p => p.value.toFixed(2),
-      minWidth: 80,
+      minWidth: 58,
     },
     {
       headerName: 'Waiver',
       valueGetter: p => waiverMap[p.data.waiverTypeId] ?? p.data.waiverTypeId,
       flex: 2,
-      minWidth: 140,
+      minWidth: 118,
     },
     {
       headerName: 'Recommended',
       valueGetter: p => p.data.recommendation.decision,
       cellRenderer: p => <RecommendationPill value={p.value} />,
-      minWidth: 130,
+      minWidth: 104,
     },
     {
       headerName: 'Confidence',
       valueGetter: p => p.data.recommendation.confidence,
       valueFormatter: p => Math.round(p.value * 100) + '%',
-      minWidth: 110,
+      minWidth: 84,
     },
     {
       headerName: 'Submitted',
@@ -202,7 +202,7 @@ export function ReviewQueue() {
         }),
       sort: 'desc',
       flex: 2,
-      minWidth: 160,
+      minWidth: 124,
     },
   ], [waiverMap])
 
@@ -210,7 +210,7 @@ export function ReviewQueue() {
     sortable: true,
     resizable: true,
     flex: 1,
-    minWidth: 90,
+    minWidth: 58,
   }), [])
 
   // Toast element, shared across both render branches
@@ -278,6 +278,8 @@ export function ReviewQueue() {
               rowData={queue}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
+              autoSizeStrategy={{ type: 'fitGridWidth' }}
+              onGridSizeChanged={p => p.api.sizeColumnsToFit()}
               rowHeight={ROW_H}
               headerHeight={HEADER_H}
               getRowId={p => p.data.id}

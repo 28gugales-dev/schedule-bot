@@ -39,7 +39,7 @@ export function LoginPage() {
                   setRole('admin')
                   navigate('/')
                 }}
-                className="glass-input w-full rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-white/80"
+                className="glass-input w-full rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-glass-hover"
               >
                 Continue as Counselor
               </button>
@@ -54,14 +54,14 @@ export function LoginPage() {
               type="button"
               onClick={signInWithGoogle}
               disabled={!isConfigured}
-              className="glass-input flex w-full items-center justify-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-50"
+              className="glass-input flex w-full items-center justify-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <GoogleGlyph />
               Continue with Google
             </button>
 
             {!isConfigured && (
-              <p className="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 ring-1 ring-warning-100">
+              <p className="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:text-warning-300 ring-1 ring-warning-100">
                 Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
                 <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> to enable sign-in.
               </p>

@@ -27,11 +27,11 @@ function WizardSteps({ current, onStepClick }) {
                 isCurrent
                   ? 'bg-brand-600 text-white'
                   : done
-                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100'
-                    : 'cursor-default bg-black/[0.04] text-muted',
+                    ? 'cursor-pointer bg-brand-50 text-brand-700 dark:text-brand-300 hover:bg-brand-100'
+                    : 'cursor-default bg-scrim text-muted',
               ].join(' ')}
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[11px]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-scrim-strong text-[11px]">
                 {done ? '✓' : i + 1}
               </span>
               {label}
@@ -145,7 +145,7 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={reset}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover"
         >
           Start another request
         </button>
@@ -167,7 +167,7 @@ export function WaiverIntake() {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 ring-1 ring-danger-100"
+          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-100"
         >
           <svg
             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -272,7 +272,7 @@ export function WaiverIntake() {
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || submitting}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 disabled:opacity-40"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:opacity-40"
         >
           Back
         </button>

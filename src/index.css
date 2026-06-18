@@ -1,28 +1,36 @@
 @import "tailwindcss";
 
+/* Dark mode is driven by a `data-theme="dark"` attribute on <html> (set by the
+ * no-flash script in index.html and the ThemeProvider), NOT the OS media query.
+ * This makes the `dark:` utility variant available as an escape hatch for the
+ * few spots a token can't express cleanly. The bulk of theming flows through
+ * the CSS variables below — flip the variable, the whole app follows. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ═════════════════════════════════════════════════════════════════════════
  * DESIGN SYSTEM — "Apple-glass" (Brenda v1 lineage)
  *
- * A frosted-glass light theme. Faithful to Brenda v1's Apple aesthetic
- * (system blue #0071e3, Hanken/Newsreader type, generous radii, soft
- * shadows) and elevated with an ambient aurora backdrop so the glass
- * surfaces actually refract instead of disappearing on flat white.
+ * A frosted-glass theme with light + dark modes. Faithful to Brenda v1's Apple
+ * aesthetic (system blue, Hanken/Newsreader type, generous radii, soft shadows)
+ * and elevated with an ambient aurora backdrop so the glass surfaces actually
+ * refract instead of disappearing on a flat ground.
  *
- * SINGLE SOURCE OF TRUTH. Every screen pulls its palette from the semantic
- * Tailwind v4 tokens below — `--color-brand-600` becomes `bg-brand-600`,
- * `text-brand-600`, `ring-brand-600`, `border-brand-600`. Retune a value
- * here and it propagates app-wide. Screens never hardcode hex.
+ * SINGLE SOURCE OF TRUTH — and now two-mode.
+ *   • Structural tokens (fonts, radii, easing) live in `@theme` and never flip.
+ *   • The LIGHT palette lives in `@theme` as the default.
+ *   • The DARK palette is one `[data-theme="dark"]` block that re-declares the
+ *     color variables. Because it's unlayered it outranks the @theme defaults,
+ *     so every `bg-brand-600` / `bg-glass` / `border-hairline` utility — which
+ *     compile to `var(--color-…)` in Tailwind v4 — flips with zero per-element
+ *     work. Screens never hardcode a hex or an rgba.
  *
- *   • brand   → primary accent (buttons, active nav, links)   — Apple blue
- *   • success → approved / passed / synced                    — Brenda green
- *   • warning → pending / attention                           — Brenda amber
- *   • danger  → denied / errors / destructive                 — Brenda red
- *   • ink     → primary text      • muted → secondary text
- *   • canvas  → app background     • surface → solid card fill (crisp chips)
- *   • border / border-strong → hairlines + input edges
- *
- * Frosted panels use the `.glass-card` / `.glass-panel` utility classes
- * (translucency + backdrop-blur can't live on a color token).
+ * Semantic ramps:  brand · success · warning · danger
+ * Text:            ink (primary) · muted (secondary)
+ * Neutrals:        canvas (app bg) · surface/elevated (solid chips) · border
+ * Surfaces:        glass / glass-strong / glass-weak (translucent panel fills),
+ *                  scrim / scrim-strong (neutral chip fills),
+ *                  hairline / hairline-strong (dividers & input edges),
+ *                  highlight (glassy rim)
  * ═════════════════════════════════════════════════════════════════════════ */
 @theme {
   /* Type — Brenda's four faces, loaded in index.html */
@@ -75,11 +83,30 @@
   --color-ink: #1d1d1f;
   --color-muted: #71717a;
 
-  /* Neutrals / surfaces */
-  --color-canvas: #f5f5f7;        /* app background base (aurora wash on top) */
-  --color-surface: #ffffff;        /* solid fill for crisp chips/badges        */
-  --color-border: #e4e4e7;         /* hairline dividers (zinc-200)             */
-  --color-border-strong: #d4d4d8;  /* input borders (zinc-300)                 */
+  /* Neutrals / surfaces (light) */
+  --color-canvas: #f5f5f7;          /* app background base (aurora wash on top)  */
+  --color-surface: #ffffff;         /* solid fill for crisp chips/badges         */
+  --color-elevated: #ffffff;        /* raised solid surface (toggle pills, menus) */
+  --color-border: #e4e4e7;          /* hairline dividers (zinc-200)              */
+  --color-border-strong: #d4d4d8;   /* input borders (zinc-300)                  */
+
+  /* Translucent glass fills — the white tints that used to be `bg-white/60` etc.
+     Now tokens, so dark mode can swap them for dark translucency. */
+  --color-glass: rgba(255, 255, 255, 0.6);
+  --color-glass-strong: rgba(255, 255, 255, 0.78);
+  --color-glass-weak: rgba(255, 255, 255, 0.45);
+  --color-glass-hover: rgba(255, 255, 255, 0.85);
+
+  /* Neutral scrims — the `bg-black/4` chip fills. Black on light → white on dark. */
+  --color-scrim: rgba(15, 23, 42, 0.04);
+  --color-scrim-strong: rgba(15, 23, 42, 0.1);
+
+  /* Hairlines — `border-black/10`, `divide-black/5`, `ring-black/5`. */
+  --color-hairline: rgba(15, 23, 42, 0.1);
+  --color-hairline-strong: rgba(15, 23, 42, 0.15);
+
+  /* Glassy rim — `ring-white/40`, `border-white/50`. */
+  --color-highlight: rgba(255, 255, 255, 0.55);
 
   /* Radii — Brenda scale */
   --radius-sm: 6px;
@@ -91,6 +118,96 @@
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ── Raw theme variables (not Tailwind tokens) ──
+   Values consumed only by hand-written CSS below (body backdrop, glass shadows,
+   scrollbars, selection). Kept out of @theme since they don't need utilities,
+   but they still flip with the mode via the [data-theme] block.
+   Shadow/glow colors are stored as bare `r,g,b` triplets so the alpha can vary
+   per use inside rgba(var(--…), <a>). */
+:root {
+  color-scheme: light;
+
+  --body-bg: #f4f6fa;
+  --aurora-1: rgba(0, 113, 227, 0.16);
+  --aurora-2: rgba(120, 99, 240, 0.13);
+  --aurora-3: rgba(10, 147, 194, 0.11);
+
+  --shadow-rgb: 15, 23, 42;          /* drop-shadow base for glass cards         */
+  --lg-highlight-rgb: 255, 255, 255; /* LiquidGlass inset rim                     */
+  --lg-glow-rgb: 0, 0, 0;            /* LiquidGlass outer lift                    */
+
+  --ring-focus: rgba(0, 113, 227, 0.18);
+  --scrollbar-thumb: rgba(15, 23, 42, 0.16);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.28);
+  --selection-bg: #d4e6fb;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+ * DARK MODE — one block, re-declares only what changes.
+ *
+ * Strategy: button/accent steps (-500/-600/-700) keep their vivid hues so white
+ * label text still clears AA. Only the *tint* steps (-50/-100/-200) go dark, so
+ * `bg-brand-50` reads as a deep chip instead of glowing near-white. Where a chip
+ * pairs a tint bg with `text-X-700`, the component adds `dark:text-X-300` (the
+ * light accent step) — see AppShell nav, footer avatar, demo pill.
+ * ═════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Brand — tints go dark; accent/button steps unchanged for white-text contrast */
+  --color-brand-50: #11233b;
+  --color-brand-100: #15304f;
+  --color-brand-200: #1d456f;
+
+  /* Success / Warning / Danger — dark tint steps; vivid steps carry over */
+  --color-success-50: #0e2719;
+  --color-success-100: #123524;
+  --color-warning-50: #2a1d05;
+  --color-warning-100: #3a2908;
+  --color-danger-50: #2e100d;
+  --color-danger-100: #3e1512;
+  --color-danger-200: #5a1d18;
+
+  /* Text */
+  --color-ink: #f2f2f5;
+  --color-muted: #9a9aa6;
+
+  /* Neutrals / surfaces */
+  --color-canvas: #0c0c0f;
+  --color-surface: #1a1a1f;
+  --color-elevated: #2a2a31;
+  --color-border: #2a2a31;
+  --color-border-strong: #3a3a42;
+
+  /* Glass fills — dark translucency instead of white */
+  --color-glass: rgba(28, 28, 33, 0.62);
+  --color-glass-strong: rgba(40, 40, 47, 0.72);
+  --color-glass-weak: rgba(22, 22, 26, 0.45);
+  --color-glass-hover: rgba(58, 58, 67, 0.55);
+
+  /* Scrims & hairlines invert: light translucency over dark surfaces */
+  --color-scrim: rgba(255, 255, 255, 0.06);
+  --color-scrim-strong: rgba(255, 255, 255, 0.12);
+  --color-hairline: rgba(255, 255, 255, 0.1);
+  --color-hairline-strong: rgba(255, 255, 255, 0.15);
+  --color-highlight: rgba(255, 255, 255, 0.1);
+
+  /* Raw vars */
+  --body-bg: #08080b;
+  --aurora-1: rgba(10, 132, 255, 0.1);
+  --aurora-2: rgba(120, 99, 240, 0.08);
+  --aurora-3: rgba(10, 147, 194, 0.06);
+
+  --shadow-rgb: 0, 0, 0;
+  --lg-highlight-rgb: 130, 140, 160;   /* dim cool rim, not blazing white on dark */
+  --lg-glow-rgb: 0, 0, 0;
+
+  --ring-focus: rgba(10, 132, 255, 0.3);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+  --selection-bg: rgba(10, 132, 255, 0.32);
+}
+
 html,
 body,
 #root {
@@ -100,7 +217,8 @@ body,
 /* ── Ambient aurora canvas ──
    Three faint, oversized radial glows fixed behind the whole app. This is the
    light that the frosted `.glass-*` panels refract — remove it and the glass
-   reads as flat milky white. Kept very low alpha so content stays calm. */
+   reads as flat. Alpha is kept low (and crushed further in dark) so content
+   stays calm. */
 body {
   margin: 0;
   color: var(--color-ink);
@@ -109,13 +227,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "kern", "liga", "calt";
   -webkit-tap-highlight-color: transparent;
-  background-color: #f4f6fa;
+  background-color: var(--body-bg);
   background-image:
-    radial-gradient(1200px 820px at 8% -12%, rgba(0, 113, 227, 0.16), transparent 60%),
-    radial-gradient(1050px 760px at 102% 4%, rgba(120, 99, 240, 0.13), transparent 56%),
-    radial-gradient(960px 760px at 50% 118%, rgba(10, 147, 194, 0.11), transparent 58%);
+    radial-gradient(1200px 820px at 8% -12%, var(--aurora-1), transparent 60%),
+    radial-gradient(1050px 760px at 102% 4%, var(--aurora-2), transparent 56%),
+    radial-gradient(960px 760px at 50% 118%, var(--aurora-3), transparent 58%);
   background-attachment: fixed;
   background-repeat: no-repeat;
+}
+
+/* ── Coordinated theme cross-fade ──
+   The ThemeProvider adds `.theme-transition` to <html> for ~320ms around a mode
+   switch, so colors glide together instead of snapping. It's removed afterward
+   so it never slows ordinary hover transitions. Honors reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition * {
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease,
+      fill 0.3s ease,
+      box-shadow 0.3s ease !important;
+  }
 }
 
 /* ── Frosted surfaces ─────────────────────────────────────────────────────
@@ -124,45 +257,46 @@ body {
                   highlight gradient so it lifts off the canvas
    .glass-input → form fields
    The translucency lets the aurora show through; the inset highlight + soft
-   drop shadow give the pane of-glass edge. */
+   drop shadow give the pane-of-glass edge. All colors are tokens, so the same
+   markup renders frosted-white in light and frosted-charcoal in dark. */
 .glass-card {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--color-glass);
   -webkit-backdrop-filter: blur(22px) saturate(165%);
   backdrop-filter: blur(22px) saturate(165%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--color-highlight);
   border-radius: 16px;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.7) inset,
-    0 0 0 1px rgba(15, 23, 42, 0.035),
-    0 16px 44px -18px rgba(15, 23, 42, 0.24),
-    0 3px 10px -4px rgba(15, 23, 42, 0.06);
+    0 1px 0 rgba(var(--lg-highlight-rgb), 0.7) inset,
+    0 0 0 1px rgba(var(--shadow-rgb), 0.035),
+    0 16px 44px -18px rgba(var(--shadow-rgb), 0.24),
+    0 3px 10px -4px rgba(var(--shadow-rgb), 0.06);
 }
 
 .glass-panel {
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.8),
-    rgba(255, 255, 255, 0.55)
+    var(--color-glass-strong),
+    var(--color-glass-weak)
   );
   -webkit-backdrop-filter: blur(26px) saturate(175%);
   backdrop-filter: blur(26px) saturate(175%);
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--color-highlight);
 }
 
 .glass-input {
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--color-glass-weak);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  border: 1px solid var(--color-hairline);
   border-radius: 10px;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 .glass-input:focus,
 .glass-input:focus-visible {
   outline: none;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--color-glass-hover);
   border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
+  box-shadow: 0 0 0 3px var(--ring-focus);
 }
 
 /* Interactive lift — for clickable glass cards (waiver picks, request rows). */
@@ -172,10 +306,10 @@ body {
 .glass-hover:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 0 0 1px rgba(15, 23, 42, 0.045),
-    0 24px 56px -20px rgba(15, 23, 42, 0.3),
-    0 6px 16px -6px rgba(15, 23, 42, 0.08);
+    0 1px 0 rgba(var(--lg-highlight-rgb), 0.8) inset,
+    0 0 0 1px rgba(var(--shadow-rgb), 0.045),
+    0 24px 56px -20px rgba(var(--shadow-rgb), 0.3),
+    0 6px 16px -6px rgba(var(--shadow-rgb), 0.08);
 }
 
 /* ── Typography helpers ──
@@ -239,7 +373,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::selection {
-  background: var(--color-brand-100);
+  background: var(--selection-bg);
   color: var(--color-ink);
 }
 
@@ -251,11 +385,11 @@ h1, h2, h3, h4, h5, h6 {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.16);
+  background: var(--scrollbar-thumb);
   border-radius: 999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.28);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* iOS: stop zoom-on-focus for form fields on touch devices. */

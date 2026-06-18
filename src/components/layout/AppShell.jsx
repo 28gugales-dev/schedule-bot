@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
+import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
 import { LiquidGlassCard, LiquidGlassFilter } from '../ui/LiquidGlass.jsx'
 
 const COLLAPSE_KEY = 'ccc:sidebar-collapsed'
@@ -128,8 +129,8 @@ export function AppShell({ portal }) {
         }`}
       >
         <LiquidGlassCard
-          className="h-full w-full ring-1 ring-white/40"
-          contentClassName="bg-gradient-to-b from-white/72 to-white/45"
+          className="h-full w-full ring-1 ring-highlight"
+          contentClassName="bg-gradient-to-b from-glass-strong to-glass-weak"
           blurIntensity="xl"
           shadowIntensity="md"
           glowIntensity="md"
@@ -154,7 +155,7 @@ export function AppShell({ portal }) {
                 onClick={toggle}
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-black/5 hover:text-ink ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-scrim hover:text-ink ${
                   collapsed ? 'mt-2' : ''
                 }`}
               >
@@ -174,14 +175,14 @@ export function AppShell({ portal }) {
                       collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2.5'
                     } ${
                       isActive
-                        ? 'bg-brand-600/12 text-brand-700 shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
-                        : 'text-zinc-600 hover:bg-black/5 hover:text-ink'
+                        ? 'bg-brand-600/12 text-brand-700 dark:text-brand-300 shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
+                        : 'text-muted hover:bg-scrim hover:text-ink'
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <span className={`shrink-0 transition-colors ${isActive ? 'text-brand-600' : 'text-zinc-500 group-hover:text-zinc-700'}`}>
+                      <span className={`shrink-0 transition-colors ${isActive ? 'text-brand-600 dark:text-brand-300' : 'text-muted group-hover:text-ink'}`}>
                         {link.icon}
                       </span>
                       {!collapsed && <span className="truncate">{link.label}</span>}
@@ -192,9 +193,9 @@ export function AppShell({ portal }) {
             </nav>
 
             {/* Footer — current role identity */}
-            <div className="mt-auto border-t border-white/50 py-3">
+            <div className="mt-auto border-t border-highlight py-3">
               <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2.5 px-1.5'}`}>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
                   {role === 'admin' ? 'C' : 'S'}
                 </div>
                 {!collapsed && (
@@ -214,7 +215,7 @@ export function AppShell({ portal }) {
         {/* ── Floating liquid-glass top bar — mirrors the sidebar island ── */}
         <header className="sticky top-0 z-20 px-4 pt-3 sm:px-6 lg:px-8">
           <LiquidGlassCard
-            className="ring-1 ring-white/40"
+            className="ring-1 ring-highlight"
             contentClassName="flex h-14 items-center justify-between gap-3 px-4 sm:px-5"
             blurIntensity="xl"
             shadowIntensity="md"
@@ -233,16 +234,16 @@ export function AppShell({ portal }) {
             <div className="flex items-center gap-3">
               {demoMode ? (
                 <>
-                  <span className="hidden rounded-full bg-warning-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-700 ring-1 ring-warning-100 sm:inline">
+                  <span className="hidden rounded-full bg-warning-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-700 dark:text-warning-300 ring-1 ring-warning-100 sm:inline">
                     Demo
                   </span>
-                  <div className="flex gap-0.5 rounded-xl bg-black/5 p-0.5 backdrop-blur-sm">
+                  <div className="flex gap-0.5 rounded-xl bg-scrim p-0.5 backdrop-blur-sm">
                     <button
                       type="button"
                       onClick={() => { setRole('student'); navigate('/student') }}
                       className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
                         role === 'student'
-                          ? 'bg-white text-ink shadow-sm'
+                          ? 'bg-elevated text-ink shadow-sm'
                           : 'text-muted hover:text-ink'
                       }`}
                     >
@@ -253,7 +254,7 @@ export function AppShell({ portal }) {
                       onClick={() => { setRole('admin'); navigate('/admin') }}
                       className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
                         role === 'admin'
-                          ? 'bg-white text-ink shadow-sm'
+                          ? 'bg-elevated text-ink shadow-sm'
                           : 'text-muted hover:text-ink'
                       }`}
                     >
@@ -264,10 +265,11 @@ export function AppShell({ portal }) {
               ) : (
                 <span className="hidden text-sm text-muted sm:inline">{user?.email}</span>
               )}
+              <ThemeToggle />
               <button
                 type="button"
                 onClick={signOut}
-                className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-white/80"
+                className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover"
               >
                 Sign out
               </button>
@@ -287,8 +289,8 @@ export function AppShell({ portal }) {
                 className={({ isActive }) =>
                   `flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
                     isActive
-                      ? 'bg-brand-600/12 text-brand-700'
-                      : 'text-zinc-600 hover:bg-black/5 hover:text-ink'
+                      ? 'bg-brand-600/12 text-brand-700 dark:text-brand-300'
+                      : 'text-muted hover:bg-scrim hover:text-ink'
                   }`
                 }
               >
@@ -300,7 +302,7 @@ export function AppShell({ portal }) {
         )}
 
         <main className="flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl">
+          <div className="mx-auto w-full max-w-[1680px]">
             <Outlet />
           </div>
         </main>
