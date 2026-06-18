@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { fetchMyRequests, fetchAllWaivers } from '../../services/api.js'
-import { RequestTracker } from './RequestTracker.jsx'
+import { RequestTracker, StatusBadge } from './RequestTracker.jsx'
+
+const formatDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : null
 
 export function MyRequests() {
   const [requests, setRequests] = useState([])
@@ -38,9 +43,9 @@ export function MyRequests() {
   }, [])
 
   return (
-    <section className="space-y-6">
+    <section className="fade-up space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-ink">My Requests</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">My Requests</h1>
         <p className="text-sm text-muted">
           Track the status of every waiver you've submitted.
         </p>
@@ -51,11 +56,11 @@ export function MyRequests() {
       )}
 
       {error && !loading && (
-        <p className="text-sm text-rose-600">{error}</p>
+        <p className="text-sm text-danger-600">{error}</p>
       )}
 
       {!loading && !error && requests.length === 0 && (
-        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="glass-card p-5">
           <p className="text-sm text-muted">
             You have no waiver requests yet.
           </p>
@@ -67,15 +72,21 @@ export function MyRequests() {
           {requests.map((request) => (
             <div
               key={request.id}
-              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 space-y-4"
+              className="glass-card p-5 space-y-4"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-ink">
                     {waiverMap[request.waiverTypeId] || request.waiverTypeId}
                   </p>
-                  <p className="text-xs text-muted">{request.id}</p>
+                  <p className="text-xs text-muted">
+                    <span className="font-mono">{request.id}</span>
+                    {formatDate(request.submittedAt) && (
+                      <> · Submitted {formatDate(request.submittedAt)}</>
+                    )}
+                  </p>
                 </div>
+                <StatusBadge status={request.status} className="shrink-0" />
               </div>
 
               {request.studentNote && (

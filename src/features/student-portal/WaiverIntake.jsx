@@ -14,8 +14,6 @@ import { CourseListEntry } from './CourseListEntry.jsx'
 const EMPTY_COURSE_BOXES = Array(7).fill('')
 
 // Guided student intake: Documents -> Waiver type -> Review & submit -> Tracker.
-// This component is the integration root for the student portal: it owns all
-// wizard state and the runtime prop contracts of its three leaf components.
 const STEPS = ['Documents', 'Waiver type', 'Review & submit']
 
 // Waiver types where the student is naming a course to drop/replace.
@@ -29,27 +27,36 @@ function deserializeParsedTranscript(saved) {
   return { ...saved, completed: new Set(saved.completed ?? []) }
 }
 
-function WizardSteps({ current }) {
+function WizardSteps({ current, onStepClick }) {
   return (
     <ol className="flex flex-wrap gap-2">
-      {STEPS.map((label, i) => (
-        <li
-          key={label}
-          className={[
-            'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium',
-            i === current
-              ? 'bg-brand-600 text-white'
-              : i < current
-                ? 'bg-brand-50 text-brand-700'
-                : 'bg-slate-100 text-slate-500',
-          ].join(' ')}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[11px]">
-            {i < current ? '✓' : i + 1}
-          </span>
-          {label}
-        </li>
-      ))}
+      {STEPS.map((label, i) => {
+        const done = i < current
+        const isCurrent = i === current
+        return (
+          <li key={label}>
+            <button
+              type="button"
+              onClick={() => done && onStepClick(i)}
+              disabled={!done}
+              aria-current={isCurrent ? 'step' : undefined}
+              className={[
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition',
+                isCurrent
+                  ? 'bg-brand-600 text-white'
+                  : done
+                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100'
+                    : 'cursor-default bg-black/[0.04] text-muted',
+              ].join(' ')}
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[11px]">
+                {done ? '✓' : i + 1}
+              </span>
+              {label}
+            </button>
+          </li>
+        )
+      })}
     </ol>
   )
 }
@@ -198,6 +205,16 @@ export function WaiverIntake() {
         ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
         : true
 
+  // Why "Continue" is disabled — surfaced to the user instead of a dead button.
+  const advanceHint =
+    step === 0
+      ? 'Upload your transcript and enter your course list to continue.'
+      : step === 1
+        ? needsSwap
+          ? 'Select a waiver type and a course swap to continue.'
+          : 'Select a waiver type to continue.'
+        : ''
+
   const handleSubmit = useCallback(async () => {
     setSubmitting(true)
     setError(null)
@@ -244,9 +261,9 @@ export function WaiverIntake() {
   // Post-submit: confirmation + live tracker.
   if (submittedId) {
     return (
-      <section className="space-y-6">
+      <section className="fade-up space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Request submitted</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Request submitted</h1>
           <p className="mt-1 text-sm text-muted">
             A confirmation email is on its way. Track your request below.
           </p>
@@ -255,7 +272,7 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-slate-50"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80"
         >
           Start another request
         </button>
@@ -264,22 +281,36 @@ export function WaiverIntake() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="fade-up space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-ink">New waiver request</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">New waiver request</h1>
         <p className="mt-1 text-sm text-muted">
           Upload your documents, choose a waiver type, then review and submit.
         </p>
       </div>
 
-      <WizardSteps current={step} />
+      <WizardSteps current={step} onStepClick={setStep} />
 
       {error && (
-        <p className="text-sm text-red-600" role="alert">{error}</p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 ring-1 ring-danger-100"
+        >
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className="mt-0.5 shrink-0" aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          {error}
+        </div>
       )}
 
       {step === 0 && (
-        <div className="space-y-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="glass-card space-y-6 p-5">
           <div>
             <PreviousDocSelect label="transcript" saved={savedTranscripts} onApply={applySavedTranscript} />
             <UploadZone
@@ -321,7 +352,7 @@ export function WaiverIntake() {
       )}
 
       {step === 1 && (
-        <div className="space-y-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="glass-card space-y-5 p-5">
           {waiversLoading ? (
             <p className="text-sm text-muted">Loading waiver types…</p>
           ) : (
@@ -346,7 +377,7 @@ export function WaiverIntake() {
       )}
 
       {step === 2 && (
-        <div className="space-y-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="glass-card space-y-5 p-5">
           <div>
             <h2 className="text-base font-semibold text-ink">Review</h2>
             <dl className="mt-3 space-y-2 text-sm">
@@ -384,40 +415,45 @@ export function WaiverIntake() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Add any context for your reviewer…"
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="glass-input mt-2 w-full px-3 py-2 text-sm"
             />
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || submitting}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:opacity-40"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 disabled:opacity-40"
         >
           Back
         </button>
 
         {step < 2 ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (step === 0) persistCourseList()
-              setStep((s) => Math.min(STEPS.length - 1, s + 1))
-            }}
-            disabled={!canAdvance}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
-          >
-            Continue
-          </button>
+          <div className="flex items-center gap-3">
+            {!canAdvance && advanceHint && (
+              <span className="hidden text-xs text-muted sm:inline">{advanceHint}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (step === 0) persistCourseList()
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }}
+              disabled={!canAdvance}
+              className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continue
+            </button>
+          </div>
         ) : (
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
+            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
             {submitting ? 'Submitting…' : 'Submit request'}
           </button>

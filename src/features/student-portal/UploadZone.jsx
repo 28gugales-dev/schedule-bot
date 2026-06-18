@@ -1,8 +1,37 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = false, files = [], onFilesChange }) {
+export function UploadZone({
+  label,
+  hint,
+  docType,
+  accept = '.pdf',
+  multiple = false,
+  maxSizeMb = 50,
+  files = [],
+  onFilesChange,
+}) {
   const [isDragging, setIsDragging] = useState(false);
+  const [rejected, setRejected] = useState([]); // [{name, reason}]
   const inputRef = useRef(null);
+
+  const maxBytes = maxSizeMb * 1024 * 1024;
+
+  // Parse the accept string once into a list of lowercased extensions used to
+  // validate *dropped* files too — the `accept` attribute only governs the
+  // native picker, so drops would otherwise bypass it entirely.
+  const acceptExts = useMemo(
+    () =>
+      accept
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    [accept]
+  );
+
+  const acceptLabel = useMemo(
+    () => acceptExts.map((e) => e.replace('.', '').toUpperCase()).join(', '),
+    [acceptExts]
+  );
 
   const formatFileSize = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -10,24 +39,48 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const dedupeFiles = (newFiles, existingFiles) => {
-    if (!multiple) return newFiles;
-    const existing = new Set(existingFiles.map(f => `${f.name}|${f.size}`));
-    return [
-      ...existingFiles,
-      ...newFiles.filter(f => !existing.has(`${f.name}|${f.size}`))
-    ];
-  };
+  const isTypeAllowed = useCallback(
+    (file) => {
+      if (acceptExts.length === 0) return true;
+      const name = file.name.toLowerCase();
+      return acceptExts.some((ext) => name.endsWith(ext));
+    },
+    [acceptExts]
+  );
 
   const handleFile = useCallback(
     (fileList) => {
-      const nextFiles = Array.from(fileList || []);
-      if (nextFiles.length === 0) return;
+      const incoming = Array.from(fileList || []);
+      if (incoming.length === 0) return;
 
-      const merged = dedupeFiles(nextFiles, files);
+      const accepted = [];
+      const errors = [];
+      for (const file of incoming) {
+        if (!isTypeAllowed(file)) {
+          errors.push({ name: file.name, reason: `unsupported type — needs ${acceptLabel}` });
+        } else if (file.size > maxBytes) {
+          errors.push({ name: file.name, reason: `too large — max ${maxSizeMb} MB` });
+        } else {
+          accepted.push(file);
+        }
+      }
+
+      setRejected(errors);
+      if (accepted.length === 0) return;
+
+      if (!multiple) {
+        // Single-file zone: keep only the first accepted file (a drop of many
+        // must not silently submit several where one is expected).
+        onFilesChange([accepted[0]]);
+        return;
+      }
+
+      // Multiple: append, de-duping on name+size against what's already there.
+      const existing = new Set(files.map((f) => `${f.name}|${f.size}`));
+      const merged = [...files, ...accepted.filter((f) => !existing.has(`${f.name}|${f.size}`))];
       onFilesChange(merged);
     },
-    [files, multiple, onFilesChange]
+    [files, multiple, onFilesChange, isTypeAllowed, acceptLabel, maxBytes, maxSizeMb]
   );
 
   const handleDrop = useCallback(
@@ -68,20 +121,17 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
     [files, onFilesChange]
   );
 
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        inputRef.current?.click();
-      }
-    },
-    []
-  );
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      inputRef.current?.click();
+    }
+  }, []);
 
   return (
     <div>
-      {label && <p className="text-sm font-medium text-ink mb-1">{label}</p>}
-      {hint && <p className="text-xs text-muted mb-3">{hint}</p>}
+      {label && <p className="mb-1 text-sm font-medium text-ink">{label}</p>}
+      {hint && <p className="mb-3 text-xs text-muted">{hint}</p>}
 
       <div
         onDrop={handleDrop}
@@ -92,10 +142,10 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
         role="button"
         tabIndex={0}
         aria-label={label || 'Upload file'}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all duration-150 ${
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 backdrop-blur-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
           isDragging
-            ? 'border-brand-500 bg-brand-50'
-            : 'border-slate-300 bg-white hover:border-brand-300'
+            ? 'border-brand-500 bg-brand-50/60'
+            : 'border-black/15 bg-white/40 hover:border-brand-300 hover:bg-brand-50/50'
         }`}
       >
         <svg
@@ -107,7 +157,7 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="mb-3 text-muted"
+          className={`mb-3 transition-colors ${isDragging ? 'text-brand-500' : 'text-muted'}`}
           aria-hidden="true"
         >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -116,10 +166,11 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
           <line x1="9" y1="15" x2="12" y2="12" />
           <line x1="15" y1="15" x2="12" y2="12" />
         </svg>
-        <p className="text-sm font-medium text-ink">Drag & drop here</p>
-        <p className="text-xs text-muted mt-1">or click to browse</p>
-        <p className="text-xs text-muted mt-2">
-          {accept === '.pdf' ? 'PDF' : accept.replace(/\./g, '').toUpperCase()}, up to 50 MB
+        <p className="text-sm font-medium text-ink">
+          <span className="text-brand-600">Drag &amp; drop</span> or click to browse
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          {acceptLabel || 'Any file'} · up to {maxSizeMb} MB
         </p>
 
         <input
@@ -133,24 +184,82 @@ export function UploadZone({ label, hint, docType, accept = '.pdf', multiple = f
         />
       </div>
 
+      {/* Rejected-file feedback */}
+      {rejected.length > 0 && (
+        <ul className="mt-2 space-y-1" role="alert">
+          {rejected.map((r, i) => (
+            <li key={`${r.name}|${i}`} className="flex items-start gap-1.5 text-xs text-danger-700">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                className="mt-0.5 shrink-0"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>
+                <span className="font-medium">{r.name}</span> — {r.reason}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {files.length > 0 && (
         <div className="mt-4 space-y-2">
           {files.map((file, idx) => (
             <div
               key={`${file.name}|${idx}`}
-              className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200"
+              className="flex items-center justify-between rounded-lg bg-black/[0.04] px-3 py-2 ring-1 ring-black/5"
             >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{file.name}</p>
-                <p className="text-xs text-muted">{formatFileSize(file.size)}</p>
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 text-brand-600"
+                  aria-hidden="true"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{file.name}</p>
+                  <p className="text-xs text-muted">{formatFileSize(file.size)}</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => handleRemove(idx)}
-                className="ml-2 flex-shrink-0 text-muted hover:text-ink transition-colors"
+                className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger-50 hover:text-danger-600"
                 aria-label={`Remove ${file.name}`}
               >
-                ×
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
           ))}

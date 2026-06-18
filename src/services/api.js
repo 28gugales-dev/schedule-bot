@@ -16,6 +16,8 @@ import {
   REVIEW_QUEUE,
   BATCH_SYNC_QUEUE,
   SEED_SUBMISSIONS,
+  ONE_ROSTER,
+  REVIEW_CHECKS,
 } from './mockData.js'
 import { hashRequestKey } from '../utils/dedupeHash.js'
 import { priorityOrderQueue } from '../utils/priorityQueue.js'
@@ -165,7 +167,20 @@ export async function fetchMyRequests() {
 // insertion order — see utils/priorityQueue.js.
 export async function fetchReviewQueue() {
   await delay()
-  return clone(priorityOrderQueue(queue))
+  // Join per-request rubric verification (checks) at the read seam: real
+  // submissions already carry it on recommendation.checks (evaluateAgainstRubric);
+  // legacy seed requests fall back to the canned REVIEW_CHECKS fixture.
+  return clone(priorityOrderQueue(queue)).map((r) => ({
+    ...r,
+    checks: r.recommendation?.checks?.length ? r.recommendation.checks : REVIEW_CHECKS[r.id] ?? [],
+  }))
+}
+
+// Authoritative SIS record for a student, pulled from the OneRoster API.
+export async function fetchOneRosterRecord(studentId) {
+  await delay(300)
+  const record = ONE_ROSTER[studentId]
+  return record ? clone(record) : null
 }
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it

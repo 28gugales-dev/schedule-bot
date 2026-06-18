@@ -1,176 +1,54 @@
-import { useState, useEffect, useCallback } from 'react'
-import { fetchReviewQueue, submitDecision, fetchAllWaivers } from '../../services/api.js'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { AgGridReact } from 'ag-grid-react'
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
+import {
+  fetchReviewQueue,
+  fetchAllWaivers,
+  fetchOneRosterRecord,
+  submitDecision,
+} from '../../services/api.js'
+import { ReviewDetail } from './ReviewDetail.jsx'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// Register AG Grid modules once at module scope
+ModuleRegistry.registerModules([AllCommunityModule])
 
-function fmtDate(iso) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
+// AG Grid runs in JS and can't read CSS vars, so these hex literals mirror the
+// semantic design tokens in src/index.css (brand-600 #0071e3, zinc header/border).
+const gridTheme = themeQuartz.withParams({
+  accentColor: '#0071e3',
+  backgroundColor: 'rgba(255,255,255,0.35)',
+  headerBackgroundColor: 'rgba(255,255,255,0.55)',
+  headerTextColor: '#71717a',
+  foregroundColor: '#1d1d1f',
+  fontFamily: 'inherit',
+  rowHoverColor: 'rgba(0,113,227,0.07)',
+  selectedRowBackgroundColor: 'rgba(0,113,227,0.12)',
+  oddRowBackgroundColor: 'rgba(255,255,255,0.0)',
+  borderColor: 'rgba(15,23,42,0.08)',
+  wrapperBorderRadius: '14px',
+})
 
-function ConfidencePct({ value }) {
-  return <span>{Math.round(value * 100)}%</span>
-}
-
-// recommendation.decision → Tailwind colour tokens
+// recommendation.decision → semantic dot colour + capitalized label
 const REC_STYLES = {
-  admit:  { ring: 'ring-emerald-300', bg: 'bg-emerald-50',  text: 'text-emerald-700', label: 'Admit'  },
-  deny:   { ring: 'ring-rose-300',    bg: 'bg-rose-50',     text: 'text-rose-700',    label: 'Deny'   },
-  review: { ring: 'ring-amber-300',   bg: 'bg-amber-50',    text: 'text-amber-700',   label: 'Review' },
+  admit:  { dot: 'bg-success-500', label: 'Admit'  },
+  deny:   { dot: 'bg-danger-500',  label: 'Deny'   },
+  review: { dot: 'bg-warning-500', label: 'Review' },
 }
 
-// ---------------------------------------------------------------------------
-// Sub-panels
-// ---------------------------------------------------------------------------
-
-function StudentPanel({ student, waiverName, submittedAt }) {
+function RecommendationPill({ value }) {
+  const s = REC_STYLES[value] ?? REC_STYLES.review
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Student</p>
-      <p className="text-lg font-semibold text-ink">{student.name}</p>
-      <div className="flex flex-wrap gap-3 text-sm text-muted">
-        <span>ID: <span className="text-ink font-medium">{student.id}</span></span>
-        <span>Grade: <span className="text-ink font-medium">{student.grade}</span></span>
-        <span>GPA: <span className="text-ink font-medium">{student.gpa.toFixed(2)}</span></span>
-      </div>
-      <div className="flex flex-wrap gap-3 text-sm text-muted mt-1">
-        <span>Waiver type: <span className="text-ink font-medium">{waiverName}</span></span>
-        <span>Submitted: <span className="text-ink font-medium">{fmtDate(submittedAt)}</span></span>
-      </div>
-    </div>
+    <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden="true" />
+      {s.label}
+    </span>
   )
 }
-
-function CheckRow({ check }) {
-  const icon = check.passed === null ? '–' : check.passed ? '✓' : '✗'
-  const color = check.passed === null ? 'text-muted' : check.passed ? 'text-emerald-700' : 'text-rose-700'
-  return (
-    <li className={`flex items-center gap-2 text-xs ${color}`}>
-      <span className="font-bold">{icon}</span>
-      <span>{check.label}</span>
-    </li>
-  )
-}
-
-function AlgorithmPanel({ recommendation }) {
-  const s = REC_STYLES[recommendation.decision] ?? REC_STYLES.review
-  return (
-    <div className={`rounded-xl p-5 shadow-sm ring-1 ${s.ring} ${s.bg} flex flex-col gap-2`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Algorithm recommendation</p>
-      <div className="flex items-center gap-3">
-        <span className={`rounded-full px-3 py-1 text-sm font-bold uppercase tracking-wide ${s.text} bg-white ring-1 ${s.ring}`}>
-          {s.label}
-        </span>
-        <span className={`text-sm font-semibold ${s.text}`}>
-          Confidence: <ConfidencePct value={recommendation.confidence} />
-        </span>
-      </div>
-      <p className={`text-sm ${s.text} leading-relaxed`}>{recommendation.reason}</p>
-      {recommendation.checks?.length > 0 && (
-        <ul className="mt-1 space-y-1 border-t border-black/10 pt-2">
-          {recommendation.checks.map((check, i) => (
-            <CheckRow key={`${check.id}-${i}`} check={check} />
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function DocumentsPanel({ documents }) {
-  return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Documents</p>
-      {documents.length === 0 ? (
-        <p className="text-sm text-muted">No documents attached.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {documents.map((doc, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm">
-              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-muted capitalize">{doc.type}</span>
-              <span className="text-ink font-medium">{doc.name}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function CourseListPanel({ courseList }) {
-  return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Requested courses</p>
-      <div className="flex flex-wrap gap-2">
-        {courseList.map((c, i) => (
-          <span key={i} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-ink">
-            {c}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function StudentNotePanel({ note }) {
-  if (!note) return null
-  return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Student note</p>
-      <blockquote className="border-l-4 border-slate-300 pl-4 text-sm text-ink leading-relaxed italic">
-        "{note}"
-      </blockquote>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Action row
-// ---------------------------------------------------------------------------
-
-function ActionRow({ onAdmit, onDeny, submitting, note, onNoteChange }) {
-  return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 flex flex-col gap-3">
-      <input
-        type="text"
-        value={note}
-        onChange={e => onNoteChange(e.target.value)}
-        placeholder="Optional note (shown to student)…"
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-      />
-      <div className="flex gap-3">
-        <button
-          onClick={onAdmit}
-          disabled={submitting}
-          className="flex-1 rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Saving…' : '✓ Admit'}
-        </button>
-        <button
-          onClick={onDeny}
-          disabled={submitting}
-          className="flex-1 rounded-xl bg-rose-600 py-4 text-base font-semibold text-white transition hover:bg-rose-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Saving…' : '✗ Deny'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
 
 function EmptyState() {
   return (
     <div className="flex items-center justify-center py-24">
-      <div className="rounded-xl bg-white p-10 shadow-sm ring-1 ring-slate-200 text-center max-w-sm">
+      <div className="glass-card p-10 text-center max-w-sm">
         <div className="text-4xl mb-3">✅</div>
         <p className="text-lg font-semibold text-ink">All caught up</p>
         <p className="mt-1 text-sm text-muted">No pending waiver requests.</p>
@@ -179,22 +57,30 @@ function EmptyState() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
-
 export function ReviewQueue() {
-  const [queue, setQueue] = useState([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [waiverMap, setWaiverMap] = useState({})   // waiverTypeId → name
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [note, setNote] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  // slide transition: 'idle' | 'out' | 'in'
-  const [transition, setTransition] = useState('idle')
+  const [queue, setQueue]             = useState([])
+  const [waiverMap, setWaiverMap]     = useState({})
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState(null)
 
-  // ── Load on mount ──────────────────────────────────────────────────────────
+  // Detail view state
+  const [selectedId, setSelectedId]       = useState(null)
+  const [oneRoster, setOneRoster]         = useState(null)
+  const [loadingRoster, setLoadingRoster] = useState(false)
+  const [submitting, setSubmitting]       = useState(false)
+
+  // Decision-confirmation toast + stale-async guard for openDetail
+  const [toast, setToast] = useState(null)
+  const reqRef = useRef(0)
+
+  // ── Auto-dismiss toast ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  // ── Load on mount ────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -215,60 +101,155 @@ export function ReviewQueue() {
     return () => { cancelled = true }
   }, [])
 
-  // ── Submit decision ────────────────────────────────────────────────────────
-  const handleDecision = useCallback(async (decision) => {
-    const request = queue[currentIndex]
-    if (!request || submitting) return
-
-    setSubmitting(true)
-
-    // Optimistically advance — start slide-out immediately
-    setTransition('out')
-
-    try {
-      await submitDecision(request.id, decision, note)
-    } catch {
-      // Non-fatal: decision already logged optimistically; log silently
-    }
-
-    // Remove from local queue, reset note
-    setQueue(prev => {
-      const next = [...prev]
-      next.splice(currentIndex, 1)
-      return next
-    })
-    // Keep index clamped after removal (handled in render via remaining length)
-    setNote('')
+  // ── Row click → open detail ──────────────────────────────────────────────────
+  const openDetail = useCallback(async (row) => {
+    const token = ++reqRef.current
+    setSelectedId(row.id)
     setSubmitting(false)
+    setOneRoster(null)
+    setLoadingRoster(true)
+    try {
+      const record = await fetchOneRosterRecord(row.student.id)
+      if (reqRef.current === token) setOneRoster(record)
+    } catch {
+      if (reqRef.current === token) setOneRoster(null)
+    } finally {
+      if (reqRef.current === token) setLoadingRoster(false)
+    }
+  }, [])
 
-    // Slide in new card
-    setTransition('in')
-    setTimeout(() => setTransition('idle'), 200)
-  }, [queue, currentIndex, note, submitting])
+  // ── Submit decision ──────────────────────────────────────────────────────────
+  const handleDecision = useCallback(async (decision, note) => {
+    setSubmitting(true)
+    const name = queue.find(r => r.id === selectedId)?.student.name ?? 'Student'
+    try {
+      await submitDecision(selectedId, decision, note)
+    } catch {
+      // Non-fatal: optimistic removal stands; batch sync will reconcile.
+    }
+    setQueue(prev => prev.filter(r => r.id !== selectedId))
+    setSelectedId(null)
+    setOneRoster(null)
+    setSubmitting(false)
+    setToast({
+      kind: decision === 'admit' ? 'success' : 'danger',
+      text: decision === 'admit'
+        ? `Admitted ${name} — queued for batch sync.`
+        : `Denied ${name}.`,
+    })
+  }, [selectedId, queue])
 
-  // ── Derived state ──────────────────────────────────────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────────
   const remaining = queue.length
-  // currentIndex might exceed new length after removal — clamp
-  const safeIndex = Math.min(currentIndex, Math.max(remaining - 1, 0))
-  const request = remaining > 0 ? queue[safeIndex] : null
-  const waiverName = request ? (waiverMap[request.waiverTypeId] ?? request.waiverTypeId) : ''
+  const selectedRequest = selectedId ? queue.find(r => r.id === selectedId) ?? null : null
 
-  // Transition classes
-  const transitionClass =
-    transition === 'out' ? 'opacity-0 translate-x-4' :
-    transition === 'in'  ? 'opacity-0 -translate-x-4' :
-    'opacity-100 translate-x-0'
+  // Grid sizing: hug content height (no dead space below the rows) while keeping
+  // AG-Grid's OWN horizontal scroll on narrow viewports. domLayout="autoHeight"
+  // was removed because it suppresses that h-scroll and clips the right columns.
+  const ROW_H = 44
+  const HEADER_H = 46
+  const gridHeight = HEADER_H + queue.length * ROW_H + 18
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Column defs ──────────────────────────────────────────────────────────────
+  const columnDefs = useMemo(() => [
+    {
+      headerName: 'Student',
+      valueGetter: p => p.data.student.name,
+      flex: 2,
+      minWidth: 140,
+    },
+    {
+      headerName: 'ID',
+      valueGetter: p => p.data.student.id,
+      minWidth: 90,
+    },
+    {
+      headerName: 'Grade',
+      valueGetter: p => p.data.student.grade,
+      minWidth: 80,
+    },
+    {
+      headerName: 'GPA',
+      valueGetter: p => p.data.student.gpa,
+      valueFormatter: p => p.value.toFixed(2),
+      minWidth: 80,
+    },
+    {
+      headerName: 'Waiver',
+      valueGetter: p => waiverMap[p.data.waiverTypeId] ?? p.data.waiverTypeId,
+      flex: 2,
+      minWidth: 140,
+    },
+    {
+      headerName: 'Recommended',
+      valueGetter: p => p.data.recommendation.decision,
+      cellRenderer: p => <RecommendationPill value={p.value} />,
+      minWidth: 130,
+    },
+    {
+      headerName: 'Confidence',
+      valueGetter: p => p.data.recommendation.confidence,
+      valueFormatter: p => Math.round(p.value * 100) + '%',
+      minWidth: 110,
+    },
+    {
+      headerName: 'Submitted',
+      field: 'submittedAt',
+      valueFormatter: p =>
+        new Date(p.value).toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        }),
+      sort: 'desc',
+      flex: 2,
+      minWidth: 160,
+    },
+  ], [waiverMap])
+
+  const defaultColDef = useMemo(() => ({
+    sortable: true,
+    resizable: true,
+    flex: 1,
+    minWidth: 90,
+  }), [])
+
+  // Toast element, shared across both render branches
+  const toastEl = toast && (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 glass-card px-4 py-3 shadow-lg animate-toast-in">
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${toast.kind === 'success' ? 'bg-success-500' : 'bg-danger-500'}`} aria-hidden="true" />
+      <span className="text-sm font-medium text-ink">{toast.text}</span>
+    </div>
+  )
+
+  // ── Render: detail view ──────────────────────────────────────────────────────
+  if (selectedRequest) {
+    return (
+      <>
+        <ReviewDetail
+          request={selectedRequest}
+          waiverName={waiverMap[selectedRequest.waiverTypeId] ?? selectedRequest.waiverTypeId}
+          oneRoster={oneRoster}
+          loadingRoster={loadingRoster}
+          submitting={submitting}
+          onBack={() => { setSelectedId(null); setOneRoster(null) }}
+          onDecision={handleDecision}
+        />
+        {toastEl}
+      </>
+    )
+  }
+
+  // ── Render: queue list ───────────────────────────────────────────────────────
   return (
-    <section className="flex flex-col gap-5 max-w-2xl mx-auto">
+    <>
+    <section className="fade-up flex flex-col gap-5">
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-semibold text-ink">Waiver Review Queue</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Waiver Review Queue</h1>
         {loading ? (
           <p className="mt-1 text-sm text-muted">Loading…</p>
         ) : error ? (
-          <p className="mt-1 text-sm text-rose-600">{error}</p>
+          <p className="mt-1 text-sm text-danger-600">{error}</p>
         ) : (
           <p className="mt-1 text-sm text-muted">
             {remaining > 0
@@ -280,38 +261,40 @@ export function ReviewQueue() {
 
       {/* Body */}
       {loading ? (
-        <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-200 text-center text-sm text-muted">
+        <div className="glass-card p-8 text-center text-sm text-muted">
           Loading queue…
         </div>
       ) : error ? (
-        <div className="rounded-xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center text-sm text-rose-700">
+        <div className="glass-card p-8 text-center text-sm text-danger-700">
           {error}
         </div>
-      ) : !request ? (
+      ) : remaining === 0 ? (
         <EmptyState />
       ) : (
-        <div
-          key={request.id}
-          className={`flex flex-col gap-4 transition-all duration-150 ease-in-out ${transitionClass}`}
-        >
-          <StudentPanel
-            student={request.student}
-            waiverName={waiverName}
-            submittedAt={request.submittedAt}
-          />
-          <AlgorithmPanel recommendation={request.recommendation} />
-          <DocumentsPanel documents={request.documents} />
-          <CourseListPanel courseList={request.courseList} />
-          {request.studentNote && <StudentNotePanel note={request.studentNote} />}
-          <ActionRow
-            onAdmit={() => handleDecision('admit')}
-            onDeny={() => handleDecision('deny')}
-            submitting={submitting}
-            note={note}
-            onNoteChange={setNote}
-          />
+        <div className="glass-card overflow-hidden p-1.5">
+          <div style={{ height: gridHeight, width: '100%' }}>
+            <AgGridReact
+              theme={gridTheme}
+              rowData={queue}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowHeight={ROW_H}
+              headerHeight={HEADER_H}
+              getRowId={p => p.data.id}
+              onRowClicked={e => openDetail(e.data)}
+              onCellKeyDown={e => {
+                if (e.event?.key === 'Enter' || e.event?.key === ' ') {
+                  e.event.preventDefault()
+                  openDetail(e.data)
+                }
+              }}
+              rowStyle={{ cursor: 'pointer' }}
+            />
+          </div>
         </div>
       )}
     </section>
+    {toastEl}
+    </>
   )
 }
