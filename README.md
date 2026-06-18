@@ -8,6 +8,7 @@ High-school course-scheduling and waiver management platform with two separate p
 - **React Router** 7.18.0 (data router with role-gated views)
 - **Tailwind CSS** 4.3.1 + `@tailwindcss/vite` (no config file, `@theme` tokens in CSS)
 - **Supabase** 2.108.2 (Auth + DB + Storage; optional — runs locally in demo mode)
+- **pdfjs-dist** 6.x (client-side PDF text extraction — no OCR/backend)
 
 ## Quick Start
 
@@ -50,6 +51,7 @@ src/
 │   │   ├── WaiverIntake.jsx      # Wizard: uploads → waiver type → review & submit
 │   │   ├── UploadZone.jsx        # Drag-drop file dropzone
 │   │   ├── WaiverSelectGrid.jsx  # Card grid single-select
+│   │   ├── CourseSwapPanel.jsx   # Two-column "drop X, replace with Y" picker
 │   │   ├── RequestTracker.jsx    # 4-step status tracker
 │   │   └── MyRequests.jsx        # Student's submission history
 │   └── admin-review/
@@ -59,7 +61,19 @@ src/
 ├── services/
 │   ├── api.js                    # Mock API (in-memory + localStorage)
 │   ├── mockData.js               # Seed data (waivers, rubric, queue, submissions)
-│   └── schedulingLogic.js        # Algo stubs (NotImplementedError)
+│   └── transcriptStore.js        # localStorage: previously uploaded transcripts/course lists
+├── utils/
+│   ├── schedulingLogic.js        # parseTranscriptData / evaluateAgainstRubric — real, rule-based
+│   ├── transcriptParser.js       # Line-based transcript text → structured courses/grade/GPA
+│   ├── courseListParser.js       # Free-text course list → canonical course names
+│   ├── courseCatalog.js          # courses.tsv → catalog + prereq graph (Kahn's topo sort)
+│   ├── ruleEngine.js             # Data-driven eligibility rules (prereq + min grade)
+│   ├── levenshtein.js            # Edit-distance fuzzy course-name matching
+│   ├── priorityQueue.js          # Binary min-heap — orders the counselor review queue
+│   ├── dedupeHash.js             # FNV-1a fingerprint — rejects duplicate in-flight requests
+│   ├── seatAvailability.js       # Placeholder seat/period CSP check (no real roster feed yet)
+│   ├── nextCourseSuggestions.js  # BFS "what you're now eligible for" (bonus, non-blocking)
+│   └── pdfText.js                # Client-side PDF → text via pdf.js
 ├── components/layout/
 │   ├── AppShell.jsx              # Sidebar + header + role switcher (demo only)
 │   └── FullScreenLoader.jsx
@@ -69,6 +83,8 @@ src/
 │   └── NotFound.jsx
 └── lib/supabase.js               # Client factory + isSupabaseConfigured flag
 ```
+
+`courses.tsv` (repo root) is the source of truth for the prerequisite/min-grade catalog `courseCatalog.js` parses.
 
 ### Key Contracts
 
@@ -82,8 +98,11 @@ src/
 ### Student Portal (`/student`)
 
 1. **New Request** — intake wizard
-   - Drag-drop document uploads (PDF, PNG, JPG)
+   - Drag-drop document uploads (PDF, TXT, CSV)
+   - Transcript and course-list text is extracted client-side (pdf.js) and parsed into structured courses; each one is matched against `courses.tsv` exactly or, failing that, by Levenshtein similarity — shown as "recognized course" chips (exact vs. fuzzy match flagged)
+   - "Found a previous transcript/course list — Apply?" reuses a prior upload (stored in localStorage) without re-uploading
    - Dynamic waiver type selection (only active types)
+   - For course-affecting waiver types (Prerequisite Override, Grad Substitution, Schedule Conflict, Late Add/Drop): a two-column **course swap panel** — pick a course to drop on the left, search a scrollable, eligibility-checked list of replacements on the right (ineligible courses are grayed out with the failing reason; "None" option included)
    - Submission review & submit
    - Inline 4-step tracker showing decision progress
 
@@ -106,14 +125,22 @@ src/
    - "Force Sync Now" button
    - Status pills (synced/pending)
 
-## Algorithm Boundary
+## Algorithms
 
-Core logic is **stubbed, not implemented**:
+All eligibility/decision logic is **deterministic and rule-based — no AI/ML anywhere in this path**:
 
-- `parseTranscriptData(fileUrl)` — throws `NotImplementedError`
-- `evaluateAgainstRubric(studentData, criteria)` — throws `NotImplementedError`
+| Concern | Algorithm | Where |
+|---|---|---|
+| Course name recognition | Exact match, then Levenshtein edit-distance similarity | `utils/levenshtein.js`, `courseCatalog.js`, `transcriptParser.js`, `courseListParser.js` |
+| Prerequisite structure | Directed graph; Kahn's algorithm for topological order / "what's unlocked" | `utils/courseCatalog.js` |
+| Waiver eligibility | Data-driven rule engine (rules derived from each `courses.tsv` row, not hardcoded conditionals) | `utils/ruleEngine.js`, `utils/schedulingLogic.js` |
+| "Gray out unavailable options" | Filter the catalog through the rule engine per render | `features/student-portal/CourseSwapPanel.jsx` |
+| Class availability | Seat-capacity check, CSP-style (placeholder data — no real period/roster feed yet) | `utils/seatAvailability.js` |
+| Counselor queue ordering | Binary min-heap priority queue (grad-risk grade weight + submission age) | `utils/priorityQueue.js` |
+| Duplicate request prevention | FNV-1a hash fingerprint over student + waiver type + course swap | `utils/dedupeHash.js` |
+| "What am I eligible for next" | BFS over the prerequisite graph from completed courses (bonus, non-blocking) | `utils/nextCourseSuggestions.js` |
 
-Both stubs document their return shapes. This scaffold layer handles all UI, routing, auth, and API calls; algorithm work is separate.
+`utils/schedulingLogic.js` is the seam where transcript text becomes structured data (`parseTranscriptData`) and structured data + the active rubric become a recommendation (`evaluateAgainstRubric`) — both are real implementations now, feeding the same `AlgorithmPanel` the counselor review queue already rendered against canned data.
 
 ## Build & Deploy
 
@@ -131,7 +158,7 @@ npm run type-check
 npm run preview
 ```
 
-Build includes 83 modules (all features in dependency graph).
+Build includes 98 modules (all features in dependency graph).
 
 ## Secrets Hygiene
 
@@ -151,10 +178,9 @@ Build includes 83 modules (all features in dependency graph).
    - Mock `triggerBatchICPush` → real REST calls to IC
    - Sync waiver decisions to student transcript
 
-3. **Algorithm implementation**
-   - Transcript PDF parsing → structured data extraction
-   - Rubric evaluation logic (score aggregation, pass/fail rules)
-   - Tie into `RequestTracker` status workflow
+3. **Real seat/period data**
+   - Replace `utils/seatAvailability.js` placeholder data with the actual IC section/roster feed
+   - Extend the eligibility rule engine with real schedule-conflict (CSP) constraints once period data exists
 
 4. **Email + audit logging**
    - Student submission confirmations
