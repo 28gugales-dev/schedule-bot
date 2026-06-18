@@ -22,6 +22,9 @@ import {
 import { hashRequestKey } from '../utils/dedupeHash.js'
 import { priorityOrderQueue } from '../utils/priorityQueue.js'
 import { evaluateAgainstRubric } from '../utils/schedulingLogic.js'
+import { freezeRuleVersion } from '../utils/ruleVersion.js'
+import { canSubmit } from '../utils/rateLimiter.js'
+import { buildSyncPackage } from '../utils/batchProcessor.js'
 
 // Module-level mutable copies so submit/decision/sync actions persist across
 // calls within a session (simulates a backend without one).
@@ -94,6 +97,10 @@ function findMissingDocs(waiverTypeId, documents, courseListNames) {
 export async function submitWaiver(payload) {
   await delay(600)
 
+  if (!canSubmit(payload.studentId)) {
+    throw new Error('Too many submissions — please wait before trying again.')
+  }
+
   const hash = hashRequestKey({
     studentId: payload.studentId,
     waiverTypeId: payload.waiverTypeId,
@@ -119,7 +126,7 @@ export async function submitWaiver(payload) {
   const missingDocs = findMissingDocs(payload.waiverTypeId, payload.documents, payload.courseList)
   const recommendation = payload.transcriptData
     ? evaluateAgainstRubric(
-        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, missingDocs },
+        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
         criteria,
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
@@ -140,6 +147,7 @@ export async function submitWaiver(payload) {
       courseList: payload.courseList ?? [],
       studentNote: payload.studentNote ?? '',
       recommendation,
+      ruleVersion: freezeRuleVersion(criteria),
     },
   ]
 
@@ -232,7 +240,8 @@ export async function fetchBatchSyncQueue() {
 export async function triggerBatchICPush() {
   await delay(900)
   const pushed = batch.filter((b) => !b.synced)
+  const syncPackage = buildSyncPackage(pushed)
   batch = batch.map((b) => ({ ...b, synced: true }))
-  console.info(`[stub IC push] synced ${pushed.length} waiver(s)`)
-  return { ok: true, pushedCount: pushed.length, pushedIds: pushed.map((b) => b.id) }
+  console.info(`[stub IC push] synced ${syncPackage.totalCount} waiver(s)`, syncPackage.byWaiverType)
+  return { ok: true, pushedCount: syncPackage.totalCount, pushedIds: pushed.map((b) => b.id), syncPackage }
 }

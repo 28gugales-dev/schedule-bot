@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { getCourseCatalog } from '../../utils/courseCatalog.js'
 import { checkEligibility } from '../../utils/ruleEngine.js'
 import { checkSeatAvailability } from '../../utils/seatAvailability.js'
+import { hasConflict } from '../../utils/conflictDetection.js'
+import { analyzeDropImpact } from '../../utils/dependencyAnalysis.js'
 
 const NONE_OPTION = '__none__'
 
@@ -19,27 +21,44 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
     [courseListNames, leftSearch],
   )
 
+  const dependencyImpact = useMemo(() => (fromCourse ? analyzeDropImpact(fromCourse) : null), [fromCourse])
+
+  const currentSchedule = useMemo(
+    () => courseListNames.filter((c) => c !== fromCourse).map((name) => ({ course: name, period: checkSeatAvailability(name).period })),
+    [courseListNames, fromCourse],
+  )
+
   const rightOptions = useMemo(() => {
     const rows = catalog
       .filter((c) => c.name.toLowerCase().includes(rightSearch.toLowerCase()))
       .map((course) => {
         const seat = checkSeatAvailability(course.name)
+        const conflict = seat.available && hasConflict(currentSchedule, { course: course.name, period: seat.period })
         const elig = checkEligibility(student, course)
-        const eligible = seat.available && elig.eligible
+        const eligible = seat.available && !conflict && elig.eligible
         const reasons = [
           ...(!seat.available ? ['No seats available in any period'] : []),
+          ...(conflict ? ['Conflicts with another course on your schedule'] : []),
           ...elig.failedRules.map((r) => r.label),
         ]
-        return { name: course.name, eligible, reasons, seatsLeft: seat.seatsLeft }
+        const why = !course.prerequisite
+          ? 'Intro course — no prerequisite required'
+          : `Meets prerequisite: "${course.prerequisite}"`
+        return { name: course.name, eligible, reasons, why, seatsLeft: seat.seatsLeft }
       })
     return rows.sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.name.localeCompare(b.name))
-  }, [catalog, rightSearch, student])
+  }, [catalog, rightSearch, student, currentSchedule])
 
   const setFrom = (name) => onChange({ fromCourse: name || null, toCourse })
   const setTo = (name) => onChange({ fromCourse, toCourse: name === NONE_OPTION ? 'None' : name })
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {dependencyImpact?.warning && (
+        <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+          ⚠ {dependencyImpact.warning}
+        </div>
+      )}
       {/* Left: course to drop */}
       <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Course to replace</p>
@@ -100,7 +119,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
                 key={opt.name}
                 type="button"
                 disabled={!opt.eligible}
-                title={opt.eligible ? `${opt.seatsLeft} seats left` : opt.reasons.join('; ')}
+                title={opt.eligible ? `${opt.why} · ${opt.seatsLeft} seats left` : opt.reasons.join('; ')}
                 onClick={() => setTo(opt.name)}
                 className={`w-full rounded-lg px-3 py-2 text-left text-sm transition flex items-center justify-between gap-2 ${
                   !opt.eligible
@@ -111,7 +130,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
                 }`}
               >
                 <span>{opt.eligible ? '✓' : '🔒'} {opt.name}</span>
-                {!opt.eligible && <span className="text-xs text-muted truncate max-w-[40%]">{opt.reasons[0]}</span>}
+                <span className="text-xs text-muted truncate max-w-[45%]">{opt.eligible ? opt.why : opt.reasons[0]}</span>
               </button>
             ))}
           </div>

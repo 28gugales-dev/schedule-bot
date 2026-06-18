@@ -49,6 +49,12 @@ export function getCourseByName(name) {
   return _byName.get(name) ?? null
 }
 
+// Courses that directly require `name` as their prerequisite.
+export function getDirectDependents(name) {
+  ensureLoaded()
+  return _children.get(name) ?? []
+}
+
 // Resolves a raw/free-text course name to the canonical catalog entry.
 export function matchCourseName(rawName, threshold = 0.55) {
   ensureLoaded()
