@@ -49,6 +49,16 @@ export function parseTranscriptText(rawText) {
   const studentGrade = gradeMatch ? Number(gradeMatch[1]) : null
   const gpa = gpaMatch ? Number(gpaMatch[1]) : null
 
+  // Attendance table's "Total:" row: School Years | Calendar Days | Member
+  // Days | Absent Days | Tardy Days — e.g. "Total: 2 356 356 4.00 2".
+  const attendanceMatch = rawText.match(/Total:\s*\d+\s+\d+\s+(\d+)\s+([\d.]+)\s+\d+/)
+  let attendanceRate = null
+  if (attendanceMatch) {
+    const memberDays = Number(attendanceMatch[1])
+    const absentDays = Number(attendanceMatch[2])
+    if (memberDays > 0) attendanceRate = Math.max(0, (memberDays - absentDays) / memberDays)
+  }
+
   let inTable = false
   let currentTerm = null
   let buffer = []
@@ -115,5 +125,5 @@ export function parseTranscriptText(rawText) {
     if (!tryEmit() && buffer.length > MAX_WRAP_LINES) flushAsNoise()
   }
 
-  return { studentGrade, gpa, completedCourses, recognized, unrecognized }
+  return { studentGrade, gpa, attendanceRate, completedCourses, recognized, unrecognized }
 }

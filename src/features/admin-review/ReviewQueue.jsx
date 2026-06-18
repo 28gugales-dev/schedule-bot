@@ -45,6 +45,17 @@ function StudentPanel({ student, waiverName, submittedAt }) {
   )
 }
 
+function CheckRow({ check }) {
+  const icon = check.passed === null ? '–' : check.passed ? '✓' : '✗'
+  const color = check.passed === null ? 'text-muted' : check.passed ? 'text-emerald-700' : 'text-rose-700'
+  return (
+    <li className={`flex items-center gap-2 text-xs ${color}`}>
+      <span className="font-bold">{icon}</span>
+      <span>{check.label}</span>
+    </li>
+  )
+}
+
 function AlgorithmPanel({ recommendation }) {
   const s = REC_STYLES[recommendation.decision] ?? REC_STYLES.review
   return (
@@ -59,6 +70,13 @@ function AlgorithmPanel({ recommendation }) {
         </span>
       </div>
       <p className={`text-sm ${s.text} leading-relaxed`}>{recommendation.reason}</p>
+      {recommendation.checks?.length > 0 && (
+        <ul className="mt-1 space-y-1 border-t border-black/10 pt-2">
+          {recommendation.checks.map((check, i) => (
+            <CheckRow key={`${check.id}-${i}`} check={check} />
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

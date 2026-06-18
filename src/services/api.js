@@ -71,6 +71,23 @@ function existingRequestHashes() {
   )
 }
 
+// Which required document types (per the waiver type's `requiredDocs`) the
+// submission is missing. Course list is no longer a file upload (it's typed
+// into the per-period boxes), so it's satisfied by a non-empty course list.
+function findMissingDocs(waiverTypeId, documents, courseListNames) {
+  const waiver = waivers.find((w) => w.id === waiverTypeId)
+  const have = new Set((documents ?? []).map((d) => d.type))
+  const missing = []
+  for (const req of waiver?.requiredDocs ?? []) {
+    if (req === 'courseList') {
+      if (!(courseListNames?.length > 0)) missing.push('course list')
+    } else if (!have.has(req)) {
+      missing.push(req)
+    }
+  }
+  return missing
+}
+
 // Create a waiver request. Returns the new request id + initial tracker status.
 export async function submitWaiver(payload) {
   await delay(600)
@@ -97,8 +114,12 @@ export async function submitWaiver(payload) {
   // used to be disconnected mock arrays, so a student submission never
   // actually reached ReviewQueue.jsx. The recommendation is computed for
   // real (rule engine against the active rubric), not canned sample data.
+  const missingDocs = findMissingDocs(payload.waiverTypeId, payload.documents, payload.courseList)
   const recommendation = payload.transcriptData
-    ? evaluateAgainstRubric({ ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse }, criteria)
+    ? evaluateAgainstRubric(
+        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, missingDocs },
+        criteria,
+      )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
 
   queue = [
