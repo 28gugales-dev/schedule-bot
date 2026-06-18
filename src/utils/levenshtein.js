@@ -35,6 +35,34 @@ export function similarity(a, b) {
   return 1 - levenshteinDistance(a, b) / maxLen
 }
 
+export function tokenize(str) {
+  return str.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+}
+
+// Jaccard-ish word overlap: "WBL internship 1" vs "WBL 1 period Internship"
+// shares 3 of 4 words even though the words are reordered and one is
+// abbreviated away — something plain character-level edit distance can't
+// see (it instead gets fooled by unrelated words like "Mentorship" that
+// happen to share a lot of individual letters with "Internship").
+export function wordOverlapScore(a, b) {
+  const ta = new Set(tokenize(a))
+  const tb = new Set(tokenize(b))
+  if (ta.size === 0 || tb.size === 0) return 0
+  let common = 0
+  for (const t of ta) if (tb.has(t)) common++
+  return common / Math.max(ta.size, tb.size)
+}
+
+const WORD_WEIGHT = 0.7
+const CHAR_WEIGHT = 0.3
+
+// Word-level overlap dominates the score (it's the stronger signal for
+// reordered/abbreviated course names); character-level similarity only
+// breaks ties / handles typos within a word.
+function combinedScore(a, b) {
+  return wordOverlapScore(a, b) * WORD_WEIGHT + similarity(a, b) * CHAR_WEIGHT
+}
+
 /**
  * Find the best-matching candidate string for `input`.
  * @param {string} input
@@ -52,11 +80,33 @@ export function bestFuzzyMatch(input, candidates, threshold = 0.55) {
 
   let best = null
   for (const candidate of candidates) {
-    const score = similarity(needle, candidate)
+    const score = combinedScore(needle, candidate)
     if (!best || score > best.similarity) {
       best = { match: candidate, similarity: score, exact: false }
     }
   }
   if (!best || best.similarity < threshold) return null
   return best
+}
+
+/**
+ * Rank catalog names by relevance to a partial, in-progress query — used to
+ * drive a type-ahead dropdown. Combines a substring boost (prefix/contains
+ * is a strong signal while the student is still typing) with the same
+ * word + character scoring used for post-hoc fuzzy matching.
+ */
+export function rankByRelevance(query, candidates, limit = 6) {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const scored = candidates.map((name) => {
+    const lower = name.toLowerCase()
+    const substringBoost = lower.includes(q) ? 1 : 0
+    const score = substringBoost + combinedScore(q, name) * 0.5
+    return { name, score }
+  })
+  return scored
+    .filter((s) => s.score > 0.3)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((s) => s.name)
 }

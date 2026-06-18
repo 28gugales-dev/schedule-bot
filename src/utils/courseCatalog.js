@@ -4,7 +4,7 @@
 // ordering for "what's unlocked next" queries.
 
 import coursesTsv from '../../courses.tsv?raw'
-import { bestFuzzyMatch } from './levenshtein.js'
+import { bestFuzzyMatch, rankByRelevance } from './levenshtein.js'
 
 function parseTsv(raw) {
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0)
@@ -65,6 +65,15 @@ export function matchCourseName(rawName, threshold = 0.55) {
   const result = bestFuzzyMatch(rawName, names, threshold)
   if (!result) return null
   return { course: _byName.get(result.match), similarity: result.similarity, exact: result.exact }
+}
+
+/**
+ * Type-ahead suggestions for a partial, in-progress course name (used by the
+ * course-list text boxes' autocomplete dropdown).
+ */
+export function suggestCourseNames(query, limit = 6) {
+  ensureLoaded()
+  return rankByRelevance(query, _catalog.map((c) => c.name), limit)
 }
 
 /**
