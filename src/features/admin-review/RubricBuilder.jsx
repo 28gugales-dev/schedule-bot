@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchRubricCriteria, fetchAllWaivers, updateRubricCriteria } from '../../services/api.js'
+import { useAuth } from '../../features/auth/AuthProvider.jsx'
+import { actorFromAuth } from '../../services/audit.js'
 
 // Simple accessible toggle switch
 function Toggle({ checked, onChange, id, label }) {
@@ -14,12 +16,13 @@ function Toggle({ checked, onChange, id, label }) {
       className={[
         'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent',
         'transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2',
-        checked ? 'bg-brand-600' : 'bg-black/15',
+        checked ? 'bg-brand-600' : 'bg-scrim-strong',
       ].join(' ')}
     >
       <span
         className={[
-          'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out',
+          // Knob stays white in both themes — an iOS-style control affordance, not a themed surface.
+          'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
           checked ? 'translate-x-4' : 'translate-x-0',
         ].join(' ')}
       />
@@ -28,6 +31,7 @@ function Toggle({ checked, onChange, id, label }) {
 }
 
 export function RubricBuilder() {
+  const { user, role } = useAuth()
   const [criteria, setCriteria] = useState([])
   const [waivers, setWaivers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -196,7 +200,7 @@ export function RubricBuilder() {
         : c,
     )
     try {
-      const result = await updateRubricCriteria(normalized, waivers)
+      const result = await updateRubricCriteria(normalized, waivers, actorFromAuth(user, role))
       if (result?.ok !== false) {
         if (result?.criteria) setCriteria(result.criteria)
         if (result?.waivers) setWaivers(result.waivers)
@@ -223,7 +227,7 @@ export function RubricBuilder() {
   if (error && !criteria.length && !waivers.length) {
     return (
       <section>
-        <p className="text-sm text-danger-600">{error}</p>
+        <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p>
       </section>
     )
   }
@@ -240,12 +244,12 @@ export function RubricBuilder() {
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           {savedMsg && (
-            <span className="text-sm font-medium text-success-700" role="status">
+            <span className="text-sm font-medium text-success-700 dark:text-success-300" role="status">
               Saved
             </span>
           )}
           {error && (
-            <span className="text-sm text-danger-600" role="alert">
+            <span className="text-sm text-danger-600 dark:text-danger-400" role="alert">
               {error}
             </span>
           )}
@@ -269,14 +273,14 @@ export function RubricBuilder() {
               type="button"
               onClick={() => setShowAddForm((v) => !v)}
               aria-expanded={showAddForm}
-              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
             >
               {showAddForm ? 'Cancel' : 'Add criterion'}
             </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
             >
               Import JSON
             </button>
@@ -293,7 +297,7 @@ export function RubricBuilder() {
 
         {/* Manual add form */}
         {showAddForm && (
-          <div className="mb-4 rounded-xl bg-black/[0.03] p-4 ring-1 ring-black/5">
+          <div className="mb-4 rounded-xl bg-scrim p-4 ring-1 ring-hairline">
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1">
                 <label htmlFor="new-criterion-label" className="text-xs font-medium text-muted">
@@ -370,16 +374,16 @@ export function RubricBuilder() {
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={onDropFile}
-          className="mb-4 rounded-xl border-2 border-dashed border-black/15 bg-white/40 px-4 py-3 text-xs text-muted backdrop-blur-sm"
+          className="mb-4 rounded-xl border-2 border-dashed border-hairline-strong bg-glass-weak px-4 py-3 text-xs text-muted backdrop-blur-sm"
         >
           Drag a <span className="font-medium text-ink">.json</span> file here, or use{' '}
           <span className="font-medium text-ink">Import JSON</span>. Expected shape:{' '}
-          <code className="rounded bg-black/[0.04] px-1 py-0.5 text-[11px] text-ink ring-1 ring-black/5">
+          <code className="rounded bg-scrim px-1 py-0.5 text-[11px] text-ink ring-1 ring-hairline">
             [{'{'} "label": "Minimum GPA", "type": "number", "value": 2.5, "enabled": true {'}'}]
           </code>
         </div>
         {importError && (
-          <p className="mb-4 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600" role="alert">
+          <p className="mb-4 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600 dark:text-danger-400" role="alert">
             {importError}
           </p>
         )}
@@ -387,7 +391,7 @@ export function RubricBuilder() {
         {criteria.length === 0 ? (
           <p className="text-sm text-muted">No criteria defined.</p>
         ) : (
-          <ul className="divide-y divide-black/5" role="list">
+          <ul className="divide-y divide-hairline" role="list">
             {criteria.map((criterion) => (
               <li
                 key={criterion.id}
@@ -480,7 +484,7 @@ export function RubricBuilder() {
         {waivers.length === 0 ? (
           <p className="text-sm text-muted">No waiver types defined.</p>
         ) : (
-          <ul className="divide-y divide-black/5" role="list">
+          <ul className="divide-y divide-hairline" role="list">
             {waivers.map((waiver) => (
               <li
                 key={waiver.id}
@@ -510,8 +514,8 @@ export function RubricBuilder() {
                   className={[
                     'flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
                     waiver.active
-                      ? 'bg-success-50 text-success-700'
-                      : 'bg-black/[0.04] text-muted',
+                      ? 'bg-success-50 text-success-700 dark:text-success-300'
+                      : 'bg-scrim text-muted',
                   ].join(' ')}
                 >
                   {waiver.active ? 'Active' : 'Inactive'}
@@ -520,7 +524,7 @@ export function RubricBuilder() {
                 {/* Required docs badge */}
                 {Array.isArray(waiver.requiredDocs) && waiver.requiredDocs.length > 0 && (
                   <span
-                    className="flex-shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700"
+                    className="flex-shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300"
                     title={waiver.requiredDocs.join(', ')}
                   >
                     {waiver.requiredDocs.length} doc{waiver.requiredDocs.length !== 1 ? 's' : ''}

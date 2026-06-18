@@ -19,6 +19,24 @@ import {
   ONE_ROSTER,
   REVIEW_CHECKS,
 } from './mockData.js'
+import { recordAuditEvent, diffRubric } from './audit.js'
+
+// Fallback actor when a caller doesn't pass a session payload (keeps the audit
+// trail populated even from code paths that predate the actor argument). The UI
+// passes the real actor from useAuth().
+const DEFAULT_ACTOR = { id: 'demo-admin', name: 'Demo Counselor', role: 'counselor' }
+
+// Recording must never break the primary action — a full localStorage or a
+// transient Supabase error should not stop a counselor from deciding a waiver.
+async function safeAudit(event) {
+  try {
+    return await recordAuditEvent(event)
+  } catch {
+    return null
+  }
+}
+
+const WAIVER_NAME = (id) => WAIVER_TYPES.find((w) => w.id === id)?.name ?? id
 
 // Module-level mutable copies so submit/decision/sync actions persist across
 // calls within a session (simulates a backend without one).
@@ -61,7 +79,7 @@ export async function fetchAllWaivers() {
 }
 
 // Create a waiver request. Returns the new request id + initial tracker status.
-export async function submitWaiver(payload) {
+export async function submitWaiver(payload, actor = null) {
   await delay(600)
   const request = {
     id: `req-${Date.now()}`,
@@ -72,6 +90,19 @@ export async function submitWaiver(payload) {
   submissions = [request, ...submissions]
   // Stubbed confirmation email — real version triggers a server-side mailer.
   console.info(`[stub email] confirmation queued for request ${request.id}`)
+
+  const who = actor ?? { id: 'student-demo', name: 'Demo Student', role: 'student' }
+  const docCount = Array.isArray(payload.documents) ? payload.documents.length : 0
+  await safeAudit({
+    action: 'waiver.submit',
+    actor: who,
+    student: payload.student ?? { id: who.id, name: who.name },
+    requestId: request.id,
+    waiverTypeId: payload.waiverTypeId,
+    summary: `Submitted ${WAIVER_NAME(payload.waiverTypeId)} request${docCount ? ` with ${docCount} document${docCount !== 1 ? 's' : ''}` : ''}`,
+    after: { status: 'submitted', documents: docCount },
+  })
+
   return { requestId: request.id, status: request.status }
 }
 
@@ -109,7 +140,7 @@ export async function fetchOneRosterRecord(studentId) {
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it
 // joins the batch-sync queue awaiting the next Infinite Campus push.
-export async function submitDecision(requestId, decision, note = '') {
+export async function submitDecision(requestId, decision, note = '', actor = null) {
   await delay(350)
   const idx = queue.findIndex((r) => r.id === requestId)
   const request = idx >= 0 ? queue[idx] : null
@@ -120,13 +151,43 @@ export async function submitDecision(requestId, decision, note = '') {
       {
         id: request.id,
         student: request.student.name,
-        waiver: waivers.find((w) => w.id === request.waiverTypeId)?.name ?? '—',
+        waiver: WAIVER_NAME(request.waiverTypeId),
         approvedAt: new Date().toISOString(),
         synced: false,
       },
     ]
   }
-  console.info(`[audit] ${requestId} -> ${decision}${note ? ` (${note})` : ''}`)
+
+  if (request) {
+    const rec = request.recommendation
+    // An "override" is a human admit/deny that contradicts a definite AI call.
+    // A flag is an escalation, not an override; 'review' means the AI deferred.
+    const overrode =
+      (decision === 'admit' || decision === 'deny') &&
+      !!rec && (rec.decision === 'admit' || rec.decision === 'deny') &&
+      rec.decision !== decision
+    const ACTION = { admit: 'decision.admit', deny: 'decision.deny', flag: 'decision.flag' }
+    const STATUS = { admit: 'approved', deny: 'denied', flag: 'flagged' }
+    const VERB = { admit: 'Admitted', deny: 'Denied', flag: 'Flagged' }
+    await safeAudit({
+      action: ACTION[decision] ?? 'decision.deny',
+      actor: actor ?? DEFAULT_ACTOR,
+      student: { id: request.student.id, name: request.student.name },
+      requestId,
+      waiverTypeId: request.waiverTypeId,
+      summary: `${VERB[decision] ?? 'Decided'} ${request.student.name} · ${WAIVER_NAME(request.waiverTypeId)}`,
+      before: {
+        status: 'counselor-review',
+        aiRecommendation: rec ? { decision: rec.decision, confidence: rec.confidence } : null,
+      },
+      after: { status: STATUS[decision] ?? 'denied', note, synced: decision === 'admit' ? false : undefined },
+      // Seeded AI decisions key off the request id (see seedAudit.js).
+      aiDecisionId: `ai-seed-${requestId}`,
+      overrode,
+      note,
+    })
+  }
+
   const next = queue[0]?.id ?? null
   return { ok: true, requestId, decision, nextId: next, remaining: queue.length }
 }
@@ -137,10 +198,38 @@ export async function fetchRubricCriteria() {
 }
 
 // Persist edits to rubric rules and waiver active/inactive toggles.
-export async function updateRubricCriteria(nextCriteria, nextWaivers) {
+export async function updateRubricCriteria(nextCriteria, nextWaivers, actor = null) {
   await delay(400)
+  // Snapshot the prior state BEFORE reassigning so the diff is accurate.
+  const prevCriteria = clone(criteria)
+  const prevWaivers = clone(waivers)
+
   if (Array.isArray(nextCriteria)) criteria = nextCriteria.map((c) => ({ ...c }))
   if (Array.isArray(nextWaivers)) waivers = nextWaivers.map((w) => ({ ...w }))
+
+  const diff = diffRubric(prevCriteria, prevWaivers, criteria, waivers)
+  const critDiff = diff.filter((d) => d.entity.startsWith('Criterion'))
+  const waiverDiff = diff.filter((d) => d.entity.startsWith('Waiver'))
+  const who = actor ?? DEFAULT_ACTOR
+
+  if (critDiff.length) {
+    await safeAudit({
+      action: 'rubric.update',
+      actor: who,
+      summary: `Edited ${critDiff.length} rubric ${critDiff.length === 1 ? 'rule' : 'rules'}`,
+      before: prevCriteria, after: clone(criteria), diff: critDiff,
+    })
+  }
+  if (waiverDiff.length) {
+    const names = waiverDiff.map((d) => d.entity.replace('Waiver: ', ''))
+    await safeAudit({
+      action: 'waiver.toggle',
+      actor: who,
+      summary: `Toggled ${waiverDiff.length} waiver ${waiverDiff.length === 1 ? 'type' : 'types'}: ${names.join(', ')}`,
+      before: prevWaivers, after: clone(waivers), diff: waiverDiff,
+    })
+  }
+
   return { ok: true, criteria: clone(criteria), waivers: clone(waivers) }
 }
 
@@ -153,10 +242,19 @@ export async function fetchBatchSyncQueue() {
 
 // Force-push the unsynced approved waivers to Infinite Campus. Real version
 // calls a server-side edge function holding the IC credentials — never client.
-export async function triggerBatchICPush() {
+export async function triggerBatchICPush(actor = null) {
   await delay(900)
   const pushed = batch.filter((b) => !b.synced)
   batch = batch.map((b) => ({ ...b, synced: true }))
   console.info(`[stub IC push] synced ${pushed.length} waiver(s)`)
+
+  await safeAudit({
+    action: 'batch.sync',
+    actor: actor ?? DEFAULT_ACTOR,
+    summary: `Force-synced ${pushed.length} approved waiver${pushed.length !== 1 ? 's' : ''} to Infinite Campus`,
+    before: { pending: pushed.length },
+    after: { pushed: pushed.length, synced: true },
+  })
+
   return { ok: true, pushedCount: pushed.length, pushedIds: pushed.map((b) => b.id) }
 }

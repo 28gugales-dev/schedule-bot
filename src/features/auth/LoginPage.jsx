@@ -1,12 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider.jsx'
+import { ThemeToggle } from '../theme/ThemeToggle.jsx'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { demoMode, setRole, signInWithGoogle, isConfigured } = useAuth()
 
   return (
-    <div className="fade-up flex min-h-screen items-center justify-center px-4">
+    <div className="fade-up relative flex min-h-screen items-center justify-center px-4">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="glass-card w-full max-w-sm p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">

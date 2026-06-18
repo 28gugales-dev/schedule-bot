@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchBatchSyncQueue, triggerBatchICPush } from '../../services/api.js';
+import { useAuth } from '../../features/auth/AuthProvider.jsx';
+import { actorFromAuth } from '../../services/audit.js';
 
 export function BatchSyncDashboard() {
+  const { user, role } = useAuth();
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -44,7 +47,7 @@ export function BatchSyncDashboard() {
     try {
       setSyncing(true);
       setError(null);
-      const result = await triggerBatchICPush();
+      const result = await triggerBatchICPush(actorFromAuth(user, role));
       setQueue(prev => prev.map(item => ({ ...item, synced: true })));
       setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
     } catch {
@@ -127,11 +130,11 @@ export function BatchSyncDashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-ink">Next automatic sync in</p>
-            <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-brand-600">
+            <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-brand-600 dark:text-brand-400">
               {formatCountdown(countdown)}
             </p>
             {allSynced && (
-              <p className="mt-1 text-xs font-medium text-success-700">All synced ✓</p>
+              <p className="mt-1 text-xs font-medium text-success-700 dark:text-success-300">All synced ✓</p>
             )}
           </div>
           <button
@@ -149,7 +152,7 @@ export function BatchSyncDashboard() {
       {confirmation && (
         <div
           role="status"
-          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 ring-1 ring-success-300"
+          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 dark:text-success-300 ring-1 ring-success-300"
         >
           {confirmation}
         </div>
@@ -159,7 +162,7 @@ export function BatchSyncDashboard() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-200"
+          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-200"
         >
           {error}
         </div>
@@ -188,7 +191,7 @@ export function BatchSyncDashboard() {
       {!loading && queue.length > 0 && (
         <div className="glass-card overflow-hidden">
           <table className="w-full">
-            <thead className="border-b border-black/10 bg-white/40">
+            <thead className="border-b border-hairline bg-glass-weak">
               <tr>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Student</th>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Waiver Type</th>
@@ -200,8 +203,8 @@ export function BatchSyncDashboard() {
               {queue.map(item => (
                 <tr
                   key={item.id}
-                  className={`border-b border-black/10 ${
-                    item.synced ? 'bg-black/[0.03] opacity-60' : ''
+                  className={`border-b border-hairline ${
+                    item.synced ? 'bg-scrim opacity-60' : ''
                   }`}
                 >
                   <td className="px-5 py-3 text-sm text-ink">{item.student}</td>
@@ -209,11 +212,11 @@ export function BatchSyncDashboard() {
                   <td className="px-5 py-3 text-sm text-muted">{formatDate(item.approvedAt)}</td>
                   <td className="px-5 py-3 text-sm">
                     {item.synced ? (
-                      <span className="inline-flex rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700">
+                      <span className="inline-flex rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700 dark:text-success-300">
                         Synced
                       </span>
                     ) : (
-                      <span className="inline-flex rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700">
+                      <span className="inline-flex rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700 dark:text-warning-300">
                         Pending
                       </span>
                     )}

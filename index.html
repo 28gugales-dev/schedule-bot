@@ -22,6 +22,19 @@
         } catch (e) {}
       })();
     </script>
+    <!-- No-flash skin boot: paint the visual skin (enterprise console vs liquid
+         glass) BEFORE first paint so the flat slate ground / aurora is correct
+         from frame one. Mirrors SkinProvider; the 'ccc:skin' key and
+         default-to-enterprise policy MUST match it. -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('ccc:skin');
+          document.documentElement.dataset.skin =
+            s === 'glass' || s === 'enterprise' ? s : 'enterprise';
+        } catch (e) {}
+      })();
+    </script>
     <!-- Brenda type system: Hanken Grotesk (UI), Newsreader (display serif),
          Cormorant Garamond (hero), JetBrains Mono (eyebrow labels + metrics).
          Loaded via <link> rather than CSS @import so it never races the
