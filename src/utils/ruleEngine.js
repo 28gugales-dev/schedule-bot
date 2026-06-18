@@ -1,14 +1,6 @@
-// Data-driven eligibility checking. Rules are derived from the course
-// catalog row itself (prerequisite + minimum grade) rather than hardcoded
-// per-course conditionals, so adding/editing courses.tsv is enough to change
-// what's enforced.
-
+// Data-driven eligibility rules, derived from each courses.tsv row.
 import { gradeRank } from './courseCatalog.js'
 
-/**
- * @param {object} course - { name, minGrade, prerequisite }
- * @returns {Array<{ id: string, label: string, met: (student) => boolean }>}
- */
 export function buildRulesForCourse(course) {
   const rules = []
 
@@ -31,11 +23,6 @@ export function buildRulesForCourse(course) {
   return rules
 }
 
-/**
- * @param {object} student - { currentGrade: number, completed: Set<string> }
- * @param {object} course - catalog entry
- * @returns {{ eligible: boolean, failedRules: Array<{id, label}> }}
- */
 export function checkEligibility(student, course) {
   const rules = buildRulesForCourse(course)
   const failedRules = rules.filter((r) => !r.met(student)).map(({ id, label }) => ({ id, label }))

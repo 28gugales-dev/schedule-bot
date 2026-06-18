@@ -5,11 +5,7 @@ import { checkSeatAvailability } from '../../utils/seatAvailability.js'
 
 const NONE_OPTION = '__none__'
 
-// Two-column "what am I dropping, what am I replacing it with" picker.
-// Left: the student's recognized current/planned courses (from the parsed
-// course list). Right: every catalog course, searchable, with ineligible
-// options grayed out — eligibility = seat availability (CSP placeholder)
-// gate first, then prerequisite/grade rule-engine check.
+// Two-column "drop X, replace with Y" picker — right side grays out ineligible courses.
 export function CourseSwapPanel({ courseListNames = [], student, value, onChange }) {
   const [leftSearch, setLeftSearch] = useState('')
   const [rightSearch, setRightSearch] = useState('')

@@ -1,8 +1,4 @@
-// Small binary-heap priority queue (min-heap: lower priority value = higher
-// urgency, popped first). O(log n) push/pop. Used to order the counselor
-// review queue by graduation risk / deadline urgency instead of raw
-// submission order.
-
+// Binary-heap priority queue (min-heap: lower priority = higher urgency, popped first).
 export class MinHeap {
   constructor() {
     this._items = [] // [{ priority, value }]
@@ -62,11 +58,7 @@ export class MinHeap {
   }
 }
 
-/**
- * Sort review-queue requests by urgency (most urgent first) using the heap.
- * Lower score = more urgent: seniors weigh more than freshmen, and older
- * submissions weigh more than fresh ones.
- */
+// Sorts review-queue requests by urgency (seniors + older submissions first).
 export function priorityOrderQueue(requests) {
   const heap = new MinHeap()
   const now = Date.now()

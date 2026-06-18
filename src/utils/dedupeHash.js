@@ -1,7 +1,4 @@
-// FNV-1a string hash used to fingerprint a waiver request so duplicate
-// in-flight submissions (same student, same waiver type, same course swap)
-// can be rejected without a real database unique-constraint.
-
+// FNV-1a string hash used to fingerprint a waiver request for dedupe.
 export function fnv1aHash(str) {
   let hash = 0x811c9dc5
   for (let i = 0; i < str.length; i++) {

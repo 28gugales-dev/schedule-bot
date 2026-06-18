@@ -1,14 +1,10 @@
-// Client-side PDF text extraction via pdf.js. Only works for text-based
-// PDFs (not scanned images) - no OCR/backend involved.
-
+// Client-side PDF text extraction via pdf.js (text-based PDFs only, no OCR).
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-// pdf.js text items carry a position transform but no explicit line breaks;
-// the transcript parser is line-based, so reconstruct rows by inserting a
-// newline whenever an item's y-position drops vs. the previous item.
+// Reconstructs line breaks from glyph y-position (pdf.js gives no explicit ones).
 function itemsToLines(items) {
   let lines = ''
   let lastY = null

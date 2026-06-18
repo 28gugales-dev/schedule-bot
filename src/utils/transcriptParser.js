@@ -1,12 +1,4 @@
-// Heuristic line-based parser for the raw text pulled off a (PDF or pasted)
-// high-school transcript. Tuned to the common "Course Mark Weight Credit"
-// table layout: a school header, a table header row, a term line, then one
-// or more course rows (which may wrap the course name across lines before
-// the trailing mark/weight/credit numbers appear).
-//
-// Output feeds the rule engine (completed courses + current grade) and the
-// "recognized courses" UI (exact vs Levenshtein-fuzzy matches).
-
+// Heuristic line-based parser for transcript text (handles wrapped course-name lines).
 import { matchCourseName } from './courseCatalog.js'
 
 const TERM_LINE = /^\d{4}-\d{4}\s+Grade\s+\d+\s+Term\s+\d+/i
@@ -49,8 +41,7 @@ export function parseTranscriptText(rawText) {
   const studentGrade = gradeMatch ? Number(gradeMatch[1]) : null
   const gpa = gpaMatch ? Number(gpaMatch[1]) : null
 
-  // Attendance table's "Total:" row: School Years | Calendar Days | Member
-  // Days | Absent Days | Tardy Days — e.g. "Total: 2 356 356 4.00 2".
+  // Attendance "Total:" row: Years | Calendar Days | Member Days | Absent Days | Tardy.
   const attendanceMatch = rawText.match(/Total:\s*\d+\s+\d+\s+(\d+)\s+([\d.]+)\s+\d+/)
   let attendanceRate = null
   if (attendanceMatch) {

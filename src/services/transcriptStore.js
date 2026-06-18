@@ -1,9 +1,4 @@
-// localStorage-backed persistence for previously uploaded transcripts and
-// course lists, keyed by student id (AuthProvider's demo user id today;
-// swaps for a real `student_documents` table once Supabase lands). Lets the
-// intake wizard offer "Found a previous transcript — Apply?" on a later
-// waiver request without re-uploading.
-
+// localStorage-backed persistence for previously uploaded transcripts/course lists.
 const KEY_PREFIX = 'waiver_docs_v1'
 
 function storageKey(studentId, kind) {

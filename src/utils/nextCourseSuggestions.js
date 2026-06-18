@@ -1,7 +1,4 @@
-// Bonus, non-blocking panel data: BFS over the prerequisite graph from a
-// student's completed courses to surface what they're now eligible for.
-// Informational only - does not gate any waiver flow.
-
+// Bonus/informational: BFS over the prereq graph for "now eligible for" suggestions.
 import { getCourseCatalog, getCourseByName } from './courseCatalog.js'
 import { checkEligibility } from './ruleEngine.js'
 

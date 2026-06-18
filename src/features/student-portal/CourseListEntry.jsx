@@ -1,12 +1,7 @@
 import { useRef, useState } from 'react'
 import { matchCourseName, suggestCourseNames } from '../../utils/courseCatalog.js'
 
-// Seven boxes by default (a typical school day's periods), with a "+" to add
-// extra rows for special cases (e.g. a zero period or a split block) and a
-// "−" to remove those extras. Left = what the student typed; right = what
-// word-level + Levenshtein fuzzy matching against the catalog resolved it
-// to, live. A type-ahead dropdown under each box suggests catalog titles
-// while typing.
+// Seven course boxes by default, with +/- to add/remove and a type-ahead match dropdown.
 const BASE_ROWS = 7
 
 function MatchBadge({ raw, match }) {
@@ -50,9 +45,7 @@ export function CourseListEntry({ values, onChange }) {
     setOpenIndex(null)
   }
 
-  // A blur on row i should only close row i's dropdown — without the guard,
-  // a stale timer from blurring row A can fire after row B has already
-  // focused and opened its own dropdown, incorrectly closing B's.
+  // Only close row i's dropdown — guards against a stale timer from another row.
   const handleBlur = (i) => {
     blurTimer.current = setTimeout(() => {
       setOpenIndex((current) => (current === i ? null : current))

@@ -1,8 +1,4 @@
-// Parses a "course list" document (current/planned courses, one per line or
-// comma/semicolon separated, optionally with a trailing period/section code)
-// into canonical catalog names via the same exact-then-Levenshtein matching
-// used for transcripts.
-
+// Parses a course-list document into canonical catalog names.
 import { matchCourseName } from './courseCatalog.js'
 
 export function parseCourseListText(rawText) {

@@ -1,25 +1,10 @@
-// ============================================================================
-// REAL (NON-AI) IMPLEMENTATION
-// ============================================================================
-// These two functions used to be intentional stubs (NotImplementedError).
-// They're now backed by deterministic, rule-based logic: transcript text ->
-// structured data (transcriptParser.js + courseCatalog.js), then structured
-// data -> a recommendation (ruleEngine.js against the active rubric + any
-// requested course swap). No AI/ML involved anywhere in this path.
-// ============================================================================
-
+// Deterministic, rule-based implementations — no AI/ML involved.
 import { parseTranscriptText } from './transcriptParser.js'
 import { getCourseByName } from './courseCatalog.js'
 import { checkEligibility } from './ruleEngine.js'
 import { checkSeatAvailability } from './seatAvailability.js'
 
-/**
- * Parse a student's transcript text into structured course/grade data.
- *
- * @param {string} transcriptText - raw text extracted from the uploaded
- *   transcript (via pdfText.js) or pasted directly.
- * @returns {object} { gpa, studentGrade, attendanceRate, courses: Array<{name, mark, credit, term}>, completed: Set<string> }
- */
+// Parses transcript text into structured course/grade/attendance data.
 export function parseTranscriptData(transcriptText) {
   const { studentGrade, gpa, attendanceRate, completedCourses, recognized, unrecognized } = parseTranscriptText(transcriptText)
   const courses = [...completedCourses.entries()].map(([name, info]) => ({ name, ...info }))
@@ -34,25 +19,9 @@ export function parseTranscriptData(transcriptText) {
   }
 }
 
-/**
- * Evaluate parsed student data against the active rubric criteria (and, if
- * present, a requested course swap) and return a recommendation.
- *
- * Every enabled rubric criterion is backed by a real, derivable signal where
- * one exists (GPA off the transcript, attendance off the transcript's
- * attendance table, prior-credit quality off the recorded mark, seat
- * availability for a "no schedule conflict" check, …). Where no real signal
- * exists yet (e.g. add/drop deadline data), the check is reported as
- * unverifiable (`passed: null`) rather than silently skipped or guessed —
- * unverifiable checks are excluded from the confidence ratio instead of
- * counting against (or for) the student.
- *
- * @param {object} studentData - output of parseTranscriptData, plus optional
- *   { fromCourse, toCourse, missingDocs } describing the requested swap and
- *   any required documents the submission is missing.
- * @param {Array<object>} criteria - active rubric from fetchRubricCriteria().
- * @returns {object} { decision: 'admit'|'deny'|'review', confidence, reason, checks }
- */
+// Evaluates parsed student data + an optional course swap against the active
+// rubric. Unverifiable criteria (no real data source) report passed: null
+// and are excluded from the confidence ratio rather than guessed.
 export function evaluateAgainstRubric(studentData, criteria) {
   const student = { currentGrade: studentData.studentGrade, completed: studentData.completed ?? new Set() }
   const checks = []
@@ -84,9 +53,6 @@ export function evaluateAgainstRubric(studentData, criteria) {
         break
       }
       case 'prior-credit': {
-        // "Equivalent credit on file": prefer the actual prerequisite's
-        // recorded mark; fall back to "any passing mark on the transcript"
-        // when no specific course is being requested.
         const prereqName = swapCourse?.prerequisite
         const record = prereqName ? (studentData.courses ?? []).find((c) => c.name === prereqName) : null
         const courses = studentData.courses ?? []

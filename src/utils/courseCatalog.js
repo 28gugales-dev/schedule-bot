@@ -1,8 +1,4 @@
-// Parses courses.tsv (Course / Minimum Grade / Prerequisite) into a catalog
-// and a directed prerequisite graph: edge prerequisite -> course means
-// "course requires prerequisite". Exposes Kahn's-algorithm topological
-// ordering for "what's unlocked next" queries.
-
+// Parses courses.tsv into a catalog + directed prerequisite graph.
 import coursesTsv from '../../courses.tsv?raw'
 import { bestFuzzyMatch, rankByRelevance } from './levenshtein.js'
 
@@ -53,11 +49,7 @@ export function getCourseByName(name) {
   return _byName.get(name) ?? null
 }
 
-/**
- * Resolve a raw/free-text course name (e.g. parsed off a transcript) to the
- * canonical catalog entry. Exact match wins; otherwise falls back to
- * Levenshtein similarity.
- */
+// Resolves a raw/free-text course name to the canonical catalog entry.
 export function matchCourseName(rawName, threshold = 0.55) {
   ensureLoaded()
   if (!rawName) return null
@@ -67,20 +59,13 @@ export function matchCourseName(rawName, threshold = 0.55) {
   return { course: _byName.get(result.match), similarity: result.similarity, exact: result.exact }
 }
 
-/**
- * Type-ahead suggestions for a partial, in-progress course name (used by the
- * course-list text boxes' autocomplete dropdown).
- */
+// Type-ahead suggestions for the course-list text boxes' autocomplete.
 export function suggestCourseNames(query, limit = 6) {
   ensureLoaded()
   return rankByRelevance(query, _catalog.map((c) => c.name), limit)
 }
 
-/**
- * Kahn's algorithm: topologically order the full prerequisite graph.
- * Returns courses in an order where every prerequisite appears before the
- * course(s) that depend on it.
- */
+// Kahn's algorithm: topologically orders the full prerequisite graph.
 export function topologicalOrder() {
   ensureLoaded()
   const inDegree = new Map(_catalog.map((c) => [c.name, 0]))
@@ -105,11 +90,7 @@ export function topologicalOrder() {
   return order
 }
 
-/**
- * Given the set of courses a student has completed, return the courses that
- * are now unlocked (prerequisite satisfied) but not yet completed -
- * i.e. one BFS/Kahn layer past what they've done.
- */
+// Courses now unlocked (prerequisite satisfied) but not yet completed.
 export function getUnlockedCourses(completedNames) {
   ensureLoaded()
   const completed = completedNames instanceof Set ? completedNames : new Set(completedNames)
