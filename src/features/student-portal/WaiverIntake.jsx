@@ -45,7 +45,6 @@ function WizardSteps({ current, onStepClick }) {
 
 export function WaiverIntake() {
   const [step, setStep] = useState(0)
-  const [transcript, setTranscript] = useState([])
   const [courseList, setCourseList] = useState([])
   const [supporting, setSupporting] = useState([])
   const [waivers, setWaivers] = useState([])
@@ -80,7 +79,7 @@ export function WaiverIntake() {
   // Step gating: docs step needs both required uploads; waiver step needs a pick.
   const canAdvance =
     step === 0
-      ? transcript.length > 0 && courseList.length > 0
+      ? courseList.length > 0
       : step === 1
         ? Boolean(selectedWaiverId)
         : true
@@ -88,7 +87,7 @@ export function WaiverIntake() {
   // Why "Continue" is disabled — surfaced to the user instead of a dead button.
   const advanceHint =
     step === 0
-      ? 'Upload your transcript and course list to continue.'
+      ? 'Upload your course list to continue.'
       : step === 1
         ? 'Select a waiver type to continue.'
         : ''
@@ -101,7 +100,6 @@ export function WaiverIntake() {
       // ({name, size, docType}). File objects are never mutated — docType is
       // assigned here, at the seam, from which list each file came.
       const docs = [
-        ...transcript.map((f) => ({ name: f.name, size: f.size, docType: 'transcript' })),
         ...courseList.map((f) => ({ name: f.name, size: f.size, docType: 'course-list' })),
         ...supporting.map((f) => ({ name: f.name, size: f.size, docType: 'supporting' })),
       ]
@@ -118,11 +116,10 @@ export function WaiverIntake() {
     } finally {
       setSubmitting(false)
     }
-  }, [transcript, courseList, supporting, selectedWaiverId, note])
+  }, [courseList, supporting, selectedWaiverId, note])
 
   const reset = () => {
     setStep(0)
-    setTranscript([])
     setCourseList([])
     setSupporting([])
     setSelectedWaiverId(null)
@@ -184,24 +181,26 @@ export function WaiverIntake() {
 
       {step === 0 && (
         <div className="glass-card space-y-6 p-5">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <UploadZone
-              label="Transcript (PDF)"
-              hint="Required. Your official or unofficial transcript."
-              docType="transcript"
-              accept=".pdf"
-              files={transcript}
-              onFilesChange={setTranscript}
-            />
-            <UploadZone
-              label="Course list"
-              hint="Required. PDF, CSV or XLSX of your current/planned courses."
-              docType="course-list"
-              accept=".pdf,.csv,.xlsx"
-              files={courseList}
-              onFilesChange={setCourseList}
-            />
+          <div className="flex items-start gap-2.5 rounded-lg bg-brand-50 px-3 py-2.5 text-sm text-brand-700 ring-1 ring-brand-100 dark:text-brand-300">
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className="mt-0.5 shrink-0" aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>Your transcript is pulled automatically from the district SIS (OneRoster) — no upload needed.</span>
           </div>
+          <UploadZone
+            label="Course list"
+            hint="Required. PDF, CSV or XLSX of your current/planned courses."
+            docType="course-list"
+            accept=".pdf,.csv,.xlsx"
+            files={courseList}
+            onFilesChange={setCourseList}
+          />
           <UploadZone
             label="Supporting documents"
             hint="Optional. Add any extra files to support your request."
@@ -239,7 +238,7 @@ export function WaiverIntake() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Transcript</dt>
-                <dd className="font-medium text-ink">{transcript.length ? transcript[0].name : '—'}</dd>
+                <dd className="font-medium text-muted">Pulled from district SIS</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Course list</dt>

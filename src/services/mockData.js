@@ -13,7 +13,7 @@ export const WAIVER_TYPES = [
     name: 'Prerequisite Override',
     description: 'Skip a listed prerequisite when prior coursework or scores cover it.',
     active: true,
-    requiredDocs: ['transcript', 'courseList'],
+    requiredDocs: ['courseList'],
   },
   {
     id: 'schedule-conflict',
@@ -27,21 +27,21 @@ export const WAIVER_TYPES = [
     name: 'Credit Recovery',
     description: 'Recover credit for a failed course via an alternate path.',
     active: true,
-    requiredDocs: ['transcript', 'supporting'],
+    requiredDocs: ['supporting'],
   },
   {
     id: 'ap-entry',
     name: 'Advanced Placement Entry',
     description: 'Enter an AP course without the standard gating sequence.',
     active: false,
-    requiredDocs: ['transcript'],
+    requiredDocs: [],
   },
   {
     id: 'grad-substitution',
     name: 'Graduation Requirement Substitution',
     description: 'Substitute an equivalent course for a graduation requirement.',
     active: true,
-    requiredDocs: ['transcript', 'courseList', 'supporting'],
+    requiredDocs: ['courseList', 'supporting'],
   },
   {
     id: 'late-add-drop',
@@ -85,7 +85,6 @@ export const REVIEW_QUEUE = [
     waiverTypeId: 'prereq-override',
     submittedAt: '2026-06-15T14:20:00Z',
     documents: [
-      { type: 'transcript', name: 'ava_transcript.pdf', url: '/mock/ava_transcript.pdf' },
       { type: 'courseList', name: 'ava_courses.pdf', url: '/mock/ava_courses.pdf' },
     ],
     courseList: ['Algebra II', 'Chemistry', 'AP US History', 'Spanish III', 'PE'],
@@ -98,7 +97,6 @@ export const REVIEW_QUEUE = [
     waiverTypeId: 'credit-recovery',
     submittedAt: '2026-06-15T16:05:00Z',
     documents: [
-      { type: 'transcript', name: 'liam_transcript.pdf', url: '/mock/liam_transcript.pdf' },
       { type: 'supporting', name: 'liam_appeal.pdf', url: '/mock/liam_appeal.pdf' },
     ],
     courseList: ['English 12', 'Pre-Calculus', 'Biology', 'World History'],
@@ -123,7 +121,6 @@ export const REVIEW_QUEUE = [
     waiverTypeId: 'grad-substitution',
     submittedAt: '2026-06-14T10:15:00Z',
     documents: [
-      { type: 'transcript', name: 'jordan_transcript.pdf', url: '/mock/jordan_transcript.pdf' },
       { type: 'courseList', name: 'jordan_courses.pdf', url: '/mock/jordan_courses.pdf' },
       { type: 'supporting', name: 'jordan_memo.pdf', url: '/mock/jordan_memo.pdf' },
     ],
@@ -160,9 +157,7 @@ export const REVIEW_QUEUE = [
     student: { name: 'Isabella Fontaine', id: 'S-48962', grade: 10, gpa: 3.85 },
     waiverTypeId: 'ap-entry',
     submittedAt: '2026-06-14T15:30:00Z',
-    documents: [
-      { type: 'transcript', name: 'isabella_transcript.pdf', url: '/mock/isabella_transcript.pdf' },
-    ],
+    documents: [],
     courseList: ['AP English Language', 'Honors Biology', 'Algebra II', 'World History', 'Spanish II'],
     studentNote: 'Completed 9th-grade English with A; ready for AP challenge in 10th grade.',
     recommendation: { decision: 'deny', confidence: 0.55, reason: 'AP course not currently accepting 10th-grade entries per department policy.' },
@@ -173,7 +168,6 @@ export const REVIEW_QUEUE = [
     waiverTypeId: 'credit-recovery',
     submittedAt: '2026-06-16T08:00:00Z',
     documents: [
-      { type: 'transcript', name: 'tyler_transcript.pdf', url: '/mock/tyler_transcript.pdf' },
       { type: 'supporting', name: 'tyler_summer_plan.pdf', url: '/mock/tyler_summer_plan.pdf' },
     ],
     courseList: ['Precalc', 'Chemistry', 'English 11', 'AP US History', 'Weight Training'],
@@ -210,7 +204,6 @@ export const REVIEW_QUEUE = [
     waiverTypeId: 'prereq-override',
     submittedAt: '2026-06-16T10:25:00Z',
     documents: [
-      { type: 'transcript', name: 'hannah_transcript.pdf', url: '/mock/hannah_transcript.pdf' },
       { type: 'courseList', name: 'hannah_courses.pdf', url: '/mock/hannah_courses.pdf' },
     ],
     courseList: ['Honors Chemistry', 'Geometry', 'English 10', 'World History', 'French II'],
@@ -252,7 +245,7 @@ export const SEED_SUBMISSIONS = [
     submittedAt: '2026-06-16T15:20:00Z',
     studentNote: 'Completed Statistics at community college last summer; ready for AP Bio.',
     documents: [
-      { name: 'stats_transcript.pdf', type: 'transcript', size: 284512, url: '/mock/stats_transcript.pdf' },
+      { name: 'ava_courses.pdf', type: 'courseList', size: 156890, url: '/mock/ava_courses.pdf' },
     ],
   },
   {
@@ -273,7 +266,6 @@ export const SEED_SUBMISSIONS = [
     studentNote: 'Failed English 10 freshman year; retaking online and ready to submit proof.',
     documents: [
       { name: 'recovery_plan.pdf', type: 'supporting', size: 342105, url: '/mock/recovery_plan.pdf' },
-      { name: 'transcript.pdf', type: 'transcript', size: 295671, url: '/mock/transcript.pdf' },
     ],
   },
   {
@@ -323,153 +315,367 @@ export const SEED_SUBMISSIONS = [
 // below) is the OUTPUT of `evaluateAgainstRubric` — served as data so the
 // algorithm seam in utils/schedulingLogic.js stays an intentional stub.
 export const ONE_ROSTER = {
+  // Ava Thompson — gr11, gpa 3.42. Completed: gr9 (2023–24), gr10 (2024–25).
   'S-48213': {
     studentId: 'S-48213', gpa: 3.42, attendanceRate: 96, gradeLevel: 11,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Honors Geometry (Mercer Community College)', grade: 'A', term: 'Summer 2025' },
-      { name: 'Algebra I', grade: 'A-', term: 'Fall 2024' },
-      { name: 'English 10', grade: 'B+', term: 'Spring 2025' },
+      // Grade 9 — 2023–24
+      { name: 'English 9', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'Algebra I', grade: 'A-', gradeYear: 9, term: '2023–24' },
+      { name: 'Physical Science', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'World Cultures', grade: 'A-', gradeYear: 9, term: '2023–24' },
+      { name: 'Spanish I', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2023–24' },
+      { name: 'Art I', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      // Grade 10 — 2024–25
+      { name: 'English 10', grade: 'B+', gradeYear: 10, term: '2024–25' },
+      { name: 'Honors Geometry (Mercer Community College)', grade: 'A', gradeYear: 10, term: 'Summer 2025' },
+      { name: 'Biology', grade: 'B+', gradeYear: 10, term: '2024–25' },
+      { name: 'World History', grade: 'B', gradeYear: 10, term: '2024–25' },
+      { name: 'Spanish II', grade: 'A-', gradeYear: 10, term: '2024–25' },
+      { name: 'Health', grade: 'A', gradeYear: 10, term: '2024–25' },
+      { name: 'Photography', grade: 'B+', gradeYear: 10, term: '2024–25' },
     ],
+    // Grade 11 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Algebra II', period: 2 }, { course: 'Chemistry', period: 3 },
-      { course: 'AP US History', period: 4 }, { course: 'Spanish III', period: 5 },
+      { course: 'English 11', period: 1 },
+      { course: 'Algebra II', period: 2 },
+      { course: 'Chemistry', period: 3 },
+      { course: 'AP US History', period: 4 },
+      { course: 'Spanish III', period: 5 },
       { course: 'PE', period: 6 },
+      { course: 'Journalism', period: 7 },
     ],
   },
+  // Liam Park — gr12, gpa 2.18. Completed: gr9 (2022–23), gr10 (2023–24), gr11 (2024–25).
   'S-50127': {
     studentId: 'S-50127', gpa: 2.18, attendanceRate: 79, gradeLevel: 12,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'English 11', grade: 'F', term: 'Spring 2025' },
-      { name: 'Algebra II', grade: 'C-', term: 'Fall 2024' },
+      // Grade 9 — 2022–23
+      { name: 'English 9', grade: 'C+', gradeYear: 9, term: '2022–23' },
+      { name: 'Algebra I', grade: 'C', gradeYear: 9, term: '2022–23' },
+      { name: 'Physical Science', grade: 'D+', gradeYear: 9, term: '2022–23' },
+      { name: 'World Cultures', grade: 'C', gradeYear: 9, term: '2022–23' },
+      { name: 'Spanish I', grade: 'D', gradeYear: 9, term: '2022–23' },
+      { name: 'PE 9', grade: 'B', gradeYear: 9, term: '2022–23' },
+      { name: 'Art I', grade: 'C+', gradeYear: 9, term: '2022–23' },
+      // Grade 10 — 2023–24
+      { name: 'English 10', grade: 'C+', gradeYear: 10, term: '2023–24' },
+      { name: 'Geometry', grade: 'C', gradeYear: 10, term: '2023–24' },
+      { name: 'Biology', grade: 'D+', gradeYear: 10, term: '2023–24' },
+      { name: 'World History', grade: 'C+', gradeYear: 10, term: '2023–24' },
+      { name: 'Health', grade: 'B-', gradeYear: 10, term: '2023–24' },
+      { name: 'Study Hall', grade: 'P', gradeYear: 10, term: '2023–24' },
+      { name: 'Computer Applications', grade: 'C', gradeYear: 10, term: '2023–24' },
+      // Grade 11 — 2024–25
+      { name: 'English 11', grade: 'F', gradeYear: 11, term: '2024–25' },
+      { name: 'Algebra II', grade: 'C-', gradeYear: 11, term: '2024–25' },
+      { name: 'Chemistry', grade: 'D', gradeYear: 11, term: '2024–25' },
+      { name: 'US History', grade: 'C', gradeYear: 11, term: '2024–25' },
+      { name: 'Spanish II', grade: 'D+', gradeYear: 11, term: '2024–25' },
+      { name: 'PE', grade: 'C+', gradeYear: 11, term: '2024–25' },
+      { name: 'Study Hall', grade: 'P', gradeYear: 11, term: '2024–25' },
     ],
+    // Grade 12 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'English 12', period: 1 }, { course: 'Pre-Calculus', period: 3 },
-      { course: 'Biology', period: 4 }, { course: 'World History', period: 5 },
+      { course: 'English 12', period: 1 },
+      { course: 'Pre-Calculus', period: 2 },
+      { course: 'Biology', period: 3 },
+      { course: 'World History', period: 4 },
+      { course: 'Spanish III', period: 5 },
+      { course: 'PE', period: 6 },
+      { course: 'Study Hall', period: 7 },
     ],
   },
+  // Maya Rodriguez — gr10, gpa 3.91. Completed: gr9 (2024–25).
   'S-47788': {
     studentId: 'S-47788', gpa: 3.91, attendanceRate: 98, gradeLevel: 10,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Honors Biology', grade: 'A', term: 'Spring 2025' },
-      { name: 'Geometry', grade: 'A', term: 'Fall 2024' },
+      // Grade 9 — 2024–25
+      { name: 'English 9 (Honors)', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Geometry', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Honors Biology', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'World Cultures (Honors)', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'French I', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Band', grade: 'A', gradeYear: 9, term: '2024–25' },
     ],
+    // Grade 10 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'AP Biology', period: 4 }, { course: 'Band', period: 4 },
-      { course: 'Honors English', period: 2 }, { course: 'Geometry', period: 1 },
-      { course: 'French II', period: 5 },
+      { course: 'Honors English 10', period: 2 },
+      { course: 'Algebra II (Honors)', period: 3 },
+      { course: 'AP Biology', period: 4 },
+      { course: 'World History (Honors)', period: 5 },
+      { course: 'French II', period: 6 },
+      { course: 'Health', period: 7 },
+      { course: 'Band', period: 1 },
     ],
   },
+  // Jordan Kim — gr12, gpa 3.67. Completed: gr9 (2022–23), gr10 (2023–24), gr11 (2024–25).
   'S-51834': {
     studentId: 'S-51834', gpa: 3.67, attendanceRate: 94, gradeLevel: 12,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'AP Computer Science A', grade: 'A', term: 'Spring 2025' },
-      { name: 'Calculus AB', grade: 'B+', term: 'Fall 2024' },
+      // Grade 9 — 2022–23
+      { name: 'English 9 (Honors)', grade: 'A-', gradeYear: 9, term: '2022–23' },
+      { name: 'Geometry (Honors)', grade: 'A', gradeYear: 9, term: '2022–23' },
+      { name: 'Biology', grade: 'A-', gradeYear: 9, term: '2022–23' },
+      { name: 'World Cultures', grade: 'B+', gradeYear: 9, term: '2022–23' },
+      { name: 'Spanish I', grade: 'A', gradeYear: 9, term: '2022–23' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2022–23' },
+      { name: 'Computer Science Principles', grade: 'A', gradeYear: 9, term: '2022–23' },
+      // Grade 10 — 2023–24
+      { name: 'English 10 (Honors)', grade: 'A-', gradeYear: 10, term: '2023–24' },
+      { name: 'Algebra II', grade: 'A', gradeYear: 10, term: '2023–24' },
+      { name: 'Chemistry', grade: 'B+', gradeYear: 10, term: '2023–24' },
+      { name: 'World History', grade: 'A-', gradeYear: 10, term: '2023–24' },
+      { name: 'Spanish II', grade: 'B+', gradeYear: 10, term: '2023–24' },
+      { name: 'Health', grade: 'A', gradeYear: 10, term: '2023–24' },
+      { name: 'AP Computer Science A', grade: 'A', gradeYear: 10, term: '2023–24' },
+      // Grade 11 — 2024–25
+      { name: 'AP English Language', grade: 'B+', gradeYear: 11, term: '2024–25' },
+      { name: 'Pre-Calculus', grade: 'A-', gradeYear: 11, term: '2024–25' },
+      { name: 'AP Computer Science A', grade: 'A', gradeYear: 11, term: '2024–25' },
+      { name: 'AP US History', grade: 'B+', gradeYear: 11, term: '2024–25' },
+      { name: 'Spanish III', grade: 'A-', gradeYear: 11, term: '2024–25' },
+      { name: 'PE', grade: 'A', gradeYear: 11, term: '2024–25' },
+      { name: 'Calculus AB', grade: 'B+', gradeYear: 11, term: '2024–25' },
     ],
+    // Grade 12 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'AP Computer Science', period: 1 }, { course: 'Calculus AB', period: 2 },
-      { course: 'Physics', period: 3 }, { course: 'English 12', period: 4 },
-      { course: 'History', period: 5 },
+      { course: 'AP Computer Science', period: 1 },
+      { course: 'AP Calculus BC', period: 2 },
+      { course: 'AP Physics 1', period: 3 },
+      { course: 'AP English Literature', period: 4 },
+      { course: 'Government & Economics', period: 5 },
+      { course: 'Spanish IV', period: 6 },
+      { course: 'Independent Study: CS Project', period: 7 },
     ],
   },
+  // Sophia Martinez — gr9, gpa 2.81. No completed years (currently in gr9).
   'S-49276': {
     studentId: 'S-49276', gpa: 2.81, attendanceRate: 91, gradeLevel: 9,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
-    completedCourses: [
-      { name: 'Art Foundations', grade: 'B', term: 'Fall 2025' },
-    ],
+    completedCourses: [],
+    // Grade 9 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Algebra I', period: 1 }, { course: 'World Cultures', period: 2 },
-      { course: 'English 9', period: 3 }, { course: 'Physical Science', period: 4 },
-      { course: 'Art', period: 5 },
+      { course: 'Algebra I', period: 1 },
+      { course: 'World Cultures', period: 2 },
+      { course: 'English 9', period: 3 },
+      { course: 'Physical Science', period: 4 },
+      { course: 'Spanish I', period: 5 },
+      { course: 'PE 9', period: 6 },
+      { course: 'Art I', period: 7 },
     ],
   },
+  // Marcus Chen — gr11, gpa 3.28. Completed: gr9 (2023–24), gr10 (2024–25).
   'S-52051': {
     studentId: 'S-52051', gpa: 3.28, attendanceRate: 95, gradeLevel: 11,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Algebra II', grade: 'A-', term: 'Spring 2025' },
-      { name: 'Geometry', grade: 'B+', term: 'Fall 2024' },
+      // Grade 9 — 2023–24
+      { name: 'English 9', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'Algebra I', grade: 'A-', gradeYear: 9, term: '2023–24' },
+      { name: 'Physical Science', grade: 'B', gradeYear: 9, term: '2023–24' },
+      { name: 'World Cultures', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'Spanish I', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2023–24' },
+      { name: 'Band', grade: 'A', gradeYear: 9, term: '2023–24' },
+      // Grade 10 — 2024–25
+      { name: 'English 10', grade: 'B+', gradeYear: 10, term: '2024–25' },
+      { name: 'Geometry', grade: 'B+', gradeYear: 10, term: '2024–25' },
+      { name: 'Biology', grade: 'B', gradeYear: 10, term: '2024–25' },
+      { name: 'World History', grade: 'A-', gradeYear: 10, term: '2024–25' },
+      { name: 'Spanish II', grade: 'B', gradeYear: 10, term: '2024–25' },
+      { name: 'Health', grade: 'A', gradeYear: 10, term: '2024–25' },
+      { name: 'Algebra II', grade: 'A-', gradeYear: 10, term: '2024–25' },
     ],
+    // Grade 11 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'AP Statistics', period: 2 }, { course: 'Chemistry II', period: 3 },
-      { course: 'English 11', period: 4 }, { course: 'US History', period: 5 },
-      { course: 'Study Hall', period: 6 },
+      { course: 'English 11', period: 1 },
+      { course: 'AP Statistics', period: 2 },
+      { course: 'Chemistry', period: 3 },
+      { course: 'AP US History', period: 4 },
+      { course: 'Spanish III', period: 5 },
+      { course: 'PE', period: 6 },
+      { course: 'Study Hall', period: 7 },
     ],
   },
+  // Isabella Fontaine — gr10, gpa 3.85. Completed: gr9 (2024–25).
   'S-48962': {
     studentId: 'S-48962', gpa: 3.85, attendanceRate: 97, gradeLevel: 10,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'English 9 (Honors)', grade: 'A', term: 'Spring 2025' },
+      // Grade 9 — 2024–25
+      { name: 'English 9 (Honors)', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Geometry', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'Biology (Honors)', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'World Cultures', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Spanish I', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'Orchestra', grade: 'A', gradeYear: 9, term: '2024–25' },
     ],
+    // Grade 10 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'AP English Language', period: 1 }, { course: 'Honors Biology', period: 2 },
-      { course: 'Algebra II', period: 3 }, { course: 'World History', period: 4 },
+      { course: 'AP English Language', period: 1 },
+      { course: 'Honors Biology', period: 2 },
+      { course: 'Algebra II (Honors)', period: 3 },
+      { course: 'World History (Honors)', period: 4 },
       { course: 'Spanish II', period: 5 },
+      { course: 'Health', period: 6 },
+      { course: 'Orchestra', period: 7 },
     ],
   },
+  // Tyler Jackson — gr11, gpa 2.94. Completed: gr9 (2023–24), gr10 (2024–25).
+  // Note: Geometry F and Algebra I C are preserved from original data (gr9).
   'S-49847': {
     studentId: 'S-49847', gpa: 2.94, attendanceRate: 88, gradeLevel: 11,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Geometry', grade: 'F', term: 'Spring 2024' },
-      { name: 'Algebra I', grade: 'C', term: 'Fall 2023' },
+      // Grade 9 — 2023–24
+      { name: 'English 9', grade: 'C+', gradeYear: 9, term: '2023–24' },
+      { name: 'Algebra I', grade: 'C', gradeYear: 9, term: '2023–24' },
+      { name: 'Physical Science', grade: 'C+', gradeYear: 9, term: '2023–24' },
+      { name: 'World Cultures', grade: 'B-', gradeYear: 9, term: '2023–24' },
+      { name: 'Spanish I', grade: 'B', gradeYear: 9, term: '2023–24' },
+      { name: 'PE 9', grade: 'B+', gradeYear: 9, term: '2023–24' },
+      { name: 'Geometry', grade: 'F', gradeYear: 9, term: '2023–24' },
+      // Grade 10 — 2024–25
+      { name: 'English 10', grade: 'B-', gradeYear: 10, term: '2024–25' },
+      { name: 'Geometry (Retake)', grade: 'C+', gradeYear: 10, term: '2024–25' },
+      { name: 'Biology', grade: 'C+', gradeYear: 10, term: '2024–25' },
+      { name: 'World History', grade: 'B', gradeYear: 10, term: '2024–25' },
+      { name: 'Spanish II', grade: 'B-', gradeYear: 10, term: '2024–25' },
+      { name: 'Health', grade: 'B', gradeYear: 10, term: '2024–25' },
+      { name: 'Algebra II', grade: 'C', gradeYear: 10, term: '2024–25' },
     ],
+    // Grade 11 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Precalc', period: 2 }, { course: 'Chemistry', period: 3 },
-      { course: 'English 11', period: 4 }, { course: 'AP US History', period: 5 },
+      { course: 'English 11', period: 1 },
+      { course: 'Pre-Calculus', period: 2 },
+      { course: 'Chemistry', period: 3 },
+      { course: 'AP US History', period: 4 },
+      { course: 'Spanish III', period: 5 },
       { course: 'Weight Training', period: 6 },
+      { course: 'Study Hall', period: 7 },
     ],
   },
+  // Piper Okonkwo — gr9, gpa 3.73. No completed years (currently in gr9).
   'S-50683': {
     studentId: 'S-50683', gpa: 3.73, attendanceRate: 93, gradeLevel: 9,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [],
+    // Grade 9 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Algebra I', period: 1 }, { course: 'English 9', period: 2 },
-      { course: 'Biology', period: 3 }, { course: 'World Cultures', period: 4 },
+      { course: 'Algebra I', period: 1 },
+      { course: 'English 9', period: 2 },
+      { course: 'Biology', period: 3 },
+      { course: 'World Cultures', period: 4 },
       { course: 'Spanish I', period: 5 },
+      { course: 'PE 9', period: 6 },
+      { course: 'Orchestra', period: 7 },
     ],
   },
+  // Asher Wells — gr12, gpa 3.15. Completed: gr9 (2022–23), gr10 (2023–24), gr11 (2024–25).
   'S-51205': {
     studentId: 'S-51205', gpa: 3.15, attendanceRate: 90, gradeLevel: 12,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Pre-Calculus', grade: 'B', term: 'Spring 2025' },
+      // Grade 9 — 2022–23
+      { name: 'English 9', grade: 'B', gradeYear: 9, term: '2022–23' },
+      { name: 'Algebra I', grade: 'B+', gradeYear: 9, term: '2022–23' },
+      { name: 'Physical Science', grade: 'B', gradeYear: 9, term: '2022–23' },
+      { name: 'World Cultures', grade: 'B+', gradeYear: 9, term: '2022–23' },
+      { name: 'Spanish I', grade: 'B', gradeYear: 9, term: '2022–23' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2022–23' },
+      { name: 'Orchestra', grade: 'A', gradeYear: 9, term: '2022–23' },
+      // Grade 10 — 2023–24
+      { name: 'English 10', grade: 'B', gradeYear: 10, term: '2023–24' },
+      { name: 'Geometry', grade: 'B+', gradeYear: 10, term: '2023–24' },
+      { name: 'Biology', grade: 'B-', gradeYear: 10, term: '2023–24' },
+      { name: 'World History', grade: 'B+', gradeYear: 10, term: '2023–24' },
+      { name: 'Spanish II', grade: 'B', gradeYear: 10, term: '2023–24' },
+      { name: 'Health', grade: 'A', gradeYear: 10, term: '2023–24' },
+      { name: 'Orchestra', grade: 'A', gradeYear: 10, term: '2023–24' },
+      // Grade 11 — 2024–25
+      { name: 'English 11', grade: 'B', gradeYear: 11, term: '2024–25' },
+      { name: 'Algebra II', grade: 'B-', gradeYear: 11, term: '2024–25' },
+      { name: 'Chemistry', grade: 'C+', gradeYear: 11, term: '2024–25' },
+      { name: 'US History', grade: 'B+', gradeYear: 11, term: '2024–25' },
+      { name: 'Spanish III', grade: 'B', gradeYear: 11, term: '2024–25' },
+      { name: 'PE', grade: 'A', gradeYear: 11, term: '2024–25' },
+      { name: 'Pre-Calculus', grade: 'B', gradeYear: 11, term: '2024–25' },
     ],
+    // Grade 12 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'AP Calculus AB', period: 3 }, { course: 'Orchestra', period: 3 },
-      { course: 'English 12', period: 1 }, { course: 'Chemistry II', period: 2 },
-      { course: 'World History', period: 4 },
+      { course: 'English 12', period: 1 },
+      { course: 'Chemistry II', period: 2 },
+      { course: 'AP Calculus AB', period: 3 },
+      { course: 'Government & Economics', period: 4 },
+      { course: 'Spanish IV', period: 5 },
+      { course: 'Orchestra', period: 6 },
+      { course: 'Art II', period: 7 },
     ],
   },
+  // Hannah Rodriguez — gr10, gpa 3.56. Completed: gr9 (2024–25), including pre-enrollment summer courses.
   'S-52304': {
     studentId: 'S-52304', gpa: 3.56, attendanceRate: 96, gradeLevel: 10,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Algebra II Honors', grade: 'A', term: 'Summer 2024 (pre-enrollment)' },
-      { name: 'Geometry', grade: 'A-', term: 'Spring 2024' },
+      // Grade 9 — 2024–25 (incl. pre-enrollment summer credits counted toward hs)
+      { name: 'English 9', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'Geometry', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'Algebra II Honors', grade: 'A', gradeYear: 9, term: 'Summer 2024' },
+      { name: 'Biology', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'World Cultures', grade: 'A', gradeYear: 9, term: '2024–25' },
+      { name: 'French I', grade: 'A-', gradeYear: 9, term: '2024–25' },
+      { name: 'PE 9', grade: 'A', gradeYear: 9, term: '2024–25' },
     ],
+    // Grade 10 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Honors Chemistry', period: 1 }, { course: 'Geometry', period: 2 },
-      { course: 'English 10', period: 3 }, { course: 'World History', period: 4 },
+      { course: 'Honors Chemistry', period: 1 },
+      { course: 'Pre-Calculus (Honors)', period: 2 },
+      { course: 'English 10 (Honors)', period: 3 },
+      { course: 'World History (Honors)', period: 4 },
       { course: 'French II', period: 5 },
+      { course: 'Health', period: 6 },
+      { course: 'Orchestra', period: 7 },
     ],
   },
+  // Zachary Brown — gr11, gpa 2.42. Completed: gr9 (2023–24), gr10 (2024–25).
   'S-50456': {
     studentId: 'S-50456', gpa: 2.42, attendanceRate: 82, gradeLevel: 11,
     enrollmentStatus: 'Active', lastSync: '2026-06-17T06:00:00Z',
     completedCourses: [
-      { name: 'Algebra II', grade: 'C', term: 'Spring 2025' },
+      // Grade 9 — 2023–24
+      { name: 'English 9', grade: 'C+', gradeYear: 9, term: '2023–24' },
+      { name: 'Algebra I', grade: 'C', gradeYear: 9, term: '2023–24' },
+      { name: 'Physical Science', grade: 'D+', gradeYear: 9, term: '2023–24' },
+      { name: 'World Cultures', grade: 'C+', gradeYear: 9, term: '2023–24' },
+      { name: 'Spanish I', grade: 'C-', gradeYear: 9, term: '2023–24' },
+      { name: 'PE 9', grade: 'B', gradeYear: 9, term: '2023–24' },
+      { name: 'Art I', grade: 'C+', gradeYear: 9, term: '2023–24' },
+      // Grade 10 — 2024–25
+      { name: 'English 10', grade: 'C+', gradeYear: 10, term: '2024–25' },
+      { name: 'Geometry', grade: 'D+', gradeYear: 10, term: '2024–25' },
+      { name: 'Biology', grade: 'C', gradeYear: 10, term: '2024–25' },
+      { name: 'World History', grade: 'C+', gradeYear: 10, term: '2024–25' },
+      { name: 'Spanish II', grade: 'D', gradeYear: 10, term: '2024–25' },
+      { name: 'Health', grade: 'B-', gradeYear: 10, term: '2024–25' },
+      { name: 'Algebra II', grade: 'C', gradeYear: 10, term: '2024–25' },
     ],
+    // Grade 11 — 2025–26 (in progress)
     currentSchedule: [
-      { course: 'Precalculus', period: 2 }, { course: 'English 11', period: 3 },
-      { course: 'Chemistry', period: 4 }, { course: 'US History', period: 5 },
+      { course: 'English 11', period: 1 },
+      { course: 'Pre-Calculus', period: 2 },
+      { course: 'Chemistry', period: 3 },
+      { course: 'US History', period: 4 },
+      { course: 'Spanish III', period: 5 },
       { course: 'PE', period: 6 },
+      { course: 'Business Essentials', period: 7 },
     ],
   },
 }

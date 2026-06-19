@@ -57,12 +57,12 @@ export function EnterpriseShell({ portal }) {
     <div className="flex min-h-screen bg-canvas text-ink">
       {/* ── Flush, bordered slate sidebar (lg+) ── */}
       <aside
-        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-border bg-canvas lg:flex ${ease} ${
+        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-border bg-surface lg:flex ${ease} ${
           collapsed ? 'w-16' : 'w-56'
         }`}
       >
         {/* Brand row — fixed 56px to align with the topbar's height */}
-        <div className={`flex h-14 shrink-0 items-center border-b border-border ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'}`}>
+        <div className={`flex h-14 shrink-0 items-center ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'}`}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-600 text-[13px] font-semibold text-white">
             W
           </div>
@@ -133,7 +133,7 @@ export function EnterpriseShell({ portal }) {
         </nav>
 
         {/* Footer — role identity + sign out */}
-        <div className="shrink-0 border-t border-border p-2.5">
+        <div className="shrink-0 p-2.5">
           <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2.5'}`}>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-scrim text-[11px] font-semibold text-ink">
               {role === 'admin' ? 'C' : 'S'}

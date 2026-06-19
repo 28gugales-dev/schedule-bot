@@ -52,6 +52,43 @@ const IconAudit = () => (
   </svg>
 )
 
+// ── Audit sub-views (each a sidebar destination of its own) ──────────────────
+const IconActivity = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="2 8 5 8 7 3 9 13 11 8 14 8" />
+  </svg>
+)
+const IconDecision = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 4h12" />
+    <path d="M5 4l-2.5 4a2 2 0 0 0 5 0L5 4Z" />
+    <path d="M11 4l-2.5 4a2 2 0 0 0 5 0L11 4Z" />
+    <line x1="8" y1="2.5" x2="8" y2="13" />
+    <path d="M5.5 13.5h5" />
+  </svg>
+)
+const IconSubmission = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 9.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9.5" />
+    <polyline points="5 6 8 3 11 6" />
+    <line x1="8" y1="3" x2="8" y2="10" />
+  </svg>
+)
+const IconAi = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 2l1.3 3.4L12.7 6.7 9.3 8 8 11.4 6.7 8 3.3 6.7 6.7 5.4 8 2Z" />
+    <path d="M12.5 11.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4Z" />
+  </svg>
+)
+const IconOverview = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="5" height="5" rx="1" />
+    <rect x="9" y="2" width="5" height="5" rx="1" />
+    <rect x="2" y="9" width="5" height="5" rx="1" />
+    <rect x="9" y="9" width="5" height="5" rx="1" />
+  </svg>
+)
+
 export const NAV = {
   student: [
     { to: '/student', label: 'New Request', end: true, section: 'Requests', icon: <IconNewRequest /> },
@@ -61,7 +98,11 @@ export const NAV = {
     { to: '/admin', label: 'Review Queue', end: true, section: 'Review', icon: <IconQueue /> },
     { to: '/admin/rubric', label: 'Rubric Builder', section: 'Review', icon: <IconRubric /> },
     { to: '/admin/batch', label: 'Batch Sync', section: 'Sync', icon: <IconBatch /> },
-    { to: '/admin/audit', label: 'Audit Trail', section: 'Audit', icon: <IconAudit /> },
+    { to: '/admin/audit', label: 'Activity', end: true, section: 'Audit', icon: <IconActivity /> },
+    { to: '/admin/audit/decisions', label: 'Counselor Decisions', section: 'Audit', icon: <IconDecision /> },
+    { to: '/admin/audit/submissions', label: 'Student Submissions', section: 'Audit', icon: <IconSubmission /> },
+    { to: '/admin/audit/ai', label: 'AI Reasoning', section: 'Audit', icon: <IconAi /> },
+    { to: '/admin/audit/overview', label: 'Overview', section: 'Audit', icon: <IconOverview /> },
   ],
 }
 

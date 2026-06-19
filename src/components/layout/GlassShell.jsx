@@ -126,7 +126,7 @@ export function GlassShell({ portal }) {
             </nav>
 
             {/* Footer — current role identity + sign out */}
-            <div className="mt-auto border-t border-highlight py-3">
+            <div className="mt-auto py-3">
               <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2.5 px-1.5'}`}>
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
                   {role === 'admin' ? 'C' : 'S'}

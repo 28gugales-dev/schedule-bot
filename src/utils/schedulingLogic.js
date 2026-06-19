@@ -22,6 +22,12 @@ class NotImplementedError extends Error {
 /**
  * Parse a student's transcript document into structured course/grade data.
  *
+ * NOTE: transcripts are no longer student-uploaded — academic history now comes
+ * structured straight from the district SIS via fetchOneRosterRecord()
+ * (`completedCourses` + `gpa`). This PDF-parsing path is therefore only needed
+ * for out-of-district / transfer transcripts the SIS doesn't hold; for in-SIS
+ * students, feed the OneRoster record into evaluateAgainstRubric() directly.
+ *
  * Expected (future) return shape:
  *   {
  *     gpa: number,

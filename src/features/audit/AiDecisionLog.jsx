@@ -9,6 +9,8 @@ import {
   DecisionPill,
   gridThemeLight,
   gridThemeDark,
+  gridThemeEnterpriseLight,
+  gridThemeEnterpriseDark,
 } from './auditShared.jsx'
 import { AiDecisionDetail } from './AiDecisionDetail.jsx'
 
@@ -29,14 +31,20 @@ function ConfidenceBar({ value }) {
   )
 }
 
-export function AiDecisionLog({ params, setParams }) {
+export function AiDecisionLog({ params, setParams, isEnterprise = false, search = '' }) {
   const { resolvedTheme } = useTheme()
-  const gridTheme = resolvedTheme === 'dark' ? gridThemeDark : gridThemeLight
+  const gridTheme = isEnterprise
+    ? (resolvedTheme === 'dark' ? gridThemeEnterpriseDark : gridThemeEnterpriseLight)
+    : (resolvedTheme === 'dark' ? gridThemeDark : gridThemeLight)
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [decision, setDecision] = useState('')
+
+  // Enterprise drives the query from the topbar search box (lifted to AuditPage);
+  // glass uses the in-bar search field.
+  const effectiveQuery = isEnterprise ? search : query
 
   const focusId = params.get('ai') || ''
 
@@ -52,8 +60,8 @@ export function AiDecisionLog({ params, setParams }) {
   const filtered = useMemo(() => {
     let out = rows
     if (decision) out = out.filter((d) => d.decision === decision)
-    if (query) {
-      const q = query.toLowerCase()
+    if (effectiveQuery) {
+      const q = effectiveQuery.toLowerCase()
       out = out.filter((d) =>
         [d.student?.name, WAIVER_NAME[d.waiverTypeId], d.rationale]
           .filter(Boolean)
@@ -61,7 +69,7 @@ export function AiDecisionLog({ params, setParams }) {
       )
     }
     return out
-  }, [rows, decision, query])
+  }, [rows, decision, effectiveQuery])
 
   const selected = useMemo(() => rows.find((d) => d.id === focusId) ?? null, [rows, focusId])
 
@@ -75,25 +83,25 @@ export function AiDecisionLog({ params, setParams }) {
   const columnDefs = useMemo(() => [
     {
       colId: 'ts', headerName: 'Evaluated', field: 'ts',
-      valueFormatter: (p) => fmtDateNum(p.value), sort: 'desc', minWidth: 110, flex: 1,
+      valueFormatter: (p) => fmtDateNum(p.value), sort: 'desc', width: 120, minWidth: 110,
     },
     {
       colId: 'student', headerName: 'Student',
-      valueGetter: (p) => p.data.student?.name ?? '—', minWidth: 130, flex: 1.2,
+      valueGetter: (p) => p.data.student?.name ?? '—', width: 150, minWidth: 130,
     },
     {
       colId: 'waiver', headerName: 'Waiver',
-      valueGetter: (p) => WAIVER_NAME[p.data.waiverTypeId] ?? p.data.waiverTypeId, minWidth: 150, flex: 1.6,
+      valueGetter: (p) => WAIVER_NAME[p.data.waiverTypeId] ?? p.data.waiverTypeId, flex: 1, minWidth: 200,
     },
     {
       colId: 'decision', headerName: 'AI decision',
       valueGetter: (p) => p.data.decision,
-      cellRenderer: (p) => <DecisionPill value={p.value} />, minWidth: 120, flex: 1,
+      cellRenderer: (p) => <DecisionPill value={p.value} />, width: 140, minWidth: 120,
     },
     {
       colId: 'confidence', headerName: 'Confidence',
       valueGetter: (p) => p.data.confidence,
-      cellRenderer: (p) => <ConfidenceBar value={p.value} />, minWidth: 140, flex: 1,
+      cellRenderer: (p) => <ConfidenceBar value={p.value} />, width: 150, minWidth: 140,
     },
     {
       colId: 'checks', headerName: 'Checks',
@@ -101,22 +109,29 @@ export function AiDecisionLog({ params, setParams }) {
         const c = p.data.checks ?? []
         return `${c.filter((x) => x.passed).length}/${c.length}`
       },
-      minWidth: 90, flex: 0.7,
+      width: 110, minWidth: 90,
     },
   ], [])
 
-  const defaultColDef = useMemo(() => ({ sortable: true, resizable: true, minWidth: 80 }), [])
+  const defaultColDef = useMemo(() => ({
+    sortable: true,
+    resizable: true,
+    minWidth: 80,
+    ...(isEnterprise ? { filter: true, floatingFilter: false } : {}),
+  }), [isEnterprise])
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="glass-card flex flex-wrap items-center gap-2.5 p-3">
-        <input
-          type="search" value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search student, waiver, rationale…"
-          className="glass-input min-w-[200px] flex-1 px-3 py-1.5 text-sm text-ink placeholder:text-muted"
-          aria-label="Search AI decisions"
-        />
+    <div className={isEnterprise ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface' : 'flex flex-col gap-4'}>
+      <div className={isEnterprise ? 'flex flex-wrap items-center gap-2.5 border-b border-border px-3 py-2.5' : 'glass-card flex flex-wrap items-center gap-2.5 p-3'}>
+        {!isEnterprise && (
+          <input
+            type="search" value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search student, waiver, rationale…"
+            className="glass-input min-w-[200px] flex-1 px-3 py-1.5 text-sm text-ink placeholder:text-muted"
+            aria-label="Search AI decisions"
+          />
+        )}
         <select
           value={decision} onChange={(e) => setDecision(e.target.value)}
           className="glass-input px-3 py-1.5 text-sm text-ink" aria-label="Filter by AI decision"
@@ -129,8 +144,8 @@ export function AiDecisionLog({ params, setParams }) {
         <span className="ml-auto text-xs text-muted">{filtered.length} decision{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <div className="glass-card overflow-hidden p-1.5">
-        <div style={{ height: 560, width: '100%' }}>
+      <div className={isEnterprise ? 'min-h-0 flex-1' : 'glass-card overflow-hidden p-1.5'}>
+        <div style={{ height: isEnterprise ? '100%' : 560, width: '100%' }}>
           <AgGridReact
             theme={gridTheme}
             rowData={filtered}

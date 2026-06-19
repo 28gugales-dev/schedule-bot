@@ -8,7 +8,7 @@ function Tile({ label, value, sub, tone = 'ink' }) {
     success: 'text-success-700 dark:text-success-300',
     warning: 'text-warning-700 dark:text-warning-300',
     danger: 'text-danger-700 dark:text-danger-300',
-    brand: 'text-brand-700 dark:text-brand-300',
+    brand: 'text-brand-700 dark:text-ink',
   }[tone]
   return (
     <div className="glass-card flex flex-col gap-1 p-4">

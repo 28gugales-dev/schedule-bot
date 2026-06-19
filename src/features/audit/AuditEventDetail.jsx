@@ -201,6 +201,16 @@ export function AuditEventDetail({ event, onClose, onViewAi, onViewStudent }) {
             </div>
           )}
 
+          {/* Submission → its AI evaluation (decisions render their own link above) */}
+          {!isDecision && event.aiDecisionId && (
+            <button
+              type="button" onClick={() => onViewAi?.(event.aiDecisionId)}
+              className="glass-input self-start rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover"
+            >
+              View AI reasoning →
+            </button>
+          )}
+
           {/* Note */}
           {event.note && (
             <div className="flex flex-col gap-1">

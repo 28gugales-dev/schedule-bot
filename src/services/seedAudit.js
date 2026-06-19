@@ -225,8 +225,9 @@ const OTHER_EVENTS = [
     category: 'submission', action: 'waiver.submit',
     student: { id: 'S-48213', name: 'Ava Thompson' }, requestId: 'req-2001', waiverTypeId: 'prereq-override',
     summary: 'Submitted Prerequisite Override request with 1 document',
-    before: null, after: { status: 'submitted', documents: 1 },
-    diff: [], aiDecisionId: null, overrode: false, note: '',
+    before: null, after: { status: 'submitted', documents: 1, files: 'ava_courses.pdf' },
+    diff: [], aiDecisionId: null, overrode: false,
+    note: 'Completed Statistics at community college last summer; ready for AP Bio.',
   },
   {
     id: 'evt-seed-submit-2', ts: '2026-06-16T16:30:00Z',
@@ -234,8 +235,9 @@ const OTHER_EVENTS = [
     category: 'submission', action: 'waiver.submit',
     student: { id: 'S-52051', name: 'Marcus Chen' }, requestId: 'req-2006', waiverTypeId: 'late-add-drop',
     summary: 'Submitted Late Add/Drop request with 1 document',
-    before: null, after: { status: 'submitted', documents: 1 },
-    diff: [], aiDecisionId: null, overrode: false, note: '',
+    before: null, after: { status: 'submitted', documents: 1, files: 'add_request.pdf' },
+    diff: [], aiDecisionId: null, overrode: false,
+    note: 'Need to add AP Computer Science before summer session starts next week.',
   },
   {
     id: 'evt-seed-sync-1', ts: '2026-06-16T12:00:00Z',
@@ -257,5 +259,42 @@ const OTHER_EVENTS = [
   },
 ]
 
+// ── Submission events for the live review queue (the missing producer) ────────
+// Every pending REVIEW_QUEUE request is a waiver a student submitted, so each one
+// emits a `submission` audit event — that is what makes the Student Submissions
+// ledger mirror the queue (previously only the 2 portal submits in OTHER_EVENTS
+// showed, neither of them a queue item). The rich `after` snapshot + the
+// student's note carry the full request into the detail drawer, and aiDecisionId
+// cross-links to the matching QUEUE_AI evaluation ("View AI reasoning").
+const SUBMIT_DEVICES = [DEV.ipad, DEV.winChr, DEV.mac, DEV.winEdge]
+const QUEUE_SUBMISSION_EVENTS = REVIEW_QUEUE.map((item, i) => {
+  const docs = item.documents ?? []
+  return {
+    id: `evt-seed-submit-${item.id}`,
+    ts: item.submittedAt,
+    actor: { id: `student-${item.student.id}`, name: item.student.name, role: 'student' },
+    device: SUBMIT_DEVICES[i % SUBMIT_DEVICES.length],
+    category: 'submission',
+    action: 'waiver.submit',
+    student: { id: item.student.id, name: item.student.name },
+    requestId: item.id,
+    waiverTypeId: item.waiverTypeId,
+    summary: `Submitted ${labelFor(item.waiverTypeId)} request with ${docs.length} document${docs.length !== 1 ? 's' : ''}`,
+    before: null,
+    // Primitive/string values only — AuditEventDetail's Snapshot JSON-stringifies
+    // raw objects/arrays, so the doc + course lists are pre-joined to clean text.
+    after: {
+      status: 'submitted',
+      documents: docs.length,
+      files: docs.map((d) => d.name).join(', '),
+      courses: (item.courseList ?? []).join(', '),
+    },
+    diff: [],
+    aiDecisionId: `ai-seed-${item.id}`,
+    overrode: false,
+    note: item.studentNote ?? '',
+  }
+})
+
 export const SEED_AI_DECISIONS = [...QUEUE_AI, ...HISTORY_AI]
-export const SEED_AUDIT_EVENTS = [...HISTORY_EVENTS, ...OTHER_EVENTS]
+export const SEED_AUDIT_EVENTS = [...HISTORY_EVENTS, ...QUEUE_SUBMISSION_EVENTS, ...OTHER_EVENTS]

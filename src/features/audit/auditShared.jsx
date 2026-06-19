@@ -42,12 +42,13 @@ export const TONE_DOT = {
   neutral: 'bg-muted',
 }
 
-/** Coloured pill for an audit action (dot + label). */
+/** Action status — colored dot + plain label (matches ReviewQueue's
+ *  RecommendationPill; no bubble/ring). */
 export function ActionPill({ action }) {
   const m = actionMeta(action)
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${TONE_PILL[m.tone] ?? TONE_PILL.neutral}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[m.tone] ?? TONE_DOT.neutral}`} aria-hidden="true" />
+    <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[m.tone] ?? TONE_DOT.neutral}`} aria-hidden="true" />
       {m.label}
     </span>
   )
@@ -59,18 +60,20 @@ const DECISION_LABEL = { admit: 'Admit', deny: 'Deny', review: 'Review' }
 export function DecisionPill({ value }) {
   const tone = DECISION_TONE[value] ?? 'neutral'
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${TONE_PILL[tone]}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden="true" />
+    <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden="true" />
       {DECISION_LABEL[value] ?? value}
     </span>
   )
 }
 
-/** Small "Override" flag for decisions that contradicted the AI. */
+/** Small "Override" flag for decisions that contradicted the AI — matches the
+ *  dot + plain-label language of ActionPill / DecisionPill. */
 export function OverrideFlag() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-semibold text-warning-700 dark:text-warning-300 ring-1 ring-warning-300">
-      ⚡ Override
+    <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT.warning}`} aria-hidden="true" />
+      Override
     </span>
   )
 }
@@ -125,9 +128,39 @@ export const gridThemeDark = themeQuartz.withParams({
   headerTextColor: '#9a9aa6',
   foregroundColor: '#f2f2f5',
   fontFamily: 'inherit',
-  rowHoverColor: 'rgba(10,132,255,0.14)',
-  selectedRowBackgroundColor: 'rgba(10,132,255,0.22)',
+  rowHoverColor: 'rgba(255,255,255,0.06)',
+  selectedRowBackgroundColor: 'rgba(255,255,255,0.10)',
   oddRowBackgroundColor: 'rgba(255,255,255,0.0)',
   borderColor: 'rgba(255,255,255,0.1)',
   wrapperBorderRadius: '14px',
+})
+
+// Enterprise skin: opaque console grid — mirrors the [data-skin="enterprise"]
+// tokens (ag-grid builds its theme in JS, so it can't read those CSS vars).
+// Dark variant is pure neutral grey to match the de-blued enterprise tokens.
+export const gridThemeEnterpriseLight = themeQuartz.withParams({
+  accentColor: '#0071e3',
+  backgroundColor: '#ffffff',
+  headerBackgroundColor: '#f8fafc',
+  headerTextColor: '#64748b',
+  foregroundColor: '#0f172a',
+  fontFamily: 'inherit',
+  rowHoverColor: '#f1f5f9',
+  selectedRowBackgroundColor: '#e0edfb',
+  oddRowBackgroundColor: '#ffffff',
+  borderColor: '#e2e8f0',
+  wrapperBorderRadius: '0px',
+})
+export const gridThemeEnterpriseDark = themeQuartz.withParams({
+  accentColor: '#0a84ff',
+  backgroundColor: '#1c1c1c',
+  headerBackgroundColor: '#161616',
+  headerTextColor: '#9a9aa6',
+  foregroundColor: '#f2f2f5',
+  fontFamily: 'inherit',
+  rowHoverColor: '#262626',
+  selectedRowBackgroundColor: '#333333',
+  oddRowBackgroundColor: '#1c1c1c',
+  borderColor: '#2c2c2c',
+  wrapperBorderRadius: '0px',
 })

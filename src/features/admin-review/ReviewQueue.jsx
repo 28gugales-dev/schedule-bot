@@ -69,15 +69,15 @@ const gridThemeEnterpriseLight = themeQuartz.withParams({
 
 const gridThemeEnterpriseDark = themeQuartz.withParams({
   accentColor: '#0a84ff',
-  backgroundColor: '#1e293b',
-  headerBackgroundColor: '#0f172a',
-  headerTextColor: '#94a3b8',
-  foregroundColor: '#f1f5f9',
+  backgroundColor: '#1c1c1c',
+  headerBackgroundColor: '#161616',
+  headerTextColor: '#9a9aa6',
+  foregroundColor: '#f2f2f5',
   fontFamily: 'inherit',
-  rowHoverColor: '#334155',
-  selectedRowBackgroundColor: '#1d3a5f',
-  oddRowBackgroundColor: '#1e293b',
-  borderColor: '#334155',
+  rowHoverColor: '#262626',
+  selectedRowBackgroundColor: '#333333',
+  oddRowBackgroundColor: '#1c1c1c',
+  borderColor: '#2c2c2c',
   wrapperBorderRadius: '0px',
 })
 

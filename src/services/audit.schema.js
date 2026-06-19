@@ -155,4 +155,12 @@ export const LS_KEYS = {
   ai: 'waiver:ai-decisions',
   device: 'waiver:device-id',
   seeded: 'waiver:audit-seeded',
+  version: 'waiver:audit-seed-version',
 }
+
+// Bump whenever the seed fixtures change shape/content. A returning demo browser
+// caches the seed in localStorage and `ensureSeeded` skips reseeding when data
+// already exists — so without a version gate, new fixtures never appear. On a
+// mismatch the demo audit store is rebuilt from the current seed (drops any
+// locally-appended demo events — acceptable for a mock).
+export const SEED_VERSION = '3'

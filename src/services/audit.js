@@ -16,7 +16,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js'
-import { LS_KEYS, EXPORT_COLUMNS, actionMeta } from './audit.schema.js'
+import { LS_KEYS, SEED_VERSION, EXPORT_COLUMNS, actionMeta } from './audit.schema.js'
 import { SEED_AUDIT_EVENTS, SEED_AI_DECISIONS } from './seedAudit.js'
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)))
@@ -117,12 +117,16 @@ function ensureSeeded() {
   if (memAudit && memAi) return
   let audit = lsRead(LS_KEYS.audit)
   let ai = lsRead(LS_KEYS.ai)
-  if (!Array.isArray(audit) || !Array.isArray(ai)) {
+  // Reseed when storage is empty OR the cached seed predates the current fixtures
+  // (version mismatch) — otherwise returning browsers keep stale demo data.
+  const versionOk = lsRead(LS_KEYS.version) === SEED_VERSION
+  if (!versionOk || !Array.isArray(audit) || !Array.isArray(ai)) {
     audit = clone(SEED_AUDIT_EVENTS)
     ai = clone(SEED_AI_DECISIONS)
     lsWrite(LS_KEYS.audit, audit)
     lsWrite(LS_KEYS.ai, ai)
     lsWrite(LS_KEYS.seeded, new Date().toISOString())
+    lsWrite(LS_KEYS.version, SEED_VERSION)
   }
   memAudit = audit
   memAi = ai
