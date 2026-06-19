@@ -1,0 +1,162 @@
+Course	Minimum Grade	Prerequisite
+Physical Science	9	none
+Biology	9	none
+Biology Honors	9	Biology
+Chemistry	10	Biology
+Chemistry Honors	10	Biology Honors
+Biology II	11	Biology
+Earth Systems	9	none
+Environmental Science	9	none
+Forensic Science	11	Biology
+Physics	11	Chemistry
+AP Physics 1	11	Physics
+AP Physics C Mechanics	11	AP Physics 1
+AP Physics C Mechanics: E&M	12	AP Physics C Mechanics
+AP Environmental Science	10	Environmental Science
+AP Chemistry	11	Chemistry Honors
+AP Biology	10	Biology Honors
+Epidemiology	11	Biology II
+AP Research	12	AP Seminar
+World History	10	none
+AP World History	10	World History
+US History	11	World History
+AP US History	11	US History
+Government/Economics	12	US History
+AP Government	12	Government/Economics
+AP Macroeconomics	12	Government/Economics
+AP Micro/Macroeconomics	12	AP Macroeconomics
+Algebra: Concepts & Connections	9	none
+Algebra: Concepts & Connections & Support	9	Algebra: Concepts & Connections
+Accel Adv Algebra: Concept & Connections	9	Algebra: Concepts & Connections
+Geometry: Concept & Connections	9	Algebra: Concepts & Connections
+Geom: Concepts & Connections & Support	9	Geometry: Concept & Connections
+Geom: Concepts & Connections Honors	9	Geometry: Concept & Connections
+Advanced Algebra: Concepts & Conn	10	Geometry: Concept & Connections
+Advanced Algebra: Concepts & Connections Honors	10	Geometry: Concepts & Connections Honors
+Pre-Calculus	10	Advanced Algebra: Concepts & Conn
+AP Pre-Calculus	11	Pre-Calculus
+Calculus	11	AP Pre-Calculus
+AP Calculus AB	11	AP Pre-Calculus
+AP Calculus BC	11	AP Calculus AB
+AP Calculus AB/BC (2 periods)	11	AP Calculus AB
+AP Statistics	10	Pre-Calculus
+Statistical Reasoning	11	AP Statistics
+Adv Math Decision Making	11	Advanced Algebra: Concepts & Conn
+College Readiness Math	12	none
+DL Calculus Georgia Tech	11	AP Pre-Calculus
+Literature & Composition I	9	none
+Literature & Composition I Honors	9	none
+Literature & Composition II	10	Literature & Composition I
+Literature & Composition II Honors	10	Literature & Composition I Honors
+American Literature	11	Literature & Composition II
+AP English Lang & Comp	11	American Literature
+Advanced Composition	12	AP English Lang & Comp
+AP Lit/Comp	12	Advanced Composition
+Multicultural Lit & Comp	12	AP Lit/Comp
+Spanish II	9	Spanish I
+Spanish II/III (2 pds)	9	Spanish I
+Spanish III	10	Spanish II
+Spanish IV	11	Spanish III
+Spanish V	12	Spanish IV
+AP Spanish Lang	11	Spanish IV
+AP Spanish Literature	11	AP Spanish Lang
+French I	9	none
+French II	10	French I
+French III	10	French II
+French IV	11	French III
+AP French	11	French IV
+German I	9	none
+German II	10	German I
+German III	10	German II
+German II/III (2 periods)	10	German I
+German IV	11	German III
+German V	11	German IV
+AP German	11	German V
+Latin I	9	none
+Latin II	10	Latin I
+Latin III	11	Latin II
+Latin IV	12	Latin III
+AP Human Geography	9	none
+AP Psychology	10	none
+AP European History	10	none
+Personal Financial Literacy	10	none
+Sociology	11	none
+World Geography/ US History in Film	9	none
+Journalism I	9	none
+Journalism II	10	Journalism I
+Journalism III	11	Journalism II
+Journalism IV	12	Journalism III
+AP Seminar	11	none
+AP Research	12	AP Seminar
+Personal Fitness/Health	9	none
+Driver Ed/Personal Financial Literacy	9	none
+Driver Ed/Sociology	11	none
+Driver Ed/Gen PE II	9	none
+General PE II	9	none
+Adv. Weight Training	9	none
+Physical Conditioning (Walking)	10	none
+Adv. Physical Conditioning (Walking)	10	Physical Conditioning (Walking)
+Principles of Athletic Training	10	none
+Office Aide	11	none
+Peer Facilitator	11	none
+Intro to Software Technology	9	none
+AP Computer Science Principles	10	Intro to Software Technology
+AP Computer Science A	11	AP Computer Science Principles
+IB Computer Science	11	AP Computer Science Principles
+Foundations of Engineering	9	none
+Engineering Concepts	10	Foundations of Engineering
+Engineering Applications	11	Engineering Concepts
+Engineering Research	12	Engineering Applications
+Marketing Principles	9	none
+Marketing & Entrepreneurship or AP Business	10	Marketing Principles
+Marketing Management	11	Marketing & Entrepreneurship or AP Business
+Fashion, Merchandising, Retailing	10	Marketing Principles
+Adv. Fashion, Merch, Retail	11	Fashion, Merchandising, Retailing
+Intro to Sports Ent. Marketing	10	Marketing Principles
+Adv. Sports Ent. Marketing	11	Intro to Sports Ent. Marketing
+Promotion and Digital Mktg	10	Marketing Principles
+Integrated Mktg Comm	11	Promotion and Digital Mktg
+Intro to Business and Tech	9	none
+AP Business	10	Intro to Business and Tech
+Accounting I	11	Intro to Business and Tech
+Accounting II	11	Accounting I
+Legal Environment of Business	10	Intro to Business and Tech
+Human Resources Principles	11	Legal Environment of Business
+Basic Agriculture Science	9	none
+General Horticulture/ Plant Sci	10	Basic Agriculture Science
+Turf Management	11	General Horticulture/ Plant Sci
+Examining the Teaching Prof.	9	none
+Contemporary Issues in Edu.	10	Examining the Teaching Prof.
+Teaching Practicum	11	Contemporary Issues in Edu.
+Intro to Culinary Arts	9	none
+Culinary Arts I & II Block	10	Intro to Culinary Arts
+Pastry & Baking I & II Block	10	Intro to Culinary Arts
+WBL 1 period Internship	11	none
+WBL 2 periods Internship	11	WBL 1 period Internship
+WBL 3 periods Internship	11	WBL 2 periods Internship
+WBL Mentorship	11	none
+Intro to Healthcare	9	none
+Essentials of Healthcare	10	Intro to Healthcare
+Mental Health Professional	11	Essentials of Healthcare
+Essentials of Biotechnology	10	Intro to Healthcare
+Application of Biotechnology	11	Essentials of Biotechnology
+Visual Arts I	9	none
+Visual Arts II	10	Visual Arts I
+Visual Arts III	11	Visual Arts II
+Photography I	10	none
+Photography II	11	Photography I
+Jewelry I	10	none
+Jewelry II	11	Jewelry I
+Jewelry III	11	Jewelry II
+AP Studio 2D	11	none
+AP Studio 3D	11	none
+AP Drawing	11	none
+Drama-Musical Theater	9	none
+Drama-Acting	9	none
+Theatre Arts/Tech Theatre I	9	none
+Band	9	none
+Ethnic Music Studies I Flag-Line / Color Guard	9	none
+Intermediate Jazz I	9	none
+Chorus	9	none
+Beg Music Theory/Composition	9	none
+Int. Music Theory/Composition II	10	Beg Music Theory/Composition

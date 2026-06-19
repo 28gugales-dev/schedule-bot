@@ -1,13 +1,31 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchAvailableWaivers, uploadStudentDocuments, submitWaiver } from '../../services/api.js'
+import { useAuth } from '../auth/AuthProvider.jsx'
+import { extractTextFromFile } from '../../utils/pdfText.js'
+import { parseTranscriptData } from '../../utils/schedulingLogic.js'
+import { parseCourseListText } from '../../utils/courseListParser.js'
+import { saveTranscript, getSavedTranscripts, saveCourseList, getSavedCourseLists } from '../../services/transcriptStore.js'
 import { UploadZone } from './UploadZone.jsx'
 import { WaiverSelectGrid } from './WaiverSelectGrid.jsx'
 import { RequestTracker } from './RequestTracker.jsx'
+import { CourseSwapPanel } from './CourseSwapPanel.jsx'
+import { CourseListEntry } from './CourseListEntry.jsx'
+
+const EMPTY_COURSE_BOXES = Array(7).fill('')
 
 // Guided student intake: Documents -> Waiver type -> Review & submit -> Tracker.
-// This component is the integration root for the student portal: it owns all
-// wizard state and the runtime prop contracts of its three leaf components.
 const STEPS = ['Documents', 'Waiver type', 'Review & submit']
+
+// Waiver types where the student is naming a course to drop/replace.
+const SWAP_WAIVER_IDS = new Set(['prereq-override', 'grad-substitution', 'schedule-conflict', 'late-add-drop'])
+
+function serializeParsedTranscript(parsed) {
+  return { ...parsed, completed: [...parsed.completed] }
+}
+
+function deserializeParsedTranscript(saved) {
+  return { ...saved, completed: new Set(saved.completed ?? []) }
+}
 
 function WizardSteps({ current, onStepClick }) {
   return (
@@ -27,11 +45,11 @@ function WizardSteps({ current, onStepClick }) {
                 isCurrent
                   ? 'bg-brand-600 text-white'
                   : done
-                    ? 'cursor-pointer bg-brand-50 text-brand-700 dark:text-brand-300 hover:bg-brand-100'
-                    : 'cursor-default bg-scrim text-muted',
+                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100'
+                    : 'cursor-default bg-black/[0.04] text-muted',
               ].join(' ')}
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-scrim-strong text-[11px]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[11px]">
                 {done ? '✓' : i + 1}
               </span>
               {label}
@@ -43,9 +61,56 @@ function WizardSteps({ current, onStepClick }) {
   )
 }
 
+function RecognizedCourseChips({ recognized = [], unrecognized = [] }) {
+  if (recognized.length === 0 && unrecognized.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {recognized.map((r, i) => (
+        <span
+          key={`${r.matched}-${i}`}
+          title={r.exact ? 'Exact match' : `Closest match (${Math.round(r.similarity * 100)}% similar)`}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            r.exact ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+          }`}
+        >
+          {r.matched}{!r.exact && ' ~'}
+        </span>
+      ))}
+      {unrecognized.map((raw, i) => (
+        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted">
+          {raw} ?
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function PreviousDocSelect({ label, saved, onApply }) {
+  if (!saved.length) return null
+  return (
+    <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm">
+      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
+      <select
+        defaultValue=""
+        onChange={(e) => e.target.value && onApply(saved.find((s) => s.id === e.target.value))}
+        className="ml-auto rounded-md border border-brand-300 bg-white px-2 py-1 text-xs"
+      >
+        <option value="" disabled>Choose…</option>
+        {saved.map((s) => (
+          <option key={s.id} value={s.id}>{s.label} ({new Date(s.savedAt).toLocaleDateString()})</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function WaiverIntake() {
+  const { user } = useAuth()
+  const studentId = user?.id ?? 'demo-student'
+
   const [step, setStep] = useState(0)
-  const [courseList, setCourseList] = useState([])
+  const [transcript, setTranscript] = useState([])
+  const [courseListEntries, setCourseListEntries] = useState(EMPTY_COURSE_BOXES)
   const [supporting, setSupporting] = useState([])
   const [waivers, setWaivers] = useState([])
   const [waiversLoading, setWaiversLoading] = useState(true)
@@ -54,6 +119,14 @@ export function WaiverIntake() {
   const [submitting, setSubmitting] = useState(false)
   const [submittedId, setSubmittedId] = useState(null)
   const [error, setError] = useState(null)
+
+  // Parsed-document state (transcriptParser / courseListParser output).
+  const [transcriptData, setTranscriptData] = useState(null) // { gpa, studentGrade, completed: Set, recognized, unrecognized }
+  const [transcriptFileName, setTranscriptFileName] = useState(null)
+  const [parsingTranscript, setParsingTranscript] = useState(false)
+  const [savedTranscripts, setSavedTranscripts] = useState(() => getSavedTranscripts(studentId))
+  const [savedCourseLists, setSavedCourseLists] = useState(() => getSavedCourseLists(studentId))
+  const [swap, setSwap] = useState({ fromCourse: null, toCourse: null })
 
   useEffect(() => {
     let cancelled = false
@@ -75,21 +148,71 @@ export function WaiverIntake() {
     () => waivers.find((w) => w.id === selectedWaiverId) ?? null,
     [waivers, selectedWaiverId],
   )
+  const needsSwap = selectedWaiverId && SWAP_WAIVER_IDS.has(selectedWaiverId)
 
-  // Step gating: docs step needs both required uploads; waiver step needs a pick.
+  // Re-derived live from the text boxes — exact-then-Levenshtein matched
+  // against the catalog (see CourseListEntry for the per-box version).
+  const courseListData = useMemo(
+    () => parseCourseListText(courseListEntries.filter((e) => e.trim()).join('\n')),
+    [courseListEntries],
+  )
+
+  const handleTranscriptFiles = useCallback(async (files) => {
+    setTranscript(files)
+    if (files.length === 0) return
+    const file = files[files.length - 1]
+    setParsingTranscript(true)
+    setError(null)
+    try {
+      const text = await extractTextFromFile(file)
+      const parsed = parseTranscriptData(text)
+      setTranscriptData(parsed)
+      setTranscriptFileName(file.name)
+      saveTranscript(studentId, { label: file.name, fileName: file.name, rawText: text, parsed: serializeParsedTranscript(parsed) })
+      setSavedTranscripts(getSavedTranscripts(studentId))
+    } catch (e) {
+      setError(`Could not read transcript: ${e?.message ?? 'unknown error'}`)
+    } finally {
+      setParsingTranscript(false)
+    }
+  }, [studentId])
+
+  const applySavedTranscript = useCallback((saved) => {
+    setTranscriptData(deserializeParsedTranscript(saved.parsed))
+    setTranscriptFileName(saved.fileName)
+  }, [])
+
+  const applySavedCourseList = useCallback((saved) => {
+    setCourseListEntries(saved.entries?.length ? saved.entries : EMPTY_COURSE_BOXES)
+  }, [])
+
+  // Persist the typed course list once the student moves past it, rather
+  // than on every keystroke (which would spam the "previous course list" list).
+  const persistCourseList = useCallback(() => {
+    const nonEmpty = courseListEntries.filter((e) => e.trim())
+    if (nonEmpty.length === 0) return
+    saveCourseList(studentId, { label: nonEmpty.join(', ').slice(0, 80), entries: courseListEntries })
+    setSavedCourseLists(getSavedCourseLists(studentId))
+  }, [studentId, courseListEntries])
+
+  // Step gating: docs step needs a transcript (uploaded or applied previous)
+  // plus at least one recognized course; waiver step needs a pick, plus a
+  // from/to course pair for swap-style waivers.
   const canAdvance =
     step === 0
-      ? courseList.length > 0
+      ? Boolean(transcriptFileName) && courseListData.courseNames.length > 0
       : step === 1
-        ? Boolean(selectedWaiverId)
+        ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
         : true
 
   // Why "Continue" is disabled — surfaced to the user instead of a dead button.
   const advanceHint =
     step === 0
-      ? 'Upload your course list to continue.'
+      ? 'Upload your transcript and enter your course list to continue.'
       : step === 1
-        ? 'Select a waiver type to continue.'
+        ? needsSwap
+          ? 'Select a waiver type and a course swap to continue.'
+          : 'Select a waiver type to continue.'
         : ''
 
   const handleSubmit = useCallback(async () => {
@@ -100,15 +223,20 @@ export function WaiverIntake() {
       // ({name, size, docType}). File objects are never mutated — docType is
       // assigned here, at the seam, from which list each file came.
       const docs = [
-        ...courseList.map((f) => ({ name: f.name, size: f.size, docType: 'course-list' })),
+        ...transcript.map((f) => ({ name: f.name, size: f.size, docType: 'transcript' })),
         ...supporting.map((f) => ({ name: f.name, size: f.size, docType: 'supporting' })),
       ]
       const upload = await uploadStudentDocuments(docs)
       const res = await submitWaiver({
+        studentId,
         waiverTypeId: selectedWaiverId,
         uploadId: upload.uploadId,
         documents: upload.files,
         studentNote: note.trim(),
+        courseList: courseListData.courseNames,
+        fromCourse: swap.fromCourse,
+        toCourse: swap.toCourse,
+        transcriptData,
       })
       setSubmittedId(res.requestId)
     } catch (e) {
@@ -116,16 +244,18 @@ export function WaiverIntake() {
     } finally {
       setSubmitting(false)
     }
-  }, [courseList, supporting, selectedWaiverId, note])
+  }, [transcript, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
 
   const reset = () => {
     setStep(0)
-    setCourseList([])
+    setTranscript([])
+    setCourseListEntries(EMPTY_COURSE_BOXES)
     setSupporting([])
     setSelectedWaiverId(null)
     setNote('')
     setSubmittedId(null)
     setError(null)
+    setSwap({ fromCourse: null, toCourse: null })
   }
 
   // Post-submit: confirmation + live tracker.
@@ -142,7 +272,7 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={reset}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80"
         >
           Start another request
         </button>
@@ -164,7 +294,7 @@ export function WaiverIntake() {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-100"
+          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 ring-1 ring-danger-100"
         >
           <svg
             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -181,26 +311,34 @@ export function WaiverIntake() {
 
       {step === 0 && (
         <div className="glass-card space-y-6 p-5">
-          <div className="flex items-start gap-2.5 rounded-lg bg-brand-50 px-3 py-2.5 text-sm text-brand-700 ring-1 ring-brand-100 dark:text-brand-300">
-            <svg
-              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="mt-0.5 shrink-0" aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>Your transcript is pulled automatically from the district SIS (OneRoster) — no upload needed.</span>
+          <div>
+            <PreviousDocSelect label="transcript" saved={savedTranscripts} onApply={applySavedTranscript} />
+            <UploadZone
+              label="Transcript (PDF)"
+              hint="Required. Your official or unofficial transcript."
+              docType="transcript"
+              accept=".pdf,.txt"
+              files={transcript}
+              onFilesChange={handleTranscriptFiles}
+            />
+            {parsingTranscript && <p className="mt-2 text-xs text-muted">Reading transcript…</p>}
+            {transcriptData && (
+              <>
+                <p className="mt-3 text-xs font-medium text-ink">
+                  Recognized courses {transcriptData.studentGrade ? `· Grade ${transcriptData.studentGrade}` : ''} {transcriptData.gpa ? `· GPA ${transcriptData.gpa}` : ''}
+                </p>
+                <RecognizedCourseChips recognized={transcriptData.recognized} unrecognized={transcriptData.unrecognized} />
+              </>
+            )}
           </div>
-          <UploadZone
-            label="Course list"
-            hint="Required. PDF, CSV or XLSX of your current/planned courses."
-            docType="course-list"
-            accept=".pdf,.csv,.xlsx"
-            files={courseList}
-            onFilesChange={setCourseList}
-          />
+          <div>
+            <PreviousDocSelect label="course list" saved={savedCourseLists} onApply={applySavedCourseList} />
+            <p className="text-sm font-medium text-ink mb-1">Course list</p>
+            <p className="text-xs text-muted mb-3">
+              Required. Type each current/planned course — one box per period. Add more for special cases.
+            </p>
+            <CourseListEntry values={courseListEntries} onChange={setCourseListEntries} />
+          </div>
           <UploadZone
             label="Supporting documents"
             hint="Optional. Add any extra files to support your request."
@@ -214,7 +352,7 @@ export function WaiverIntake() {
       )}
 
       {step === 1 && (
-        <div className="glass-card p-5">
+        <div className="glass-card space-y-5 p-5">
           {waiversLoading ? (
             <p className="text-sm text-muted">Loading waiver types…</p>
           ) : (
@@ -223,6 +361,17 @@ export function WaiverIntake() {
               selectedId={selectedWaiverId}
               onSelect={setSelectedWaiverId}
             />
+          )}
+          {needsSwap && (
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">Course swap</p>
+              <CourseSwapPanel
+                courseListNames={courseListData?.courseNames ?? []}
+                student={{ currentGrade: transcriptData?.studentGrade ?? 9, completed: transcriptData?.completed ?? new Set() }}
+                value={swap}
+                onChange={setSwap}
+              />
+            </div>
           )}
         </div>
       )}
@@ -238,12 +387,18 @@ export function WaiverIntake() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Transcript</dt>
-                <dd className="font-medium text-muted">Pulled from district SIS</dd>
+                <dd className="font-medium text-ink">{transcriptFileName ?? '—'}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Course list</dt>
-                <dd className="font-medium text-ink">{courseList.length ? courseList[0].name : '—'}</dd>
+                <dd className="font-medium text-ink text-right">{courseListData.courseNames.join(', ') || '—'}</dd>
               </div>
+              {needsSwap && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted">Course swap</dt>
+                  <dd className="font-medium text-ink">{swap.fromCourse} → {swap.toCourse}</dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">Supporting docs</dt>
                 <dd className="font-medium text-ink">{supporting.length} file{supporting.length === 1 ? '' : 's'}</dd>
@@ -271,7 +426,7 @@ export function WaiverIntake() {
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || submitting}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:opacity-40"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 disabled:opacity-40"
         >
           Back
         </button>
@@ -283,7 +438,10 @@ export function WaiverIntake() {
             )}
             <button
               type="button"
-              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+              onClick={() => {
+                if (step === 0) persistCourseList()
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }}
               disabled={!canAdvance}
               className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >

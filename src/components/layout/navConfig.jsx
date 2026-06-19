@@ -45,6 +45,14 @@ const IconBatch = () => (
   </svg>
 )
 
+const IconRejected = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="8" cy="8" r="6" />
+    <line x1="6" y1="6" x2="10" y2="10" />
+    <line x1="10" y1="6" x2="6" y2="10" />
+  </svg>
+)
+
 const IconAudit = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="8" cy="8" r="6" />
@@ -97,6 +105,7 @@ export const NAV = {
   admin: [
     { to: '/admin', label: 'Review Queue', end: true, section: 'Review', icon: <IconQueue /> },
     { to: '/admin/rubric', label: 'Rubric Builder', section: 'Review', icon: <IconRubric /> },
+    { to: '/admin/rejected', label: 'Rejected', section: 'Review', icon: <IconRejected /> },
     { to: '/admin/batch', label: 'Batch Sync', section: 'Sync', icon: <IconBatch /> },
     { to: '/admin/audit', label: 'Activity', end: true, section: 'Audit', icon: <IconActivity /> },
     { to: '/admin/audit/decisions', label: 'Counselor Decisions', section: 'Audit', icon: <IconDecision /> },

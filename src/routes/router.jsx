@@ -10,6 +10,7 @@ import { ReviewQueue } from '../features/admin-review/ReviewQueue.jsx'
 import { RubricBuilder } from '../features/admin-review/RubricBuilder.jsx'
 import { BatchSyncDashboard } from '../features/admin-review/BatchSyncDashboard.jsx'
 import { AuditPage } from '../features/audit/AuditPage.jsx'
+import { RejectedHistory } from '../features/admin-review/RejectedHistory.jsx'
 
 // Route map. Portal subtrees are wrapped in <ProtectedRoute> for role gating;
 // feature child routes (uploads, rubric builder, batch sync, etc.) get added
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ReviewQueue /> },
       { path: 'rubric', element: <RubricBuilder /> },
       { path: 'batch', element: <BatchSyncDashboard /> },
+      { path: 'rejected', element: <RejectedHistory /> },
       { path: 'audit', element: <AuditPage view="activity" /> },
       { path: 'audit/decisions', element: <AuditPage view="decisions" /> },
       { path: 'audit/submissions', element: <AuditPage view="submissions" /> },
