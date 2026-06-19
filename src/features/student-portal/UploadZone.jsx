@@ -144,8 +144,8 @@ export function UploadZone({
         aria-label={label || 'Upload file'}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 backdrop-blur-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
           isDragging
-            ? 'border-brand-500 bg-brand-50/60'
-            : 'border-black/15 bg-white/40 hover:border-brand-300 hover:bg-brand-50/50'
+            ? 'border-brand-500 bg-brand-500/15'
+            : 'border-hairline-strong bg-glass-weak hover:border-brand-300 hover:bg-brand-500/10'
         }`}
       >
         <svg
@@ -188,7 +188,7 @@ export function UploadZone({
       {rejected.length > 0 && (
         <ul className="mt-2 space-y-1" role="alert">
           {rejected.map((r, i) => (
-            <li key={`${r.name}|${i}`} className="flex items-start gap-1.5 text-xs text-danger-700">
+            <li key={`${r.name}|${i}`} className="flex items-start gap-1.5 text-xs text-danger-700 dark:text-danger-300">
               <svg
                 width="14"
                 height="14"
@@ -217,7 +217,7 @@ export function UploadZone({
           {files.map((file, idx) => (
             <div
               key={`${file.name}|${idx}`}
-              className="flex items-center justify-between rounded-lg bg-black/[0.04] px-3 py-2 ring-1 ring-black/5"
+              className="flex items-center justify-between rounded-lg bg-scrim px-3 py-2 ring-1 ring-hairline"
             >
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <svg
@@ -243,7 +243,7 @@ export function UploadZone({
               <button
                 type="button"
                 onClick={() => handleRemove(idx)}
-                className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger-50 hover:text-danger-600"
+                className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:text-danger-400"
                 aria-label={`Remove ${file.name}`}
               >
                 <svg

@@ -51,14 +51,14 @@ export function WaiverSelectGrid({ waivers = [], selectedId, onSelect }) {
             onClick={() => onSelect(waiver.id)}
             className={`relative p-5 pr-10 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
               selected
-                ? 'glass-card ring-2 ring-brand-600 bg-brand-50/60'
+                ? 'glass-card ring-2 ring-brand-600 bg-brand-500/10'
                 : 'glass-card glass-hover'
             }`}
           >
             {/* Selection check — top-right */}
             <span
               className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold transition ${
-                selected ? 'bg-brand-600 text-white' : 'bg-black/[0.04] text-transparent'
+                selected ? 'bg-brand-600 text-white' : 'bg-scrim text-transparent'
               }`}
               aria-hidden="true"
             >
@@ -68,7 +68,7 @@ export function WaiverSelectGrid({ waivers = [], selectedId, onSelect }) {
             <p className="text-sm font-semibold text-ink">{waiver.name}</p>
             <p className="mt-1 text-xs text-muted">{waiver.description}</p>
             {docCount > 0 && (
-              <span className="mt-3 inline-block rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
+              <span className="mt-3 inline-block rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300">
                 {docCount} required doc{docCount !== 1 ? 's' : ''}
               </span>
             )}

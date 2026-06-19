@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useOutletContext } from 'react-router-dom';
 import { fetchBatchSyncQueue, triggerBatchICPush } from '../../services/api.js';
+import { useAuth } from '../../features/auth/AuthProvider.jsx';
+import { useSkin } from '../../features/skin/SkinProvider.jsx';
+import { actorFromAuth } from '../../services/audit.js';
 
 export function BatchSyncDashboard() {
+  const { user, role } = useAuth();
+  const { skin } = useSkin();
+  const isEnterprise = skin === 'enterprise';
+  // EnterpriseShell exposes a topbar portal slot + layout setters via Outlet
+  // context so this page can hoist its title into the dense topbar + go full-bleed.
+  const { topbarSlotEl, setPageChrome, setFullBleed } = useOutletContext() ?? {};
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -44,7 +55,7 @@ export function BatchSyncDashboard() {
     try {
       setSyncing(true);
       setError(null);
-      const result = await triggerBatchICPush();
+      const result = await triggerBatchICPush(actorFromAuth(user, role));
       setQueue(prev => prev.map(item => ({ ...item, synced: true })));
       setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
     } catch {
@@ -88,6 +99,13 @@ export function BatchSyncDashboard() {
     return () => clearTimeout(t);
   }, [error]);
 
+  // Enterprise: hoist title/subtitle into the topbar + full-bleed the console.
+  useEffect(() => {
+    setPageChrome?.(isEnterprise);
+    setFullBleed?.(isEnterprise);
+    return () => { setPageChrome?.(false); setFullBleed?.(false); };
+  }, [isEnterprise, setPageChrome, setFullBleed]);
+
   // Format countdown as MM:SS
   const formatCountdown = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -112,44 +130,77 @@ export function BatchSyncDashboard() {
   const syncedCount = queue.filter(item => item.synced).length;
   const allSynced = !loading && queue.length > 0 && pendingCount === 0;
 
-  return (
-    <section className="fade-up space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Batch Sync Dashboard</h1>
-        <p className="mt-1 text-sm text-muted">
-          Manage approved waivers queued for Infinite Campus synchronization
-        </p>
-      </div>
+  // ── Enterprise topbar chrome (portaled into EnterpriseShell's slot) ──────────
+  // Title + a live subtitle mirroring the page's queue status / countdown.
+  const subtitleText = loading
+    ? 'Loading…'
+    : allSynced
+      ? 'All synced ✓'
+      : `${pendingCount} pending · ${syncedCount} synced · next sync ${formatCountdown(countdown)}`;
+  const topbarChrome = isEnterprise && topbarSlotEl
+    ? createPortal(
+        <div className="min-w-0">
+          <p className="truncate text-[14px] font-semibold leading-tight text-ink">Batch Sync Dashboard</p>
+          <p className="hidden truncate text-[11px] leading-tight text-muted sm:block">{subtitleText}</p>
+        </div>,
+        topbarSlotEl,
+      )
+    : null;
 
-      {/* Countdown & Sync Card */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-ink">Next automatic sync in</p>
-            <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-brand-600">
+  return (
+    <>
+    <section className={isEnterprise ? 'flex flex-col gap-3 lg:h-[calc(100vh-3.5rem)]' : 'fade-up space-y-6'}>
+      {/* Header — enterprise hoists this into the topbar (see topbarChrome) */}
+      {!isEnterprise && (
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Batch Sync Dashboard</h1>
+          <p className="mt-1 text-sm text-muted">
+            Manage approved waivers queued for Infinite Campus synchronization
+          </p>
+        </div>
+      )}
+
+      {/* Sync console bar — countdown + live queue counts on one dense row, with
+          Force Sync on the right. Counts live here (not a separate line) so the
+          glass skin keeps its status readout once the old duplicate line is gone. */}
+      <div className={isEnterprise ? 'flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3' : 'glass-card flex flex-wrap items-center justify-between gap-4 p-4'}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-sm font-medium text-ink">Next sync</span>
+            <span className="font-mono text-2xl font-semibold tabular-nums text-brand-600 dark:text-ink">
               {formatCountdown(countdown)}
-            </p>
+            </span>
+          </div>
+          <span className="hidden h-7 w-px bg-border sm:block" aria-hidden="true" />
+          <div className="flex items-center gap-3 text-sm text-ink">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
+              {pendingCount} pending
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-success-500" aria-hidden="true" />
+              {syncedCount} synced
+            </span>
             {allSynced && (
-              <p className="mt-1 text-xs font-medium text-success-700">All synced ✓</p>
+              <span className="font-medium text-success-700 dark:text-success-300">All synced ✓</span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => runSync(false)}
-            disabled={syncing || pendingCount === 0}
-            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {syncing ? 'Syncing…' : 'Force Sync Now'}
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={() => runSync(false)}
+          disabled={syncing || pendingCount === 0}
+          className="shrink-0 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {syncing ? 'Syncing…' : 'Force Sync Now'}
+        </button>
       </div>
 
       {/* Success banner */}
       {confirmation && (
         <div
           role="status"
-          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 ring-1 ring-success-300"
+          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 dark:text-success-300 ring-1 ring-success-300"
         >
           {confirmation}
         </div>
@@ -159,16 +210,11 @@ export function BatchSyncDashboard() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-200"
+          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-200"
         >
           {error}
         </div>
       )}
-
-      {/* Queue status */}
-      <div className="text-sm text-muted">
-        {pendingCount} pending • {syncedCount} synced
-      </div>
 
       {/* Empty state */}
       {!loading && queue.length === 0 && (
@@ -184,11 +230,15 @@ export function BatchSyncDashboard() {
         </div>
       )}
 
-      {/* Queue table */}
+      {/* Queue table — enterprise frames it as a console panel that flex-fills the
+          content height (matching the audit grids beside it) with a sticky header,
+          so the data region uses the full viewport rather than floating above bare
+          canvas. Glass keeps its frosted card at natural height. */}
       {!loading && queue.length > 0 && (
-        <div className="glass-card overflow-hidden">
+        <div className={isEnterprise ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface' : 'glass-card overflow-hidden'}>
+          <div className={isEnterprise ? 'min-h-0 flex-1 overflow-auto' : ''}>
           <table className="w-full">
-            <thead className="border-b border-black/10 bg-white/40">
+            <thead className={isEnterprise ? 'sticky top-0 z-10 border-b border-border bg-surface' : 'border-b border-hairline bg-glass-weak'}>
               <tr>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Student</th>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted">Waiver Type</th>
@@ -200,8 +250,8 @@ export function BatchSyncDashboard() {
               {queue.map(item => (
                 <tr
                   key={item.id}
-                  className={`border-b border-black/10 ${
-                    item.synced ? 'bg-black/[0.03] opacity-60' : ''
+                  className={`border-b border-hairline ${
+                    item.synced ? 'bg-scrim opacity-60' : ''
                   }`}
                 >
                   <td className="px-5 py-3 text-sm text-ink">{item.student}</td>
@@ -209,11 +259,13 @@ export function BatchSyncDashboard() {
                   <td className="px-5 py-3 text-sm text-muted">{formatDate(item.approvedAt)}</td>
                   <td className="px-5 py-3 text-sm">
                     {item.synced ? (
-                      <span className="inline-flex rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700">
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-success-500" aria-hidden="true" />
                         Synced
                       </span>
                     ) : (
-                      <span className="inline-flex rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700">
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
                         Pending
                       </span>
                     )}
@@ -222,8 +274,11 @@ export function BatchSyncDashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </section>
+    {topbarChrome}
+    </>
   );
 }

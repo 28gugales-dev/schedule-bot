@@ -26,10 +26,10 @@ export const STATUS_META = {
 
 // Full literal class strings (Tailwind v4 scans source — no dynamic concat).
 const BADGE_TONE = {
-  brand: 'bg-brand-50 text-brand-700 ring-brand-100',
-  success: 'bg-success-50 text-success-700 ring-success-100',
-  warning: 'bg-warning-50 text-warning-700 ring-warning-100',
-  danger: 'bg-danger-50 text-danger-700 ring-danger-100',
+  brand: 'bg-brand-50 text-brand-700 ring-brand-100 dark:text-brand-300',
+  success: 'bg-success-50 text-success-700 ring-success-100 dark:text-success-300',
+  warning: 'bg-warning-50 text-warning-700 ring-warning-100 dark:text-warning-300',
+  danger: 'bg-danger-50 text-danger-700 ring-danger-100 dark:text-danger-300',
 };
 
 const DOT_TONE = {
@@ -135,8 +135,8 @@ export function RequestTracker({ requestId }) {
 
           const circleClass = {
             done: 'bg-brand-600 text-white',
-            current: 'bg-brand-50 text-brand-700 ring-2 ring-brand-600',
-            future: 'bg-black/[0.06] text-muted',
+            current: 'bg-brand-50 text-brand-700 dark:text-brand-300 ring-2 ring-brand-600',
+            future: 'bg-scrim text-muted',
             approved: 'bg-success-600 text-white',
             denied: 'bg-danger-600 text-white',
           }[state];
@@ -154,15 +154,15 @@ export function RequestTracker({ requestId }) {
 
           const labelClass =
             state === 'approved'
-              ? 'font-medium text-success-700'
+              ? 'font-medium text-success-700 dark:text-success-300'
               : state === 'denied'
-                ? 'font-medium text-danger-700'
+                ? 'font-medium text-danger-700 dark:text-danger-300'
                 : index <= activeIndex
                   ? 'text-ink'
                   : 'text-muted';
 
           const connectorClass =
-            index < activeIndex ? 'bg-brand-600' : 'bg-black/10';
+            index < activeIndex ? 'bg-brand-600' : 'bg-scrim-strong';
 
           return (
             <div key={label} className="flex flex-1 flex-col items-center">
