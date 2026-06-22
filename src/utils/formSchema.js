@@ -102,3 +102,17 @@ export function createDefaultField(type) {
 
   return field
 }
+
+// Build the initial answer map for a schema. Skips display-only fields (they have
+// no answer key) and unknown types. Each value comes from the registry's emptyValue
+// factory, so multiCheckbox fields get their own fresh array (never a shared one).
+export function buildDefaults(schema) {
+  const out = {}
+  if (!Array.isArray(schema)) return out
+  for (const field of schema) {
+    const meta = FIELD_REGISTRY[field?.type]
+    if (!meta || meta.isDisplayOnly) continue
+    out[field.id] = meta.emptyValue()
+  }
+  return out
+}

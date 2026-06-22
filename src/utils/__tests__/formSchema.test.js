@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField } from '../formSchema.js'
+import {
+  FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField, buildDefaults,
+} from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
   const ALL_TYPES = [
@@ -155,5 +157,61 @@ describe('createDefaultField', () => {
 
   it('returns null for an unknown type', () => {
     expect(createDefaultField('bogus')).toBeNull()
+  })
+})
+
+describe('buildDefaults', () => {
+  it('T1: produces a per-type empty default for every input type', () => {
+    const schema = [
+      { id: 'a', type: 'shortText', label: 'A' },
+      { id: 'b', type: 'longText', label: 'B' },
+      { id: 'c', type: 'number', label: 'C' },
+      { id: 'd', type: 'date', label: 'D' },
+      { id: 'e', type: 'select', label: 'E', options: [{ value: 'x', label: 'X' }] },
+      { id: 'f', type: 'radio', label: 'F', options: [{ value: 'x', label: 'X' }] },
+      { id: 'g', type: 'multiCheckbox', label: 'G', options: [{ value: 'x', label: 'X' }] },
+      { id: 'h', type: 'yesNo', label: 'H' },
+    ]
+    expect(buildDefaults(schema)).toEqual({
+      a: '', b: '', c: '', d: '', e: '', f: '', g: [], h: false,
+    })
+  })
+
+  it('T2: display-only types (sectionHeader, helpText) produce no key', () => {
+    const schema = [
+      { id: 'intro', type: 'sectionHeader', label: 'Intro', content: 'Welcome' },
+      { id: 'note', type: 'helpText', label: 'Note', content: 'Read carefully' },
+      { id: 'name', type: 'shortText', label: 'Name' },
+    ]
+    const defaults = buildDefaults(schema)
+    expect(defaults).toEqual({ name: '' })
+    expect(defaults).not.toHaveProperty('intro')
+    expect(defaults).not.toHaveProperty('note')
+  })
+
+  it('T3: an empty schema yields an empty object', () => {
+    expect(buildDefaults([])).toEqual({})
+  })
+
+  it('returns a fresh array for each multiCheckbox field (no shared reference)', () => {
+    const schema = [
+      { id: 'm1', type: 'multiCheckbox', label: 'M1', options: [{ value: 'x', label: 'X' }] },
+      { id: 'm2', type: 'multiCheckbox', label: 'M2', options: [{ value: 'x', label: 'X' }] },
+    ]
+    const defaults = buildDefaults(schema)
+    expect(defaults.m1).not.toBe(defaults.m2)
+  })
+
+  it('skips fields with an unknown type (no key, no throw)', () => {
+    const schema = [
+      { id: 'ok', type: 'shortText', label: 'OK' },
+      { id: 'weird', type: 'bogus', label: 'Weird' },
+    ]
+    expect(buildDefaults(schema)).toEqual({ ok: '' })
+  })
+
+  it('tolerates a null/undefined schema', () => {
+    expect(buildDefaults(null)).toEqual({})
+    expect(buildDefaults(undefined)).toEqual({})
   })
 })
