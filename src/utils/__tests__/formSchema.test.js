@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField, buildDefaults,
+  FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField, buildDefaults, validateForm,
 } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
@@ -213,5 +213,116 @@ describe('buildDefaults', () => {
   it('tolerates a null/undefined schema', () => {
     expect(buildDefaults(null)).toEqual({})
     expect(buildDefaults(undefined)).toEqual({})
+  })
+})
+
+describe('validateForm', () => {
+  // T4 — required-empty gate
+  it('T4: flags a required field that is empty', () => {
+    const fields = [{ id: 'name', type: 'shortText', label: 'Name', required: true }]
+    const errors = validateForm(fields, { name: '' })
+    expect(errors.name).toBe('This field is required.')
+  })
+
+  it('T4b: leaves an optional empty field alone', () => {
+    const fields = [{ id: 'note', type: 'shortText', label: 'Note', required: false }]
+    expect(validateForm(fields, { note: '' })).toEqual({})
+  })
+
+  // T5 — falsy-but-answered values (yesNo:false, number:0, multiCheckbox:['a'])
+  it('T5: yesNo false counts as answered (not empty)', () => {
+    const fields = [{ id: 'ok', type: 'yesNo', label: 'OK', required: true }]
+    expect(validateForm(fields, { ok: false })).toEqual({})
+  })
+
+  it('T5b: number 0 counts as answered', () => {
+    const fields = [{ id: 'qty', type: 'number', label: 'Qty', required: true }]
+    expect(validateForm(fields, { qty: 0 })).toEqual({})
+  })
+
+  it('T5c: non-empty multiCheckbox counts as answered', () => {
+    const fields = [
+      { id: 'ch', type: 'multiCheckbox', label: 'Ch', required: true,
+        options: [{ value: 'a', label: 'A' }] },
+    ]
+    expect(validateForm(fields, { ch: ['a'] })).toEqual({})
+  })
+
+  it('T5d: empty multiCheckbox array is unanswered when required', () => {
+    const fields = [
+      { id: 'ch', type: 'multiCheckbox', label: 'Ch', required: true,
+        options: [{ value: 'a', label: 'A' }] },
+    ]
+    expect(validateForm(fields, { ch: [] }).ch).toBe('This field is required.')
+  })
+
+  // T6 — number range / NaN
+  it('T6: NaN string gives number error', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'N', required: false }]
+    expect(validateForm(fields, { n: 'abc' }).n).toBeTruthy()
+  })
+
+  it('T6b: below min gives error', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'N', required: false, min: 5, max: null }]
+    expect(validateForm(fields, { n: 3 }).n).toBeTruthy()
+  })
+
+  it('T6c: above max gives error', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'N', required: false, min: null, max: 10 }]
+    expect(validateForm(fields, { n: 20 }).n).toBeTruthy()
+  })
+
+  it('T6d: empty optional number has no error', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'N', required: false }]
+    expect(validateForm(fields, { n: '' })).toEqual({})
+  })
+
+  // T7 — maxLength
+  it('T7: exceeding maxLength gives error', () => {
+    const fields = [{ id: 't', type: 'shortText', label: 'T', required: false, maxLength: 5 }]
+    expect(validateForm(fields, { t: 'toolong' }).t).toBeTruthy()
+  })
+
+  it('T7b: within maxLength is fine', () => {
+    const fields = [{ id: 't', type: 'shortText', label: 'T', required: false, maxLength: 10 }]
+    expect(validateForm(fields, { t: 'hi' })).toEqual({})
+  })
+
+  // T8 — orphan option
+  it('T8: select with orphan value gives "Choose a valid option."', () => {
+    const fields = [
+      { id: 's', type: 'select', label: 'S', required: false,
+        options: [{ value: 'a', label: 'A' }] },
+    ]
+    expect(validateForm(fields, { s: 'z' }).s).toBe('Choose a valid option.')
+  })
+
+  it('T8b: select with valid option passes', () => {
+    const fields = [
+      { id: 's', type: 'select', label: 'S', required: false,
+        options: [{ value: 'a', label: 'A' }] },
+    ]
+    expect(validateForm(fields, { s: 'a' })).toEqual({})
+  })
+
+  it('T8c: multiCheckbox containing orphan gives error', () => {
+    const fields = [
+      { id: 'mc', type: 'multiCheckbox', label: 'MC', required: false,
+        options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    ]
+    expect(validateForm(fields, { mc: ['a', 'z'] }).mc).toBe('Choose a valid option.')
+  })
+
+  // T9 — display-only types skipped
+  it('T9: sectionHeader and helpText skipped even when required:true', () => {
+    const fields = [
+      { id: 'h1', type: 'sectionHeader', label: 'H', required: true, content: '' },
+      { id: 'ht', type: 'helpText', label: 'H', required: true, content: '' },
+    ]
+    expect(validateForm(fields, {})).toEqual({})
+  })
+
+  it('empty field list returns empty object', () => {
+    expect(validateForm([], {})).toEqual({})
   })
 })

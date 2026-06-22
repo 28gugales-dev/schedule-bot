@@ -116,3 +116,54 @@ export function buildDefaults(schema) {
   }
   return out
 }
+
+function isEmpty(v) {
+  return v == null || v === '' || (Array.isArray(v) && v.length === 0)
+}
+
+export function validateForm(fields, answers = {}) {
+  const errors = {}
+  if (!Array.isArray(fields)) return errors
+  for (const field of fields) {
+    const meta = FIELD_REGISTRY[field?.type]
+    if (!meta || meta.isDisplayOnly) continue
+    const value = answers[field.id]
+    if (field.required && isEmpty(value)) {
+      errors[field.id] = 'This field is required.'
+      continue
+    }
+    if (isEmpty(value)) continue
+    if (field.type === 'number') {
+      const n = typeof value === 'number' ? value : Number(value)
+      if (Number.isNaN(n)) {
+        errors[field.id] = 'Enter a valid number.'
+      } else if (field.min != null && n < field.min) {
+        errors[field.id] = `Must be at least ${field.min}.`
+      } else if (field.max != null && n > field.max) {
+        errors[field.id] = `Must be at most ${field.max}.`
+      }
+      continue
+    }
+    if (field.type === 'date') {
+      if (Number.isNaN(new Date(value).getTime())) {
+        errors[field.id] = 'Enter a valid date.'
+      }
+      continue
+    }
+    if (field.type === 'shortText' || field.type === 'longText') {
+      if (field.maxLength != null && String(value).length > field.maxLength) {
+        errors[field.id] = `Must be ${field.maxLength} characters or fewer.`
+      }
+      continue
+    }
+    if (meta.hasOptions) {
+      const valid = new Set((field.options ?? []).map((o) => o.value))
+      const selected = Array.isArray(value) ? value : [value]
+      if (selected.some((v) => !valid.has(v))) {
+        errors[field.id] = 'Choose a valid option.'
+      }
+      continue
+    }
+  }
+  return errors
+}
