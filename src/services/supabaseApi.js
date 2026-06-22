@@ -11,6 +11,7 @@ import { RUBRIC_CRITERIA } from './mockData.js'
 import { evaluateAgainstRubric } from '../utils/schedulingLogic.js'
 import { freezeRuleVersion } from '../utils/ruleVersion.js'
 import { priorityOrderQueue } from '../utils/priorityQueue.js'
+import { slugifyWaiverId } from '../utils/formSchema.js'
 
 const STATUS_BY_DECISION = { admit: 'approved', deny: 'denied', flag: 'flagged' }
 
@@ -41,6 +42,8 @@ function rowToSubmission(r) {
     documents: r.documents ?? [],
     recommendation: r.recommendation ?? null,
     counselorNote: r.counselor_note ?? undefined,
+    formAnswers: r.form_answers ?? {},
+    formSchemaSnapshot: r.form_schema_snapshot ?? [],
   }
 }
 
@@ -62,8 +65,21 @@ function rowToQueueRow(r) {
     fromCourse: r.from_course ?? null,
     toCourse: r.to_course ?? null,
     recommendation: r.recommendation ?? null,
+    formAnswers: r.form_answers ?? {},
+    formSchemaSnapshot: r.form_schema_snapshot ?? [],
     ruleVersion: r.rule_version ?? null,
     checks: r.recommendation?.checks ?? [],
+  }
+}
+
+function rowToWaiverType(w) {
+  return {
+    id: w.id,
+    name: w.name,
+    description: w.description,
+    active: w.active,
+    requiredDocs: w.required_docs ?? [],
+    formSchema: w.form_schema ?? [],
   }
 }
 
@@ -82,12 +98,54 @@ function deriveDisplayStatus(sub) {
 // ---- Waiver types ----------------------------------------------------------
 export async function fetchAvailableWaivers() {
   const data = unwrap(await supabase.from('waiver_types').select('*').eq('active', true))
-  return data.map((w) => ({ id: w.id, name: w.name, description: w.description, active: w.active, requiredDocs: w.required_docs ?? [] }))
+  return data.map(rowToWaiverType)
 }
 
 export async function fetchAllWaivers() {
   const data = unwrap(await supabase.from('waiver_types').select('*').order('id'))
-  return data.map((w) => ({ id: w.id, name: w.name, description: w.description, active: w.active, requiredDocs: w.required_docs ?? [] }))
+  return data.map(rowToWaiverType)
+}
+
+// createWaiverType is called via the gateway with the raw input; slug the id
+// here too so the supabase path is self-contained. The caller passes {name,...}.
+export async function createWaiverType(input, _actor = null) {
+  const existing = unwrap(await supabase.from('waiver_types').select('id'))
+  const id = slugifyWaiverId(input.name ?? '', existing.map((r) => r.id))
+  const row = {
+    id,
+    name: input.name ?? '',
+    description: input.description ?? '',
+    active: input.active ?? false,
+    required_docs: input.requiredDocs ?? [],
+    form_schema: input.formSchema ?? [],
+  }
+  return rowToWaiverType(unwrap(await supabase.from('waiver_types').insert(row).select('*').single()))
+}
+
+// Partial patch → snake_case. Only present keys are written. formSchema save
+// is just updateWaiverType(id, { formSchema }).
+export async function updateWaiverType(id, patch, _actor = null) {
+  const row = {}
+  if ('name' in patch) row.name = patch.name
+  if ('description' in patch) row.description = patch.description
+  if ('active' in patch) row.active = patch.active
+  if ('requiredDocs' in patch) row.required_docs = patch.requiredDocs
+  if ('formSchema' in patch) row.form_schema = patch.formSchema
+  return rowToWaiverType(unwrap(await supabase.from('waiver_types').update(row).eq('id', id).select('*').single()))
+}
+
+// SOFT delete only — hard DELETE throws the FK NO ACTION violation when the
+// type has request history.
+export async function deleteWaiverType(id, _actor = null) {
+  unwrap(await supabase.from('waiver_types').update({ active: false }).eq('id', id))
+  return { ok: true, id }
+}
+
+export async function fetchWaiverTypeForm(waiverTypeId) {
+  const data = unwrap(
+    await supabase.from('waiver_types').select('id, form_schema').eq('id', waiverTypeId).maybeSingle(),
+  )
+  return { waiverTypeId, formSchema: data?.form_schema ?? [] }
 }
 
 // ---- Student: submit -------------------------------------------------------
@@ -104,6 +162,12 @@ export async function submitWaiver(payload) {
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
 
+  // Freeze the waiver type's current formSchema at submit (immutable copy, not
+  // a live reference). [] for legacy/no-form types. Mirrors freezeRuleVersion.
+  const wt = unwrap(
+    await supabase.from('waiver_types').select('form_schema').eq('id', payload.waiverTypeId).maybeSingle(),
+  )
+
   const insertRow = {
     student_id: user.id, // authoritative — must equal auth.uid() per RLS
     waiver_type_id: payload.waiverTypeId,
@@ -114,6 +178,8 @@ export async function submitWaiver(payload) {
     student_note: payload.studentNote ?? '',
     transcript_data: serializeTranscript(payload.transcriptData),
     documents: payload.documents ?? [],
+    form_answers: payload.formAnswers ?? {},
+    form_schema_snapshot: wt?.form_schema ?? [],
     recommendation,
     rule_version: freezeRuleVersion(RUBRIC_CRITERIA),
     student_snapshot: {
