@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { FIELD_REGISTRY } from '../../utils/formSchema.js'
+import { UploadZone } from '../student-portal/UploadZone.jsx'
 
 // Shared 11-type render seam. Editable in the student wizard ("Additional
 // questions" step); read-only in the FormBuilder preview. Controlled — all
@@ -101,7 +102,10 @@ function renderControl(ctx) {
       return <RadioControl {...ctx} />
     case 'multiCheckbox':
       return <MultiCheckboxControl {...ctx} />
-    // Task 17 fills yesNo + file.
+    case 'yesNo':
+      return <YesNoControl {...ctx} />
+    case 'file':
+      return <FileControl {...ctx} />
     default:
       return null
   }
@@ -266,6 +270,77 @@ function MultiCheckboxControl({ field, value, error, errorId, helpId, describedB
           )
         })}
       </div>
+    </FieldShell>
+  )
+}
+
+function YesNoControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  const current = value === true ? 'yes' : value === false ? 'no' : null
+  const opts = [
+    { key: 'yes', label: 'Yes', val: true },
+    { key: 'no', label: 'No', val: false },
+  ]
+  return (
+    <FieldShell field={field} asFieldset error={error} errorId={errorId} helpId={helpId}>
+      <div role="radiogroup" aria-describedby={describedBy} aria-invalid={error ? true : undefined} className="inline-flex gap-1 rounded-xl bg-black/[0.04] p-1">
+        {opts.map((o) => {
+          const optId = `${field.id}-${o.key}`
+          const active = current === o.key
+          return (
+            <label
+              key={o.key}
+              htmlFor={optId}
+              className={[
+                'cursor-pointer rounded-lg px-4 py-1.5 text-sm font-medium transition',
+                active ? 'bg-brand-600 text-white' : 'text-muted hover:text-ink',
+                readOnly ? 'cursor-default opacity-60' : '',
+              ].join(' ')}
+            >
+              <input
+                id={optId}
+                type="radio"
+                name={field.id}
+                className="sr-only"
+                checked={active}
+                onChange={() => handle(o.val)}
+                disabled={readOnly}
+              />
+              {o.label}
+            </label>
+          )
+        })}
+      </div>
+    </FieldShell>
+  )
+}
+
+function FileControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  // In the wizard, value is File[] (re-linked to a descriptor at submit). In the
+  // builder preview (readOnly), render a static stub — UploadZone has no disabled
+  // mode and must not accept uploads during preview.
+  if (readOnly) {
+    return (
+      <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+        <div
+          id={field.id}
+          aria-describedby={describedBy}
+          className="rounded-xl border-2 border-dashed border-hairline-strong bg-glass-weak p-6 text-center text-sm text-muted"
+        >
+          File upload ({field.accept || 'any file'}{field.multiple ? ', multiple' : ''})
+        </div>
+      </FieldShell>
+    )
+  }
+  const files = Array.isArray(value) ? value : []
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <UploadZone
+        docType={`custom-field:${field.id}`}
+        accept={field.accept || '.pdf,.png,.jpg,.jpeg'}
+        multiple={field.multiple ?? false}
+        files={files}
+        onFilesChange={(next) => handle(next)}
+      />
     </FieldShell>
   )
 }
