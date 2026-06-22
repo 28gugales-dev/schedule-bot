@@ -27,6 +27,7 @@ import { freezeRuleVersion } from '../utils/ruleVersion.js'
 import { canSubmit } from '../utils/rateLimiter.js'
 import { buildSyncPackage } from '../utils/batchProcessor.js'
 import { releaseSeat } from '../utils/seatAvailability.js'
+import { slugifyWaiverId } from '../utils/formSchema.js'
 import * as waitlist from './waitlist.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import * as sb from './supabaseApi.js'
@@ -226,6 +227,87 @@ export async function fetchAllWaivers() {
   return clone(waivers)
 }
 
+// Create a new waiver type. id is client-slugged from the name (TEXT pk).
+// New types default INACTIVE so a half-built form never reaches students.
+export async function createWaiverType(input, actor = null) {
+  if (isSupabaseConfigured) return sb.createWaiverType(input, actor)
+  await delay(400)
+  const id = slugifyWaiverId(input.name ?? '', waivers.map((w) => w.id))
+  const created = {
+    id,
+    name: input.name ?? '',
+    description: input.description ?? '',
+    active: input.active ?? false,
+    requiredDocs: input.requiredDocs ?? [],
+    formSchema: input.formSchema ?? [],
+  }
+  waivers = [...waivers, created]
+  persist()
+  await safeAudit({
+    action: 'waiver.create',
+    actor: actor ?? DEFAULT_ACTOR,
+    waiverTypeId: id,
+    summary: `Created waiver type "${created.name}"`,
+    after: clone(created),
+  })
+  return clone(created)
+}
+
+// Partial patch — only the keys present in `patch` are written; everything
+// else (incl. formSchema when saving meta, or meta when saving formSchema) is
+// preserved. THIS is the schema-save path: updateWaiverType(id,{formSchema}).
+export async function updateWaiverType(id, patch, actor = null) {
+  if (isSupabaseConfigured) return sb.updateWaiverType(id, patch, actor)
+  await delay(400)
+  const idx = waivers.findIndex((w) => w.id === id)
+  if (idx < 0) throw new Error(`Unknown waiver type: ${id}`)
+  const before = clone(waivers[idx])
+  waivers[idx] = { ...waivers[idx], ...patch }
+  persist()
+  await safeAudit({
+    action: 'waiver.update',
+    actor: actor ?? DEFAULT_ACTOR,
+    waiverTypeId: id,
+    summary: `Updated waiver type "${waivers[idx].name}"`,
+    before,
+    after: clone(waivers[idx]),
+    diff: diffWaiverType(before, waivers[idx]),
+  })
+  return clone(waivers[idx])
+}
+
+// SOFT delete only — flip active=false. The live FK requests_waiver_type_id_fkey
+// is NO ACTION, so a hard DELETE on a type with request history throws at the DB;
+// snapshotting makes soft-delete lossless for history.
+export async function deleteWaiverType(id, actor = null) {
+  if (isSupabaseConfigured) return sb.deleteWaiverType(id, actor)
+  await delay(350)
+  const idx = waivers.findIndex((w) => w.id === id)
+  if (idx < 0) throw new Error(`Unknown waiver type: ${id}`)
+  const before = clone(waivers[idx])
+  waivers[idx] = { ...waivers[idx], active: false }
+  persist()
+  await safeAudit({
+    action: 'waiver.delete',
+    actor: actor ?? DEFAULT_ACTOR,
+    waiverTypeId: id,
+    summary: `Archived waiver type "${waivers[idx].name}"`,
+    before,
+    after: clone(waivers[idx]),
+    diff: diffWaiverType(before, waivers[idx]),
+  })
+  return { ok: true, id }
+}
+
+// A single type's live formSchema for the student intake step. [] for
+// legacy/missing types (the wizard then skips the custom step entirely).
+export async function fetchWaiverTypeForm(waiverTypeId) {
+  if (isSupabaseConfigured) return sb.fetchWaiverTypeForm(waiverTypeId)
+  await delay(200)
+  const w = waivers.find((x) => x.id === waiverTypeId)
+  return { waiverTypeId, formSchema: clone(w?.formSchema ?? []) }
+}
+
 // Prevent duplicate in-flight requests (same student, waiver type, course
 // swap) via a Set of fingerprint hashes over the current submissions.
 function existingRequestHashes() {
@@ -272,9 +354,15 @@ export async function submitWaiver(payload, actor = null) {
     throw new Error('An identical request is already pending — check My Requests before resubmitting.')
   }
 
+  // Freeze the waiver type's current formSchema at submit so review renders
+  // from an immutable copy (mirrors freezeRuleVersion). [] for legacy/no-form
+  // types. formAnswers arrives via ...payload; the snapshot is server-derived.
+  const wt = waivers.find((w) => w.id === payload.waiverTypeId)
+  const formSchemaSnapshot = clone(wt?.formSchema ?? [])
   const request = {
     id: `req-${Date.now()}`,
     ...payload,
+    formSchemaSnapshot,
     status: 'submitted',
     submittedAt: new Date().toISOString(),
   }
@@ -309,6 +397,8 @@ export async function submitWaiver(payload, actor = null) {
       studentNote: payload.studentNote ?? '',
       fromCourse: payload.fromCourse ?? null,
       toCourse: payload.toCourse ?? null,
+      formAnswers: payload.formAnswers ?? {},
+      formSchemaSnapshot,
       recommendation,
       ruleVersion: freezeRuleVersion(criteria),
     },
