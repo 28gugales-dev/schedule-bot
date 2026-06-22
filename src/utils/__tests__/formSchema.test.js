@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIELD_REGISTRY } from '../formSchema.js'
+import { FIELD_REGISTRY, makeUniqueId } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
   const ALL_TYPES = [
@@ -48,5 +48,40 @@ describe('FIELD_REGISTRY', () => {
     const a = FIELD_REGISTRY.multiCheckbox.emptyValue()
     const b = FIELD_REGISTRY.multiCheckbox.emptyValue()
     expect(a).not.toBe(b)
+  })
+})
+
+describe('makeUniqueId', () => {
+  it('slugifies a label to a lowercase dash-separated id with no prefix', () => {
+    expect(makeUniqueId('Why are you requesting this?', [])).toBe('why-are-you-requesting-this')
+  })
+
+  it('collapses runs of non-alphanumerics and trims leading/trailing dashes', () => {
+    expect(makeUniqueId('  Credits!!  earned  ', [])).toBe('credits-earned')
+  })
+
+  it('appends a numeric suffix starting at -2 on collision', () => {
+    expect(makeUniqueId('Period', ['period'])).toBe('period-2')
+  })
+
+  it('keeps incrementing past existing suffixed ids', () => {
+    expect(makeUniqueId('Period', ['period', 'period-2', 'period-3'])).toBe('period-4')
+  })
+
+  it('falls back to a deterministic "field" base when the slug is empty', () => {
+    expect(makeUniqueId('!!!', [])).toBe('field')
+    expect(makeUniqueId('', [])).toBe('field')
+  })
+
+  it('suffixes the fallback base on collision too', () => {
+    expect(makeUniqueId('', ['field'])).toBe('field-2')
+  })
+
+  it('produces unique ids across a batch when threaded through an accumulator', () => {
+    const taken = []
+    const a = makeUniqueId('Reason', taken); taken.push(a)
+    const b = makeUniqueId('Reason', taken); taken.push(b)
+    const c = makeUniqueId('Reason', taken); taken.push(c)
+    expect([a, b, c]).toEqual(['reason', 'reason-2', 'reason-3'])
   })
 })

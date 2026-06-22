@@ -21,3 +21,26 @@ export const FIELD_REGISTRY = {
   sectionHeader: { type: 'sectionHeader', label: 'Section header', isDisplayOnly: true,  hasOptions: false, emptyValue: () => undefined },
   helpText:      { type: 'helpText',      label: 'Help text',      isDisplayOnly: true,  hasOptions: false, emptyValue: () => undefined },
 }
+
+// Lowercase, dash-separated slug. Collapses non-alphanumerics, trims edge dashes.
+function slugify(label) {
+  return String(label || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// Stable, collision-free field id from a label slug. Ported from RubricBuilder's
+// makeUniqueId but WITHOUT the `crit-` prefix (field ids are bare slugs), taking
+// an ARRAY of existing ids, and with a deterministic 'field' fallback (RubricBuilder
+// used Date.now(), which is non-deterministic and untestable). Collision numbering
+// starts at -2, matching RubricBuilder.
+export function makeUniqueId(label, existingIds = []) {
+  const taken = new Set(existingIds)
+  const base = slugify(label) || 'field'
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
+}
