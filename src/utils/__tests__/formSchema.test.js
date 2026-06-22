@@ -314,6 +314,16 @@ describe('validateForm', () => {
     expect(validateForm(fields, { mc: ['a', 'z'] }).mc).toBe('Choose a valid option.')
   })
 
+  it('T8d: date with an unparseable value gives "Enter a valid date."', () => {
+    const fields = [{ id: 'd', type: 'date', label: 'D', required: false }]
+    expect(validateForm(fields, { d: 'not-a-date' }).d).toBe('Enter a valid date.')
+  })
+
+  it('T8e: date with a valid ISO value passes', () => {
+    const fields = [{ id: 'd', type: 'date', label: 'D', required: false }]
+    expect(validateForm(fields, { d: '2026-05-14' })).toEqual({})
+  })
+
   // T9 — display-only types skipped
   it('T9: sectionHeader and helpText skipped even when required:true', () => {
     const fields = [
