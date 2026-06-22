@@ -95,7 +95,13 @@ function renderControl(ctx) {
       return <NumberControl {...ctx} />
     case 'date':
       return <DateControl {...ctx} />
-    // Tasks 16 (choice) + 17 (yesNo, file) fill the remaining branches.
+    case 'select':
+      return <SelectControl {...ctx} />
+    case 'radio':
+      return <RadioControl {...ctx} />
+    case 'multiCheckbox':
+      return <MultiCheckboxControl {...ctx} />
+    // Task 17 fills yesNo + file.
     default:
       return null
   }
@@ -176,6 +182,90 @@ function DateControl({ field, value, error, errorId, helpId, describedBy, handle
         aria-describedby={describedBy}
         className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
       />
+    </FieldShell>
+  )
+}
+
+function SelectControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  const options = field.options ?? []
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <select
+        id={field.id}
+        value={value ?? ''}
+        onChange={(e) => handle(e.target.value)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
+      >
+        <option value="" disabled>{field.placeholder || 'Choose…'}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </FieldShell>
+  )
+}
+
+function RadioControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  const options = field.options ?? []
+  return (
+    <FieldShell field={field} asFieldset error={error} errorId={errorId} helpId={helpId}>
+      <div role="radiogroup" aria-describedby={describedBy} aria-invalid={error ? true : undefined} className="space-y-1.5">
+        {options.map((opt) => {
+          const optId = `${field.id}-${opt.value}`
+          return (
+            <label key={opt.value} htmlFor={optId} className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                id={optId}
+                type="radio"
+                name={field.id}
+                value={opt.value}
+                checked={value === opt.value}
+                onChange={() => handle(opt.value)}
+                disabled={readOnly}
+                className="h-4 w-4 accent-brand-600 disabled:opacity-60"
+              />
+              {opt.label}
+            </label>
+          )
+        })}
+      </div>
+    </FieldShell>
+  )
+}
+
+function MultiCheckboxControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  const options = field.options ?? []
+  const selected = Array.isArray(value) ? value : []
+  const toggle = (optValue) => {
+    const next = selected.includes(optValue)
+      ? selected.filter((v) => v !== optValue)
+      : [...selected, optValue]
+    handle(next)
+  }
+  return (
+    <FieldShell field={field} asFieldset error={error} errorId={errorId} helpId={helpId}>
+      <div aria-describedby={describedBy} className="space-y-1.5">
+        {options.map((opt) => {
+          const optId = `${field.id}-${opt.value}`
+          return (
+            <label key={opt.value} htmlFor={optId} className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                id={optId}
+                type="checkbox"
+                value={opt.value}
+                checked={selected.includes(opt.value)}
+                onChange={() => toggle(opt.value)}
+                disabled={readOnly}
+                className="h-4 w-4 rounded accent-brand-600 disabled:opacity-60"
+              />
+              {opt.label}
+            </label>
+          )
+        })}
+      </div>
     </FieldShell>
   )
 }
