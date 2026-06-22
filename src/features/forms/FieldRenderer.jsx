@@ -84,7 +84,98 @@ function FieldNode({ field, value, onChange, error, readOnly }) {
   return renderControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly })
 }
 
-// Placeholder — Tasks 15–17 replace this with the per-type switch.
-function renderControl() {
-  return null
+function renderControl(ctx) {
+  const { field } = ctx
+  switch (field.type) {
+    case 'shortText':
+      return <TextControl {...ctx} />
+    case 'longText':
+      return <TextAreaControl {...ctx} />
+    case 'number':
+      return <NumberControl {...ctx} />
+    case 'date':
+      return <DateControl {...ctx} />
+    // Tasks 16 (choice) + 17 (yesNo, file) fill the remaining branches.
+    default:
+      return null
+  }
+}
+
+function TextControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <input
+        id={field.id}
+        type="text"
+        value={value ?? ''}
+        maxLength={field.maxLength || undefined}
+        placeholder={field.placeholder || undefined}
+        onChange={(e) => handle(e.target.value)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
+      />
+    </FieldShell>
+  )
+}
+
+function TextAreaControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <textarea
+        id={field.id}
+        rows={3}
+        value={value ?? ''}
+        maxLength={field.maxLength || undefined}
+        placeholder={field.placeholder || undefined}
+        onChange={(e) => handle(e.target.value)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
+      />
+    </FieldShell>
+  )
+}
+
+function NumberControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  // Value stays a string in state; coercion happens at validate/submit, never
+  // on keystroke (avoids Number('') === 0 corrupting an in-progress edit).
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <input
+        id={field.id}
+        type="number"
+        inputMode="decimal"
+        value={value ?? ''}
+        min={field.min ?? undefined}
+        max={field.max ?? undefined}
+        step={field.step ?? undefined}
+        placeholder={field.placeholder || undefined}
+        onChange={(e) => handle(e.target.value)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
+      />
+    </FieldShell>
+  )
+}
+
+function DateControl({ field, value, error, errorId, helpId, describedBy, handle, readOnly }) {
+  return (
+    <FieldShell field={field} error={error} errorId={errorId} helpId={helpId}>
+      <input
+        id={field.id}
+        type="date"
+        value={value ?? ''}
+        onChange={(e) => handle(e.target.value)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="glass-input w-full px-3 py-2 text-sm disabled:opacity-60"
+      />
+    </FieldShell>
+  )
 }
