@@ -7,6 +7,63 @@
 // the admin review panel can render a recommendation card during UI dev. It is
 // NOT produced by real logic — see the boundary rule in PLANNING_SCRATCHPAD.md.
 
+// One richly-populated demo waiver type so the Form Builder + intake render
+// non-empty in demo mode. Exercises sectionHeader + shortText + multiCheckbox
+// + file + yesNo. Inactive by default so a half-built demo never leaks to
+// students until a counselor flips it on (matches FormBuilder "+ New" default).
+const MEDICAL_EXEMPTION_DEMO = {
+  id: 'medical-exemption',
+  name: 'Medical Exemption',
+  description: 'Request an exemption from a course requirement for documented medical reasons.',
+  active: false,
+  requiredDocs: ['supporting'],
+  formSchema: [
+    {
+      id: 'medical-details',
+      type: 'sectionHeader',
+      label: 'Medical details',
+      content: 'Tell us about the condition and the accommodation you are requesting.',
+    },
+    {
+      id: 'condition',
+      type: 'shortText',
+      label: 'Condition or diagnosis',
+      required: true,
+      helpText: 'A brief description is fine — no need for full medical history.',
+      placeholder: 'e.g. post-surgery knee recovery',
+      maxLength: 120,
+    },
+    {
+      id: 'affected-activities',
+      type: 'multiCheckbox',
+      label: 'Which activities are affected?',
+      required: true,
+      helpText: 'Select all that apply.',
+      options: [
+        { value: 'physical-ed', label: 'Physical education' },
+        { value: 'lab-work', label: 'Lab / hands-on work' },
+        { value: 'field-trips', label: 'Field trips' },
+        { value: 'extended-sitting', label: 'Extended sitting' },
+      ],
+    },
+    {
+      id: 'physician-note',
+      type: 'file',
+      label: 'Physician note',
+      required: true,
+      helpText: 'PDF or image of a signed note from your physician.',
+      accept: '.pdf,.png,.jpg,.jpeg',
+      multiple: false,
+    },
+    {
+      id: 'release-consent',
+      type: 'yesNo',
+      label: 'Do you consent to the counselor contacting your physician if needed?',
+      required: true,
+    },
+  ],
+}
+
 export const WAIVER_TYPES = [
   {
     id: 'prereq-override',
@@ -14,6 +71,7 @@ export const WAIVER_TYPES = [
     description: 'Skip a listed prerequisite when prior coursework or scores cover it.',
     active: true,
     requiredDocs: ['courseList'],
+    formSchema: [],
   },
   {
     id: 'schedule-conflict',
@@ -21,6 +79,7 @@ export const WAIVER_TYPES = [
     description: 'Resolve two required courses scheduled in the same block.',
     active: true,
     requiredDocs: ['courseList'],
+    formSchema: [],
   },
   {
     id: 'credit-recovery',
@@ -28,6 +87,7 @@ export const WAIVER_TYPES = [
     description: 'Recover credit for a failed course via an alternate path.',
     active: true,
     requiredDocs: ['supporting'],
+    formSchema: [],
   },
   {
     id: 'ap-entry',
@@ -35,6 +95,7 @@ export const WAIVER_TYPES = [
     description: 'Enter an AP course without the standard gating sequence.',
     active: false,
     requiredDocs: [],
+    formSchema: [],
   },
   {
     id: 'grad-substitution',
@@ -42,6 +103,7 @@ export const WAIVER_TYPES = [
     description: 'Substitute an equivalent course for a graduation requirement.',
     active: true,
     requiredDocs: ['courseList', 'supporting'],
+    formSchema: [],
   },
   {
     id: 'late-add-drop',
@@ -49,6 +111,7 @@ export const WAIVER_TYPES = [
     description: 'Add or drop a course after the standard registration deadline.',
     active: true,
     requiredDocs: ['courseList'],
+    formSchema: [],
   },
   {
     id: 'online-course',
@@ -56,6 +119,7 @@ export const WAIVER_TYPES = [
     description: 'Enroll in an accredited online course for credit toward graduation.',
     active: true,
     requiredDocs: ['supporting'],
+    formSchema: [],
   },
   {
     id: 'pe-exemption',
@@ -63,7 +127,9 @@ export const WAIVER_TYPES = [
     description: 'Waive the physical education requirement due to health or athletic status.',
     active: false,
     requiredDocs: ['supporting'],
+    formSchema: [],
   },
+  MEDICAL_EXEMPTION_DEMO,
 ]
 
 export const RUBRIC_CRITERIA = [
@@ -238,6 +304,30 @@ export const BATCH_SYNC_QUEUE = [
 
 // Student-submitted waiver requests at various workflow stages for the student portal tracker.
 export const SEED_SUBMISSIONS = [
+  {
+    id: 'req-2000',
+    waiverTypeId: 'medical-exemption',
+    status: 'counselor-review',
+    submittedAt: '2026-06-16T17:10:00Z',
+    studentNote: 'Recovering from knee surgery; requesting PE exemption this term.',
+    documents: [
+      { id: 'doc-seed-note', name: 'physician_note.pdf', type: 'custom-field:physician-note', size: 84213, url: '/mock/uploads/physician_note.pdf' },
+    ],
+    formAnswers: {
+      condition: 'Post-surgery knee recovery',
+      'affected-activities': ['physical-ed', 'field-trips'],
+      'physician-note': { id: 'doc-seed-note', name: 'physician_note.pdf', type: 'custom-field:physician-note', size: 84213, url: '/mock/uploads/physician_note.pdf' },
+      'release-consent': true,
+    },
+    formSchemaSnapshot: [
+      { id: 'medical-details', type: 'sectionHeader', label: 'Medical details', content: 'Tell us about the condition and the accommodation you are requesting.' },
+      { id: 'condition', type: 'shortText', label: 'Condition or diagnosis', required: true, helpText: 'A brief description is fine — no need for full medical history.', placeholder: 'e.g. post-surgery knee recovery', maxLength: 120 },
+      { id: 'affected-activities', type: 'multiCheckbox', label: 'Which activities are affected?', required: true, helpText: 'Select all that apply.', options: [{ value: 'physical-ed', label: 'Physical education' }, { value: 'lab-work', label: 'Lab / hands-on work' }, { value: 'field-trips', label: 'Field trips' }, { value: 'extended-sitting', label: 'Extended sitting' }] },
+      { id: 'physician-note', type: 'file', label: 'Physician note', required: true, helpText: 'PDF or image of a signed note from your physician.', accept: '.pdf,.png,.jpg,.jpeg', multiple: false },
+      { id: 'release-consent', type: 'yesNo', label: 'Do you consent to the counselor contacting your physician if needed?', required: true },
+    ],
+    frozenAt: '2026-06-16T17:10:00Z',
+  },
   {
     id: 'req-2001',
     waiverTypeId: 'prereq-override',
