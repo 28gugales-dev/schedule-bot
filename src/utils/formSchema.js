@@ -213,3 +213,18 @@ export function validateSchema(fields) {
     formError,
   }
 }
+
+export function buildFormAnswers(schema, customAnswers = {}, relinkFn = () => null) {
+  const out = {}
+  if (!Array.isArray(schema)) return out
+  for (const field of schema) {
+    const meta = FIELD_REGISTRY[field?.type]
+    if (!meta || meta.isDisplayOnly) continue
+    if (field.type === 'file') {
+      out[field.id] = relinkFn(field.id) ?? null
+      continue
+    }
+    out[field.id] = customAnswers[field.id]
+  }
+  return out
+}

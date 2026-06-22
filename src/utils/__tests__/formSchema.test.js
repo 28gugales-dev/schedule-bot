@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField,
-  buildDefaults, validateForm, validateSchema,
+  buildDefaults, validateForm, validateSchema, buildFormAnswers,
 } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
@@ -399,5 +399,57 @@ describe('validateSchema', () => {
 
   it('empty schema returns { ok: true, errors: {}, formError: null }', () => {
     expect(validateSchema([])).toEqual({ ok: true, errors: {}, formError: null })
+  })
+})
+
+describe('buildFormAnswers', () => {
+  it('passes scalar, array, and boolean answers through', () => {
+    const schema = [
+      { id: 'name', type: 'shortText', label: 'Name' },
+      { id: 'ok', type: 'yesNo', label: 'OK' },
+      { id: 'tags', type: 'multiCheckbox', label: 'Tags',
+        options: [{ value: 'a', label: 'A' }] },
+    ]
+    const custom = { name: 'Alice', ok: true, tags: ['a'] }
+    expect(buildFormAnswers(schema, custom)).toEqual({ name: 'Alice', ok: true, tags: ['a'] })
+  })
+
+  it('drops display-only types (sectionHeader, helpText)', () => {
+    const schema = [
+      { id: 'h', type: 'sectionHeader', label: 'H', content: 'Hi' },
+      { id: 'n', type: 'shortText', label: 'Name' },
+    ]
+    const out = buildFormAnswers(schema, { n: 'Bob' })
+    expect(out).not.toHaveProperty('h')
+    expect(out.n).toBe('Bob')
+  })
+
+  it('file field: calls relinkFn(fieldId) and stores returned descriptor', () => {
+    const descriptor = { name: 'transcript.pdf', size: 1024 }
+    const relinkFn = (id) => (id === 'doc' ? descriptor : null)
+    const schema = [{ id: 'doc', type: 'file', label: 'Doc' }]
+    const out = buildFormAnswers(schema, {}, relinkFn)
+    expect(out.doc).toBe(descriptor)
+  })
+
+  it('file field: stores null when relinkFn returns null', () => {
+    const schema = [{ id: 'doc', type: 'file', label: 'Doc' }]
+    const out = buildFormAnswers(schema, {}, () => null)
+    expect(out.doc).toBeNull()
+  })
+
+  it('skips unknown types without throwing', () => {
+    const schema = [
+      { id: 'ok', type: 'shortText', label: 'OK' },
+      { id: 'bad', type: 'bogus', label: 'Bad' },
+    ]
+    const out = buildFormAnswers(schema, { ok: 'yes' })
+    expect(out).toHaveProperty('ok', 'yes')
+    expect(out).not.toHaveProperty('bad')
+  })
+
+  it('tolerates null/undefined schema', () => {
+    expect(buildFormAnswers(null, {})).toEqual({})
+    expect(buildFormAnswers(undefined, {})).toEqual({})
   })
 })
