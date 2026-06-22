@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIELD_REGISTRY, makeUniqueId, slugifyWaiverId } from '../formSchema.js'
+import { FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
   const ALL_TYPES = [
@@ -102,5 +102,58 @@ describe('slugifyWaiverId', () => {
 
   it('suffixes the fallback base on collision', () => {
     expect(slugifyWaiverId('', ['waiver'])).toBe('waiver-2')
+  })
+})
+
+describe('createDefaultField', () => {
+  it('builds a shortText field with an id slugged from its default label', () => {
+    const f = createDefaultField('shortText')
+    expect(f.type).toBe('shortText')
+    expect(f.label).toBe('Short text')
+    expect(f.id).toBe('short-text')
+    expect(f.required).toBe(false)
+    expect(f.maxLength).toBeNull()
+  })
+
+  it('gives choice types a seeded options array with one option', () => {
+    for (const type of ['select', 'radio', 'multiCheckbox']) {
+      const f = createDefaultField(type)
+      expect(Array.isArray(f.options)).toBe(true)
+      expect(f.options.length).toBe(1)
+      expect(f.options[0]).toHaveProperty('value')
+      expect(f.options[0]).toHaveProperty('label')
+    }
+  })
+
+  it('gives number fields null min/max/step', () => {
+    const f = createDefaultField('number')
+    expect(f.min).toBeNull()
+    expect(f.max).toBeNull()
+    expect(f.step).toBeNull()
+  })
+
+  it('gives file fields accept and multiple defaults', () => {
+    const f = createDefaultField('file')
+    expect(typeof f.accept).toBe('string')
+    expect(f.multiple).toBe(false)
+  })
+
+  it('gives display-only types content and no required/answer semantics', () => {
+    for (const type of ['sectionHeader', 'helpText']) {
+      const f = createDefaultField(type)
+      expect(f.type).toBe(type)
+      expect(typeof f.content).toBe('string')
+      expect(f).not.toHaveProperty('required')
+      expect(f).not.toHaveProperty('options')
+    }
+  })
+
+  it('does not put options on non-choice types', () => {
+    expect(createDefaultField('shortText')).not.toHaveProperty('options')
+    expect(createDefaultField('number')).not.toHaveProperty('options')
+  })
+
+  it('returns null for an unknown type', () => {
+    expect(createDefaultField('bogus')).toBeNull()
   })
 })

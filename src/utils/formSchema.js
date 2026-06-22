@@ -55,3 +55,50 @@ export function slugifyWaiverId(name, existingIds = []) {
   while (taken.has(`${base}-${n}`)) n += 1
   return `${base}-${n}`
 }
+
+// Factory for a fresh field definition with type-appropriate defaults. Single arg
+// by contract: the FormBuilder handles uniqueness on append, so the id is slugged
+// from the label against an empty list here. Type-specific keys are present ONLY
+// when meaningful for that type (matches the spec's field-definition object).
+export function createDefaultField(type) {
+  const meta = FIELD_REGISTRY[type]
+  if (!meta) return null
+
+  // Display-only types: no required/options/answer keys — just body copy.
+  if (meta.isDisplayOnly) {
+    return {
+      id: makeUniqueId(meta.label, []),
+      type,
+      label: meta.label,
+      content: '',
+    }
+  }
+
+  const field = {
+    id: makeUniqueId(meta.label, []),
+    type,
+    label: meta.label,
+    required: false,
+    helpText: '',
+  }
+
+  if (meta.hasOptions) {
+    field.options = [{ value: 'option-1', label: 'Option 1' }]
+  }
+  if (type === 'shortText' || type === 'longText') {
+    field.placeholder = ''
+    field.maxLength = null
+  }
+  if (type === 'number') {
+    field.placeholder = ''
+    field.min = null
+    field.max = null
+    field.step = null
+  }
+  if (type === 'file') {
+    field.accept = '.pdf,.png,.jpg,.jpeg'
+    field.multiple = false
+  }
+
+  return field
+}
