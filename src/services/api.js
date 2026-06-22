@@ -53,6 +53,26 @@ async function safeAudit(event) {
 
 const WAIVER_NAME = (id) => WAIVER_TYPES.find((w) => w.id === id)?.name ?? id
 
+// Field-level diff between two waiver-type snapshots → DiffEntry[] (same shape
+// diffRubric emits). Custom fields are summarized as a count (entire schema
+// arrays in the audit would be noise); requiredDocs as a joined list.
+export function diffWaiverType(before, after) {
+  const diff = []
+  const entity = `Waiver: ${after?.name ?? after?.id ?? 'type'}`
+  const b = before ?? {}
+  const a = after ?? {}
+  if (b.name !== a.name) diff.push({ entity, field: 'name', from: b.name ?? null, to: a.name ?? null })
+  if (b.description !== a.description) diff.push({ entity, field: 'description', from: b.description ?? null, to: a.description ?? null })
+  if (b.active !== a.active) diff.push({ entity, field: 'active', from: b.active ?? null, to: a.active ?? null })
+  const bDocs = (b.requiredDocs ?? []).join(', ')
+  const aDocs = (a.requiredDocs ?? []).join(', ')
+  if (bDocs !== aDocs) diff.push({ entity, field: 'requiredDocs', from: bDocs, to: aDocs })
+  const bCount = (b.formSchema ?? []).length
+  const aCount = (a.formSchema ?? []).length
+  if (bCount !== aCount) diff.push({ entity, field: 'fieldCount', from: bCount, to: aCount })
+  return diff
+}
+
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 const clone = (v) => JSON.parse(JSON.stringify(v))
 
@@ -63,7 +83,7 @@ const clone = (v) => JSON.parse(JSON.stringify(v))
 // hydrate from localStorage on init and write back after every mutation. Bump
 // SEED_VERSION whenever the mockData fixtures change shape/content, so returning
 // demo browsers rebuild from the new seed instead of keeping stale cached data.
-const SEED_VERSION = '1'
+const SEED_VERSION = '2'
 const NS = 'schedulebot.api.v1'
 const LS_KEYS = {
   waivers: `${NS}.waivers`,
