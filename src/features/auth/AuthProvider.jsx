@@ -97,6 +97,11 @@ export function AuthProvider({ children }) {
           provider: 'google',
           options: { redirectTo: `${window.location.origin}/` },
         }),
+      // `role` is written to user_metadata at signup — it's what resolveRole()
+      // reads for that account from then on (see priority order above).
+      signUpWithEmail: (email, password, role) =>
+        supabase?.auth.signUp({ email, password, options: { data: { role } } }),
+      signInWithEmail: (email, password) => supabase?.auth.signInWithPassword({ email, password }),
       signOut: demoMode ? () => setRole(null) : () => supabase?.auth.signOut(),
     }
   }, [session, loading, demoMode, demoRole, setRole])

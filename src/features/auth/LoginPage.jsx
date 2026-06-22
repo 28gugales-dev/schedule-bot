@@ -1,10 +1,123 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider.jsx'
 import { ThemeToggle } from '../theme/ThemeToggle.jsx'
 
+const PORTALS = [
+  { id: 'student', label: 'Student' },
+  { id: 'admin', label: 'Counselor' },
+]
+
+function EmailAuthForm({ portal }) {
+  const { signInWithEmail, signUpWithEmail } = useAuth()
+  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const [info, setInfo] = useState(null)
+
+  const reset = () => {
+    setError(null)
+    setInfo(null)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    reset()
+
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const { error: authError } =
+        mode === 'signin'
+          ? await signInWithEmail(email, password)
+          : await signUpWithEmail(email, password, portal)
+
+      if (authError) {
+        setError(authError.message)
+      } else if (mode === 'signup') {
+        setInfo('Account created. Check your email to confirm, then sign in.')
+        setMode('signin')
+      }
+    } catch (err) {
+      setError(err?.message ?? 'Something went wrong — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <input
+        type="email"
+        required
+        autoComplete="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none"
+      />
+      <input
+        type="password"
+        required
+        minLength={6}
+        autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none"
+      />
+      {mode === 'signup' && (
+        <input
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+          placeholder="Confirm password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none"
+        />
+      )}
+
+      {error && <p className="text-xs text-danger-600">{error}</p>}
+      {info && <p className="text-xs text-success-700">{info}</p>}
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {submitting ? 'Please wait…' : mode === 'signin' ? `Sign in as ${portal === 'admin' ? 'Counselor' : 'Student'}` : `Create ${portal === 'admin' ? 'counselor' : 'student'} account`}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => { setMode((m) => (m === 'signin' ? 'signup' : 'signin')); reset() }}
+        className="text-center text-xs font-medium text-muted transition hover:text-ink"
+      >
+        {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+      </button>
+    </form>
+  )
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
-  const { demoMode, setRole, signInWithGoogle, isConfigured } = useAuth()
+  const { user, demoMode, setRole, isConfigured } = useAuth()
+  const [portal, setPortal] = useState('student')
+
+  // Real auth: once a session resolves, leave /login — RoleLanding sends the
+  // user to the right portal based on their role.
+  useEffect(() => {
+    if (!demoMode && user) navigate('/')
+  }, [demoMode, user, navigate])
 
   return (
     <div className="fade-up relative flex min-h-screen items-center justify-center px-4">
@@ -50,50 +163,34 @@ export function LoginPage() {
               No account needed. You can switch portals anytime from the header.
             </p>
           </>
+        ) : !isConfigured ? (
+          <p className="rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:text-warning-300 ring-1 ring-warning-100">
+            Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
+            <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env.local</code> to enable sign-in.
+          </p>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={signInWithGoogle}
-              disabled={!isConfigured}
-              className="glass-input flex w-full items-center justify-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <GoogleGlyph />
-              Continue with Google
-            </button>
+            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-black/[0.04] p-1">
+              {PORTALS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={portal === p.id}
+                  onClick={() => setPortal(p.id)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    portal === p.id ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
 
-            {!isConfigured && (
-              <p className="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:text-warning-300 ring-1 ring-warning-100">
-                Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
-                <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> to enable sign-in.
-              </p>
-            )}
+            <EmailAuthForm key={portal} portal={portal} />
           </>
         )}
       </div>
     </div>
-  )
-}
-
-function GoogleGlyph() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
-      />
-      <path
-        fill="#34A853"
-        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"
-      />
-      <path
-        fill="#EA4335"
-        d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
-      />
-    </svg>
   )
 }
