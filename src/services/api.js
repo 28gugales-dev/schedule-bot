@@ -28,6 +28,13 @@ import { canSubmit } from '../utils/rateLimiter.js'
 import { buildSyncPackage } from '../utils/batchProcessor.js'
 import { releaseSeat } from '../utils/seatAvailability.js'
 import * as waitlist from './waitlist.js'
+import { isSupabaseConfigured } from '../lib/supabase.js'
+import * as sb from './supabaseApi.js'
+
+// When Supabase is configured, the slice functions below delegate to the real
+// backend (services/supabaseApi.js); otherwise they fall through to the demo
+// (localStorage) implementations. Functions with no real impl yet (batch, rubric,
+// audit, waitlist, OneRoster) always run the demo path — graceful partial migration.
 
 // Fallback actor when a caller doesn't pass a session payload (keeps the audit
 // trail populated even from code paths that predate the actor argument). The UI
@@ -46,17 +53,127 @@ async function safeAudit(event) {
 
 const WAIVER_NAME = (id) => WAIVER_TYPES.find((w) => w.id === id)?.name ?? id
 
-// Module-level mutable copies so submit/decision/sync actions persist across
-// calls within a session (simulates a backend without one).
-let waivers = WAIVER_TYPES.map((w) => ({ ...w }))
-let criteria = RUBRIC_CRITERIA.map((c) => ({ ...c }))
-let queue = REVIEW_QUEUE.map((r) => ({ ...r }))
-let batch = BATCH_SYNC_QUEUE.map((b) => ({ ...b }))
-let submissions = SEED_SUBMISSIONS.map((s) => ({ ...s })) // seeded for demo; new submits prepend
-let deniedHistory = []
-
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 const clone = (v) => JSON.parse(JSON.stringify(v))
+
+// ---- Demo persistence (mirrors services/audit.js) ------------------------
+// Without this the mock state lived only in module-level `let`s, so a reload
+// wiped every submission + decision while the audit log (which DOES persist to
+// localStorage) survived — leaving the trail contradicting the live UI. We now
+// hydrate from localStorage on init and write back after every mutation. Bump
+// SEED_VERSION whenever the mockData fixtures change shape/content, so returning
+// demo browsers rebuild from the new seed instead of keeping stale cached data.
+const SEED_VERSION = '1'
+const NS = 'schedulebot.api.v1'
+const LS_KEYS = {
+  waivers: `${NS}.waivers`,
+  criteria: `${NS}.criteria`,
+  queue: `${NS}.queue`,
+  batch: `${NS}.batch`,
+  submissions: `${NS}.submissions`,
+  deniedHistory: `${NS}.deniedHistory`,
+  version: `${NS}.version`,
+}
+
+function lsRead(key) {
+  try {
+    if (typeof localStorage === 'undefined') return null
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+function lsWrite(key, value) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    /* storage unavailable (private mode) — fall back to in-memory only */
+  }
+}
+
+// Module-level mutable mirrors so submit/decision/sync actions persist across
+// calls within a session (simulates a backend without one) and survive reloads
+// via localStorage. Hydrated by ensureSeeded() below.
+let waivers
+let criteria
+let queue
+let batch
+let submissions // seeded for demo; new submits prepend
+let deniedHistory
+
+function ensureSeeded() {
+  // Reseed when storage is empty OR the cached seed predates the current
+  // fixtures (version mismatch) — otherwise returning browsers keep stale data.
+  const versionOk = lsRead(LS_KEYS.version) === SEED_VERSION
+  const storedWaivers = lsRead(LS_KEYS.waivers)
+  const storedCriteria = lsRead(LS_KEYS.criteria)
+  const storedQueue = lsRead(LS_KEYS.queue)
+  const storedBatch = lsRead(LS_KEYS.batch)
+  const storedSubmissions = lsRead(LS_KEYS.submissions)
+  const storedDenied = lsRead(LS_KEYS.deniedHistory)
+
+  const hydrated =
+    versionOk &&
+    Array.isArray(storedWaivers) &&
+    Array.isArray(storedCriteria) &&
+    Array.isArray(storedQueue) &&
+    Array.isArray(storedBatch) &&
+    Array.isArray(storedSubmissions) &&
+    Array.isArray(storedDenied)
+
+  if (hydrated) {
+    waivers = storedWaivers
+    criteria = storedCriteria
+    queue = storedQueue
+    batch = storedBatch
+    submissions = storedSubmissions
+    deniedHistory = storedDenied
+    return
+  }
+
+  // Seed from the mockData imports (the original module-init behavior) and
+  // write them back, recording the version so subsequent loads hydrate.
+  waivers = WAIVER_TYPES.map((w) => ({ ...w }))
+  criteria = RUBRIC_CRITERIA.map((c) => ({ ...c }))
+  queue = REVIEW_QUEUE.map((r) => ({ ...r }))
+  batch = BATCH_SYNC_QUEUE.map((b) => ({ ...b }))
+  submissions = SEED_SUBMISSIONS.map((s) => ({ ...s }))
+  deniedHistory = []
+  persist()
+  lsWrite(LS_KEYS.version, SEED_VERSION)
+}
+
+function persist() {
+  lsWrite(LS_KEYS.waivers, waivers)
+  lsWrite(LS_KEYS.criteria, criteria)
+  lsWrite(LS_KEYS.queue, queue)
+  lsWrite(LS_KEYS.batch, batch)
+  lsWrite(LS_KEYS.submissions, submissions)
+  lsWrite(LS_KEYS.deniedHistory, deniedHistory)
+}
+
+ensureSeeded()
+
+// ---- Display-status derivation -------------------------------------------
+// submitWaiver only ever writes status 'submitted', and decisions jump straight
+// to a terminal status, so the two middle stepper stages ('automated-review',
+// 'counselor-review') were never shown for anything actually submitted. We
+// DERIVE the display status from elapsed time since submittedAt for NON-terminal
+// requests, without ever mutating the stored status (keeps it reload-safe — a
+// reseed/reload re-derives from the same timestamp). Seeded submissions carry
+// old timestamps, so they correctly read as 'counselor-review' while pending.
+const TERMINAL_STATUSES = new Set(['approved', 'denied', 'flagged'])
+function deriveDisplayStatus(request) {
+  if (!request) return request
+  if (TERMINAL_STATUSES.has(request.status)) return request
+  const submittedMs = request.submittedAt ? Date.parse(request.submittedAt) : NaN
+  if (Number.isNaN(submittedMs)) return request
+  const elapsed = Date.now() - submittedMs
+  const status = elapsed < 3000 ? 'submitted' : elapsed < 7000 ? 'automated-review' : 'counselor-review'
+  return { ...request, status }
+}
 
 // ---- Student portal ------------------------------------------------------
 
@@ -76,6 +193,7 @@ export async function uploadStudentDocuments(files) {
 
 // Only active waiver types are offered to students.
 export async function fetchAvailableWaivers() {
+  if (isSupabaseConfigured) return sb.fetchAvailableWaivers()
   await delay()
   return clone(waivers.filter((w) => w.active))
 }
@@ -83,6 +201,7 @@ export async function fetchAvailableWaivers() {
 // All waiver types incl. inactive — for the admin rubric builder, which toggles
 // the active flag. Also used to map waiverTypeId -> display name in the queue.
 export async function fetchAllWaivers() {
+  if (isSupabaseConfigured) return sb.fetchAllWaivers()
   await delay()
   return clone(waivers)
 }
@@ -116,6 +235,7 @@ function findMissingDocs(waiverTypeId, documents, courseListNames) {
 
 // Create a waiver request. Returns the new request id + initial tracker status.
 export async function submitWaiver(payload, actor = null) {
+  if (isSupabaseConfigured) return sb.submitWaiver(payload, actor)
   await delay(600)
 
   if (!canSubmit(payload.studentId)) {
@@ -173,6 +293,7 @@ export async function submitWaiver(payload, actor = null) {
       ruleVersion: freezeRuleVersion(criteria),
     },
   ]
+  persist()
 
   // Stubbed confirmation email — real version triggers a server-side mailer.
   console.info(`[stub email] confirmation queued for request ${request.id}`)
@@ -192,17 +313,23 @@ export async function submitWaiver(payload, actor = null) {
   return { requestId: request.id, status: request.status }
 }
 
-// Tracker state for a student's submitted request.
+// Tracker state for a student's submitted request. The status is DERIVED from
+// elapsed time for non-terminal requests so the stepper advances (see
+// deriveDisplayStatus); the stored status is never mutated.
 export async function fetchRequestStatus(requestId) {
+  if (isSupabaseConfigured) return sb.fetchRequestStatus(requestId)
   await delay(300)
   const found = submissions.find((s) => s.id === requestId)
-  return found ? clone(found) : null
+  return found ? deriveDisplayStatus(clone(found)) : null
 }
 
 // All of the current student's submitted requests (newest first). Demo: seeded.
+// Each record's display status is derived the same way as fetchRequestStatus so
+// the list badge and the tracker agree.
 export async function fetchMyRequests() {
+  if (isSupabaseConfigured) return sb.fetchMyRequests()
   await delay()
-  return clone(submissions)
+  return clone(submissions).map((s) => deriveDisplayStatus(s))
 }
 
 // ---- Admin / counselor portal -------------------------------------------
@@ -210,6 +337,7 @@ export async function fetchMyRequests() {
 // Priority-queue ordered (graduation risk + submission age), not raw
 // insertion order — see utils/priorityQueue.js.
 export async function fetchReviewQueue() {
+  if (isSupabaseConfigured) return sb.fetchReviewQueue()
   await delay()
   // Join per-request rubric verification (checks) at the read seam: real
   // submissions already carry it on recommendation.checks (evaluateAgainstRubric);
@@ -232,16 +360,21 @@ export async function fetchOneRosterRecord(studentId) {
 // the dropped course's seat (notifying anyone waitlisted for it); on deny it's
 // kept in the rejected-history log. Every outcome is written to the audit trail.
 export async function submitDecision(requestId, decision, note = '', actor = null) {
+  if (isSupabaseConfigured) return sb.submitDecision(requestId, decision, note, actor)
   await delay(350)
   const idx = queue.findIndex((r) => r.id === requestId)
   const request = idx >= 0 ? queue[idx] : null
   if (request) queue = queue.filter((r) => r.id !== requestId)
 
+  // Map the human decision → persisted student-facing status. Same lookup the
+  // audit block uses below, so the stored submission status agrees with the
+  // audit trail — a `flag` must persist 'flagged', not fall through to 'denied'.
+  const STATUS_BY_DECISION = { admit: 'approved', deny: 'denied', flag: 'flagged' }
   const subIdx = submissions.findIndex((s) => s.id === requestId)
   if (subIdx >= 0) {
     submissions[subIdx] = {
       ...submissions[subIdx],
-      status: decision === 'admit' ? 'approved' : 'denied',
+      status: STATUS_BY_DECISION[decision] ?? 'denied',
       recommendation: request?.recommendation,
       counselorNote: note,
     }
@@ -266,6 +399,9 @@ export async function submitDecision(requestId, decision, note = '', actor = nul
   if (request && decision === 'deny') {
     deniedHistory = [{ ...request, decision, counselorNote: note, deniedAt: new Date().toISOString() }, ...deniedHistory]
   }
+  // Persist unconditionally — the submissions[] status update above can run even
+  // when the request wasn't in the queue (idempotent write otherwise).
+  persist()
 
   if (request) {
     const rec = request.recommendation
@@ -276,7 +412,6 @@ export async function submitDecision(requestId, decision, note = '', actor = nul
       !!rec && (rec.decision === 'admit' || rec.decision === 'deny') &&
       rec.decision !== decision
     const ACTION = { admit: 'decision.admit', deny: 'decision.deny', flag: 'decision.flag' }
-    const STATUS = { admit: 'approved', deny: 'denied', flag: 'flagged' }
     const VERB = { admit: 'Admitted', deny: 'Denied', flag: 'Flagged' }
     await safeAudit({
       action: ACTION[decision] ?? 'decision.deny',
@@ -289,7 +424,7 @@ export async function submitDecision(requestId, decision, note = '', actor = nul
         status: 'counselor-review',
         aiRecommendation: rec ? { decision: rec.decision, confidence: rec.confidence } : null,
       },
-      after: { status: STATUS[decision] ?? 'denied', note, synced: decision === 'admit' ? false : undefined },
+      after: { status: STATUS_BY_DECISION[decision] ?? 'denied', note, synced: decision === 'admit' ? false : undefined },
       // Seeded AI decisions key off the request id (see seedAudit.js).
       aiDecisionId: `ai-seed-${requestId}`,
       overrode,
@@ -303,6 +438,7 @@ export async function submitDecision(requestId, decision, note = '', actor = nul
 
 // Past denied requests — surfaced to counselors as a reference log.
 export async function fetchRejectedRequests() {
+  if (isSupabaseConfigured) return sb.fetchRejectedRequests()
   await delay()
   return clone(deniedHistory)
 }
@@ -339,6 +475,7 @@ export async function updateRubricCriteria(nextCriteria, nextWaivers, actor = nu
 
   if (Array.isArray(nextCriteria)) criteria = nextCriteria.map((c) => ({ ...c }))
   if (Array.isArray(nextWaivers)) waivers = nextWaivers.map((w) => ({ ...w }))
+  persist()
 
   const diff = diffRubric(prevCriteria, prevWaivers, criteria, waivers)
   const critDiff = diff.filter((d) => d.entity.startsWith('Criterion'))
@@ -380,6 +517,7 @@ export async function triggerBatchICPush(actor = null) {
   const pushed = batch.filter((b) => !b.synced)
   const syncPackage = buildSyncPackage(pushed)
   batch = batch.map((b) => ({ ...b, synced: true }))
+  persist()
   console.info(`[stub IC push] synced ${syncPackage.totalCount} waiver(s)`, syncPackage.byWaiverType)
 
   await safeAudit({

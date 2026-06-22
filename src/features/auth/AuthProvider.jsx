@@ -92,6 +92,8 @@ export function AuthProvider({ children }) {
       isConfigured: isSupabaseConfigured,
       demoMode,
       setRole,
+      signInWithEmail: ({ email, password }) =>
+        supabase?.auth.signInWithPassword({ email, password }),
       signInWithGoogle: () =>
         supabase?.auth.signInWithOAuth({
           provider: 'google',

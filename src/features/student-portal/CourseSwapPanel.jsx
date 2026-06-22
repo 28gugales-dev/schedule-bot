@@ -55,19 +55,19 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {dependencyImpact?.warning && (
-        <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+        <div className="sm:col-span-2 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 ring-1 ring-warning-100 dark:text-warning-300">
           ⚠ {dependencyImpact.warning}
         </div>
       )}
       {/* Left: course to drop */}
-      <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+      <div className="glass-card p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Course to replace</p>
         <input
           type="text"
           value={leftSearch}
           onChange={(e) => setLeftSearch(e.target.value)}
           placeholder="Search your courses…"
-          className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="glass-input mb-2 w-full px-3 py-1.5 text-sm"
         />
         {courseListNames.length === 0 ? (
           <p className="text-sm text-muted">Upload a course list to see your courses here.</p>
@@ -79,7 +79,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
                 type="button"
                 onClick={() => setFrom(name)}
                 className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                  fromCourse === name ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700' : 'hover:bg-slate-50 text-ink'
+                  fromCourse === name ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700 dark:text-brand-300' : 'hover:bg-brand-50/60 text-ink'
                 }`}
               >
                 {name}
@@ -91,7 +91,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
       </div>
 
       {/* Right: replacement options */}
-      <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+      <div className="glass-card p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Replace with</p>
         <input
           type="text"
@@ -99,7 +99,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
           onChange={(e) => setRightSearch(e.target.value)}
           placeholder="Search all courses…"
           disabled={!fromCourse}
-          className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
+          className="glass-input mb-2 w-full px-3 py-1.5 text-sm disabled:opacity-50"
         />
         {!fromCourse ? (
           <p className="text-sm text-muted">Pick a course on the left first.</p>
@@ -109,7 +109,7 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
               type="button"
               onClick={() => setTo(NONE_OPTION)}
               className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                toCourse === 'None' ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700' : 'hover:bg-slate-50 text-ink'
+                toCourse === 'None' ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700 dark:text-brand-300' : 'hover:bg-brand-50/60 text-ink'
               }`}
             >
               None — just drop it
@@ -125,8 +125,8 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
                   !opt.eligible
                     ? 'opacity-40 cursor-not-allowed text-muted'
                     : toCourse === opt.name
-                      ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700'
-                      : 'hover:bg-slate-50 text-ink'
+                      ? 'bg-brand-50 ring-2 ring-brand-600 text-brand-700 dark:text-brand-300'
+                      : 'hover:bg-brand-50/60 text-ink'
                 }`}
               >
                 <span>{opt.eligible ? '✓' : '🔒'} {opt.name}</span>

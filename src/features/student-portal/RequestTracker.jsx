@@ -3,11 +3,18 @@ import { fetchRequestStatus } from '../../services/api.js';
 
 const STEPS = ['Submitted', 'Automated Review', 'Counselor Review', 'Decision'];
 
+// Terminal statuses end the stepper — no further polling needed.
+const TERMINAL = new Set(['approved', 'denied', 'flagged']);
+const isTerminal = (status) => TERMINAL.has(status);
+
+const POLL_MS = 2000;
+
 // status -> index of the step that is "active" (current or final)
 const STATUS_MAP = {
   submitted: 0,
   'automated-review': 1,
   'counselor-review': 2,
+  flagged: 2,
   decision: 3,
   approved: 3,
   denied: 3,
@@ -19,6 +26,7 @@ export const STATUS_META = {
   submitted: { label: 'Submitted', tone: 'brand' },
   'automated-review': { label: 'Automated review', tone: 'brand' },
   'counselor-review': { label: 'Counselor review', tone: 'brand' },
+  flagged: { label: 'Flagged for review', tone: 'warning' },
   decision: { label: 'Decision pending', tone: 'warning' },
   approved: { label: 'Approved', tone: 'success' },
   denied: { label: 'Denied', tone: 'danger' },
@@ -51,35 +59,84 @@ export function StatusBadge({ status, className = '' }) {
   );
 }
 
-export function RequestTracker({ requestId }) {
-  const [loading, setLoading] = useState(true);
-  const [request, setRequest] = useState(undefined);
+// `requestId` — fetch + poll the status by id (original, still-supported path).
+// `request`   — an already-loaded request object: render from it directly and
+//               skip the initial fetch (avoids the N+1 when a parent like
+//               MyRequests already has every record). Still polls while the
+//               status is non-terminal so the stepper visibly advances.
+// `onStatusChange(status)` — optional. Fires whenever the tracker learns a new
+// status (initial load + each poll). Lets a parent that renders its own badge
+// (e.g. MyRequests) stay in sync with the polling stepper instead of freezing
+// at the load-time status.
+export function RequestTracker({ requestId, request: requestProp, onStatusChange }) {
+  // Seed from the prop when given so the first paint has no fetch flash.
+  const [loading, setLoading] = useState(() => requestProp === undefined);
+  const [request, setRequest] = useState(() => requestProp ?? undefined);
+
+  // The id we poll against — prefer the loaded object's own id.
+  const trackId = requestProp?.id ?? requestId;
+
+  // Mirror the prop into state when it changes (parent re-fetched the list).
+  useEffect(() => {
+    if (requestProp !== undefined) {
+      setRequest(requestProp);
+      setLoading(false);
+    }
+  }, [requestProp]);
 
   useEffect(() => {
-    if (!requestId) return;
+    if (!trackId) return;
     let cancelled = false;
-    setLoading(true);
-    setRequest(undefined);
+    let timer = null;
 
-    fetchRequestStatus(requestId)
-      .then((data) => {
-        if (!cancelled) {
+    // No prop → fetch the initial status; reset to the loading state first.
+    if (requestProp === undefined) {
+      setLoading(true);
+      setRequest(undefined);
+    }
+
+    const schedule = (status) => {
+      // Keep polling only while the status is known and non-terminal.
+      if (cancelled || isTerminal(status)) return;
+      timer = setTimeout(poll, POLL_MS);
+    };
+
+    const poll = () => {
+      fetchRequestStatus(trackId)
+        .then((data) => {
+          if (cancelled) return;
           setRequest(data);
           setLoading(false);
-        }
-      })
-      .catch(() => {
-        // Defensive for the real backend (the mock resolves null on miss).
-        if (!cancelled) {
-          setRequest(null);
+          schedule(data?.status);
+        })
+        .catch(() => {
+          // Defensive for the real backend (the mock resolves null on miss).
+          if (cancelled) return;
+          setRequest((prev) => prev ?? null);
           setLoading(false);
-        }
-      });
+        });
+    };
+
+    if (requestProp === undefined) {
+      // No seed — fetch now (which also schedules the next poll).
+      poll();
+    } else {
+      // Seeded from the prop — don't refetch, just start polling if pending.
+      schedule(requestProp.status);
+    }
 
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
-  }, [requestId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId, requestProp]);
+
+  // Bubble each learned status up so a parent's own badge tracks the poll.
+  useEffect(() => {
+    if (request?.status) onStatusChange?.(request.status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.status]);
 
   if (loading) {
     return (
@@ -112,7 +169,7 @@ export function RequestTracker({ requestId }) {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-ink">
-            Request <span className="font-mono">{requestId}</span>
+            Request <span className="font-mono">{trackId}</span>
           </p>
           {submittedLabel && (
             <p className="mt-0.5 text-xs text-muted">Submitted {submittedLabel}</p>

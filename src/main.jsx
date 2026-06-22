@@ -5,6 +5,7 @@ import { router } from './routes/router.jsx'
 import { AuthProvider } from './features/auth/AuthProvider.jsx'
 import { ThemeProvider } from './features/theme/ThemeProvider.jsx'
 import { SkinProvider } from './features/skin/SkinProvider.jsx'
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ThemeProvider>
       <SkinProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
         </AuthProvider>
       </SkinProvider>
     </ThemeProvider>

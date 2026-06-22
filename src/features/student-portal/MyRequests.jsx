@@ -19,10 +19,24 @@ export function MyRequests() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [notifyRequested, setNotifyRequested] = useState(() => new Set())
+  // Per-row status the nested tracker polls up to, so the card's own badge keeps
+  // pace with the stepper instead of freezing at the load-time status.
+  const [liveStatus, setLiveStatus] = useState(() => ({}))
 
   const requestNotify = async (request) => {
+    // Optimistically flip to "we'll notify you", but revert if the subscribe
+    // call rejects so we never show success for a request that didn't land.
     setNotifyRequested((prev) => new Set(prev).add(request.id))
-    await subscribeToWaitlist(studentId, request.toCourse, request.id)
+    try {
+      await subscribeToWaitlist(studentId, request.toCourse, request.id)
+    } catch (err) {
+      setNotifyRequested((prev) => {
+        const next = new Set(prev)
+        next.delete(request.id)
+        return next
+      })
+      setError(err?.message || 'Could not sign you up for notifications. Please try again.')
+    }
   }
 
   useEffect(() => {
@@ -98,7 +112,7 @@ export function MyRequests() {
                     )}
                   </p>
                 </div>
-                <StatusBadge status={request.status} className="shrink-0" />
+                <StatusBadge status={liveStatus[request.id] ?? request.status} className="shrink-0" />
               </div>
 
               {request.studentNote && (
@@ -124,7 +138,15 @@ export function MyRequests() {
                 </div>
               )}
 
-              <RequestTracker requestId={request.id} />
+              {/* Pass the already-loaded record so the tracker renders from it
+                  directly instead of re-fetching each row's status (N+1).
+                  onStatusChange keeps the card badge in sync with the poll. */}
+              <RequestTracker
+                request={request}
+                onStatusChange={(status) =>
+                  setLiveStatus((prev) => (prev[request.id] === status ? prev : { ...prev, [request.id]: status }))
+                }
+              />
             </div>
           ))}
         </div>

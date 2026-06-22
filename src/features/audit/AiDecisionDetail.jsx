@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
 import { fmtDateTime, DecisionPill } from './auditShared.jsx'
+import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 
 function SignedBar({ delta }) {
   const pos = delta >= 0
@@ -57,11 +57,7 @@ function CheckRow({ check }) {
 }
 
 export function AiDecisionDetail({ decision, waiverName, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const dialogRef = useFocusTrap(true, { onClose })
 
   const pct = Math.round((decision.confidence ?? 0) * 100)
   const breakdown = decision.scoreBreakdown
@@ -72,21 +68,22 @@ export function AiDecisionDetail({ decision, waiverName, onClose }) {
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
 
       <div
-        role="dialog" aria-modal="true" aria-label="AI decision reasoning"
-        className="glass-panel animate-toast-in relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-highlight custom-scrollbar"
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-labelledby="ai-decision-detail-title"
+        className="glass-panel animate-toast-in relative flex h-full w-[calc(100%-2rem)] flex-col overflow-y-auto border-l border-highlight custom-scrollbar sm:max-w-lg"
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hairline bg-glass-strong px-5 py-4 backdrop-blur-xl">
           <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-sm text-white">◆</span>
             <div>
-              <p className="text-sm font-semibold text-ink">AI evaluation</p>
+              <p id="ai-decision-detail-title" className="text-sm font-semibold text-ink">AI evaluation</p>
               <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{decision.evaluator}</p>
             </div>
           </div>
           <button
             type="button" onClick={onClose} aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-scrim hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-scrim hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
               <path d="M4 4l8 8M12 4l-8 8" />

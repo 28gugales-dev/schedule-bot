@@ -5,7 +5,11 @@ const TERM_LINE = /^\d{4}-\d{4}\s+Grade\s+\d+\s+Term\s+\d+/i
 const CREDIT_LINE = /^Credit:\s*[\d.]+\s*GPA:\s*[\d.]+/i
 const SCHOOL_HEADER = /^#\S/
 const TABLE_HEADER = /^Course\s+Mark\s+Weight\s+Credit/i
-const SECTION_END = /^(Credit Summary|Comments|GPA Summary|Attendance|Enrollment Summary)/i
+// Course-SCHEDULE layout (current/planned courses), e.g. "PERIOD   COURSE" then
+// "1  English 11" rows — no mark/weight/credit triplet. Distinct from the
+// gradebook transcript table above.
+const SCHEDULE_HEADER = /^Period\s+Course/i
+const SECTION_END = /^(Credit Summary|Comments|GPA Summary|Attendance|Enrollment Summary|\d+\s+enrolled courses)/i
 const MAX_WRAP_LINES = 4
 
 function splitLastThreeNumbers(tokens) {
@@ -37,7 +41,10 @@ export function parseTranscriptText(rawText) {
   const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
 
   const gradeMatch = rawText.match(/Grade:\s*(\d+)/)
-  const gpaMatch = rawText.match(/Cumulative GPA\s*\(Weighted\)\s*([\d.]+)/i)
+  // Accept both gradebook ("Cumulative GPA (Weighted) 3.85") and schedule
+  // ("Cumulative GPA: 3.42") spellings — the "(Weighted)" label and the colon
+  // are both optional.
+  const gpaMatch = rawText.match(/Cumulative GPA\s*(?:\(Weighted\))?\s*:?\s*([\d.]+)/i)
   const studentGrade = gradeMatch ? Number(gradeMatch[1]) : null
   const gpa = gpaMatch ? Number(gpaMatch[1]) : null
 
@@ -51,6 +58,7 @@ export function parseTranscriptText(rawText) {
   }
 
   let inTable = false
+  let scheduleMode = false // inside a course-SCHEDULE region (vs gradebook table)
   let currentTerm = null
   let buffer = []
 
@@ -85,18 +93,48 @@ export function parseTranscriptText(rawText) {
     return true
   }
 
+  // Course-schedule rows: "1  English 11" → period number + course name. No
+  // mark/weight/credit; these are current/planned courses (mark/credit unknown).
+  function tryEmitScheduleRow(line) {
+    const m = line.match(/^(\d{1,2})\s+(.+\S)$/)
+    if (!m) return
+    const period = Number(m[1])
+    if (period < 1 || period > 12) return
+    const rawName = m[2].trim()
+    const result = matchCourseName(rawName)
+    if (result) {
+      completedCourses.set(result.course.name, { mark: null, credit: null, term: currentTerm, raw: rawName })
+      recognized.push({ raw: rawName, matched: result.course.name, similarity: result.similarity, exact: result.exact })
+    } else {
+      unrecognized.push(rawName)
+    }
+  }
+
   for (const line of lines) {
     if (SECTION_END.test(line)) {
       inTable = false
+      scheduleMode = false
       flushAsNoise()
       continue
     }
     if (TABLE_HEADER.test(line)) {
       inTable = true
+      scheduleMode = false
+      flushAsNoise()
+      continue
+    }
+    if (SCHEDULE_HEADER.test(line)) {
+      inTable = true
+      scheduleMode = true
       flushAsNoise()
       continue
     }
     if (!inTable) continue
+
+    if (scheduleMode) {
+      tryEmitScheduleRow(line)
+      continue
+    }
 
     if (SCHOOL_HEADER.test(line)) {
       flushAsNoise()

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchAvailableWaivers, uploadStudentDocuments, submitWaiver } from '../../services/api.js'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { extractTextFromFile } from '../../utils/pdfText.js'
@@ -45,7 +45,7 @@ function WizardSteps({ current, onStepClick }) {
                 isCurrent
                   ? 'bg-brand-600 text-white'
                   : done
-                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100'
+                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100 dark:text-brand-300'
                     : 'cursor-default bg-black/[0.04] text-muted',
               ].join(' ')}
             >
@@ -70,14 +70,14 @@ function RecognizedCourseChips({ recognized = [], unrecognized = [] }) {
           key={`${r.matched}-${i}`}
           title={r.exact ? 'Exact match' : `Closest match (${Math.round(r.similarity * 100)}% similar)`}
           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            r.exact ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            r.exact ? 'bg-success-50 text-success-700 dark:text-success-300' : 'bg-warning-50 text-warning-700 dark:text-warning-300'
           }`}
         >
           {r.matched}{!r.exact && ' ~'}
         </span>
       ))}
       {unrecognized.map((raw, i) => (
-        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted">
+        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-elevated px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">
           {raw} ?
         </span>
       ))}
@@ -89,11 +89,11 @@ function PreviousDocSelect({ label, saved, onApply }) {
   if (!saved.length) return null
   return (
     <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm">
-      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
+      <span className="text-brand-700 dark:text-brand-300">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
       <select
         defaultValue=""
         onChange={(e) => e.target.value && onApply(saved.find((s) => s.id === e.target.value))}
-        className="ml-auto rounded-md border border-brand-300 bg-white px-2 py-1 text-xs"
+        className="glass-input ml-auto rounded-md px-2 py-1 text-xs"
       >
         <option value="" disabled>Choose…</option>
         {saved.map((s) => (
@@ -127,6 +127,23 @@ export function WaiverIntake() {
   const [savedTranscripts, setSavedTranscripts] = useState(() => getSavedTranscripts(studentId))
   const [savedCourseLists, setSavedCourseLists] = useState(() => getSavedCourseLists(studentId))
   const [swap, setSwap] = useState({ fromCourse: null, toCourse: null })
+
+  // The "Found a previous …" banner should only offer documents saved in an
+  // EARLIER session — not the file the student just uploaded this session (which
+  // saveTranscript/persistCourseList append immediately). Snapshot the ids that
+  // existed at mount and only surface those in the banner.
+  const priorTranscriptIds = useRef(null)
+  if (priorTranscriptIds.current === null) priorTranscriptIds.current = new Set(savedTranscripts.map((s) => s.id))
+  const priorCourseListIds = useRef(null)
+  if (priorCourseListIds.current === null) priorCourseListIds.current = new Set(savedCourseLists.map((s) => s.id))
+  const priorTranscripts = useMemo(
+    () => savedTranscripts.filter((s) => priorTranscriptIds.current.has(s.id)),
+    [savedTranscripts],
+  )
+  const priorCourseLists = useMemo(
+    () => savedCourseLists.filter((s) => priorCourseListIds.current.has(s.id)),
+    [savedCourseLists],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -249,6 +266,8 @@ export function WaiverIntake() {
   const reset = () => {
     setStep(0)
     setTranscript([])
+    setTranscriptData(null)
+    setTranscriptFileName(null)
     setCourseListEntries(EMPTY_COURSE_BOXES)
     setSupporting([])
     setSelectedWaiverId(null)
@@ -272,7 +291,7 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={reset}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover"
         >
           Start another request
         </button>
@@ -294,7 +313,7 @@ export function WaiverIntake() {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 ring-1 ring-danger-100"
+          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-100"
         >
           <svg
             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -312,7 +331,7 @@ export function WaiverIntake() {
       {step === 0 && (
         <div className="glass-card space-y-6 p-5">
           <div>
-            <PreviousDocSelect label="transcript" saved={savedTranscripts} onApply={applySavedTranscript} />
+            <PreviousDocSelect label="transcript" saved={priorTranscripts} onApply={applySavedTranscript} />
             <UploadZone
               label="Transcript (PDF)"
               hint="Required. Your official or unofficial transcript."
@@ -325,14 +344,16 @@ export function WaiverIntake() {
             {transcriptData && (
               <>
                 <p className="mt-3 text-xs font-medium text-ink">
-                  Recognized courses {transcriptData.studentGrade ? `· Grade ${transcriptData.studentGrade}` : ''} {transcriptData.gpa ? `· GPA ${transcriptData.gpa}` : ''}
+                  {transcriptData.recognized?.length > 0 ? 'Recognized courses' : 'Transcript read'}
+                  {transcriptData.studentGrade ? ` · Grade ${transcriptData.studentGrade}` : ''}
+                  {transcriptData.gpa ? ` · GPA ${transcriptData.gpa}` : ''}
                 </p>
                 <RecognizedCourseChips recognized={transcriptData.recognized} unrecognized={transcriptData.unrecognized} />
               </>
             )}
           </div>
           <div>
-            <PreviousDocSelect label="course list" saved={savedCourseLists} onApply={applySavedCourseList} />
+            <PreviousDocSelect label="course list" saved={priorCourseLists} onApply={applySavedCourseList} />
             <p className="text-sm font-medium text-ink mb-1">Course list</p>
             <p className="text-xs text-muted mb-3">
               Required. Type each current/planned course — one box per period. Add more for special cases.
@@ -426,7 +447,7 @@ export function WaiverIntake() {
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || submitting}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 disabled:opacity-40"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:opacity-40"
         >
           Back
         </button>

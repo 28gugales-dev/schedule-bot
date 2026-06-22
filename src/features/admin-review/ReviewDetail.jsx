@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useLayoutEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.jsx'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -468,6 +469,15 @@ const ACTIONS = [
 
 export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, submitting, onBack, onDecision }) {
   const [note, setNote] = useState('')
+  // Deny is the one irreversible negative outcome — gate it behind a confirm.
+  // Admit/Flag stay one-click (the brief wants rapid triage).
+  const [denyOpen, setDenyOpen] = useState(false)
+
+  // Auto-advance review flow: when a new request mounts here (first open OR after
+  // a decision advances to the next), move keyboard/SR focus to the heading so
+  // the user follows the slide-in. Keyed on request.id so it fires per request.
+  const headingRef = useRef(null)
+  useEffect(() => { headingRef.current?.focus() }, [request.id])
 
   // Fill the viewport: the cockpit bubble is locked to the measured available
   // height so its columns scroll on their own and the page never scrolls. The
@@ -511,7 +521,13 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
         </button>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          <h2 className="truncate font-display text-lg font-semibold text-ink">{request.student.name}</h2>
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="truncate font-display text-lg font-semibold text-ink focus:outline-none"
+          >
+            {request.student.name}
+          </h2>
           <div className="flex flex-wrap items-baseline gap-x-3 text-xs text-muted">
             <span>ID <span className="font-medium text-ink">{request.student.id}</span></span>
             <span>Grade <span className="font-medium text-ink">{request.student.grade}</span></span>
@@ -588,7 +604,11 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
               {ACTIONS.map(a => (
                 <button
                   key={a.decision}
-                  onClick={() => onDecision(a.decision, note.trim())}
+                  onClick={() =>
+                    a.decision === 'deny'
+                      ? setDenyOpen(true)
+                      : onDecision(a.decision, note.trim())
+                  }
                   disabled={submitting}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-sm font-medium text-ink transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 ${a.hover}`}
                 >
@@ -601,6 +621,17 @@ export function ReviewDetail({ request, waiverName, oneRoster, loadingRoster, su
         </div>
 
       </div>
+
+      <ConfirmDialog
+        open={denyOpen}
+        tone="danger"
+        title="Deny this request?"
+        message="The student will be notified."
+        confirmLabel="Deny"
+        cancelLabel="Cancel"
+        onCancel={() => setDenyOpen(false)}
+        onConfirm={() => { setDenyOpen(false); onDecision('deny', note.trim()) }}
+      />
     </section>
   )
 }

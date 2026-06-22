@@ -1,10 +1,28 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider.jsx'
 import { ThemeToggle } from '../theme/ThemeToggle.jsx'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { demoMode, setRole, signInWithGoogle, isConfigured } = useAuth()
+  const { demoMode, setRole, signInWithEmail, signInWithGoogle, isConfigured } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleEmailSignIn = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    const { error: signInError } = (await signInWithEmail({ email: email.trim(), password })) ?? {}
+    if (signInError) {
+      setError(signInError.message)
+      setSubmitting(false)
+    } else {
+      navigate('/') // RoleLanding redirects by resolved role
+    }
+  }
 
   return (
     <div className="fade-up relative flex min-h-screen items-center justify-center px-4">
@@ -52,6 +70,52 @@ export function LoginPage() {
           </>
         ) : (
           <>
+            <form onSubmit={handleEmailSignIn} className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1 text-left">
+                <span className="text-xs font-medium text-muted">Email</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@school.edu"
+                  className="glass-input rounded-xl px-3 py-2.5 text-sm text-ink"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-left">
+                <span className="text-xs font-medium text-muted">Password</span>
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="glass-input rounded-xl px-3 py-2.5 text-sm text-ink"
+                />
+              </label>
+
+              {error && (
+                <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-xs text-danger-700 dark:text-danger-300 ring-1 ring-danger-100">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? 'Signing in…' : 'Sign in'}
+              </button>
+            </form>
+
+            <div className="my-4 flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
             <button
               type="button"
               onClick={signInWithGoogle}
@@ -61,13 +125,6 @@ export function LoginPage() {
               <GoogleGlyph />
               Continue with Google
             </button>
-
-            {!isConfigured && (
-              <p className="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:text-warning-300 ring-1 ring-warning-100">
-                Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
-                <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> to enable sign-in.
-              </p>
-            )}
           </>
         )}
       </div>
