@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIELD_REGISTRY, makeUniqueId } from '../formSchema.js'
+import { FIELD_REGISTRY, makeUniqueId, slugifyWaiverId } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
   const ALL_TYPES = [
@@ -83,5 +83,24 @@ describe('makeUniqueId', () => {
     const b = makeUniqueId('Reason', taken); taken.push(b)
     const c = makeUniqueId('Reason', taken); taken.push(c)
     expect([a, b, c]).toEqual(['reason', 'reason-2', 'reason-3'])
+  })
+})
+
+describe('slugifyWaiverId', () => {
+  it('slugifies a waiver name to a lowercase dash-separated id', () => {
+    expect(slugifyWaiverId('Medical Exemption', [])).toBe('medical-exemption')
+  })
+
+  it('appends a numeric suffix starting at -2 on collision', () => {
+    expect(slugifyWaiverId('Medical Exemption', ['medical-exemption'])).toBe('medical-exemption-2')
+  })
+
+  it('falls back to a deterministic "waiver" base for an empty/symbol-only name', () => {
+    expect(slugifyWaiverId('', [])).toBe('waiver')
+    expect(slugifyWaiverId('###', [])).toBe('waiver')
+  })
+
+  it('suffixes the fallback base on collision', () => {
+    expect(slugifyWaiverId('', ['waiver'])).toBe('waiver-2')
   })
 })

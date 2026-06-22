@@ -44,3 +44,14 @@ export function makeUniqueId(label, existingIds = []) {
   while (taken.has(`${base}-${n}`)) n += 1
   return `${base}-${n}`
 }
+
+// Waiver-type id (the TEXT primary key). Same slug+collision idiom as
+// makeUniqueId, seeded from the waiver NAME, with a 'waiver' fallback.
+export function slugifyWaiverId(name, existingIds = []) {
+  const taken = new Set(existingIds)
+  const base = slugify(name) || 'waiver'
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
+}
