@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField, buildDefaults, validateForm,
+  FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField,
+  buildDefaults, validateForm, validateSchema,
 } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
@@ -324,5 +325,79 @@ describe('validateForm', () => {
 
   it('empty field list returns empty object', () => {
     expect(validateForm([], {})).toEqual({})
+  })
+})
+
+describe('validateSchema', () => {
+  it('well-formed schema returns { ok: true, errors: {}, formError: null }', () => {
+    const fields = [
+      { id: 'n', type: 'shortText', label: 'Name' },
+      { id: 's', type: 'select', label: 'Grade',
+        options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    ]
+    expect(validateSchema(fields)).toEqual({ ok: true, errors: {}, formError: null })
+  })
+
+  // T10 — duplicate ids → formError (not errors, because id-keyed map collapses dups)
+  it('T10: duplicate ids produce a truthy formError and ok:false', () => {
+    const fields = [
+      { id: 'x', type: 'shortText', label: 'A' },
+      { id: 'x', type: 'shortText', label: 'B' },
+    ]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.formError).toBeTruthy()
+    expect(res.formError.toLowerCase()).toContain('dup')
+  })
+
+  // T11 — choice with no options
+  it('T11: choice field with no options errors', () => {
+    const fields = [
+      { id: 's', type: 'select', label: 'Grade', options: [] },
+    ]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.errors.s).toBeTruthy()
+  })
+
+  it('T11b: options with blank labels error', () => {
+    const fields = [
+      { id: 's', type: 'select', label: 'Grade',
+        options: [{ value: 'a', label: '' }] },
+    ]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.errors.s).toBeTruthy()
+  })
+
+  // T12 — unknown type
+  it('T12: unknown type produces an error', () => {
+    const fields = [{ id: 'x', type: 'bogus', label: 'Whatever' }]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.errors.x).toBeTruthy()
+  })
+
+  it('blank label produces an error', () => {
+    const fields = [{ id: 'n', type: 'shortText', label: '' }]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.errors.n).toBeTruthy()
+  })
+
+  it('number min > max produces an error', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'Score', min: 10, max: 5 }]
+    const res = validateSchema(fields)
+    expect(res.ok).toBe(false)
+    expect(res.errors.n).toBeTruthy()
+  })
+
+  it('number min <= max is valid', () => {
+    const fields = [{ id: 'n', type: 'number', label: 'Score', min: 0, max: 100 }]
+    expect(validateSchema(fields)).toEqual({ ok: true, errors: {}, formError: null })
+  })
+
+  it('empty schema returns { ok: true, errors: {}, formError: null }', () => {
+    expect(validateSchema([])).toEqual({ ok: true, errors: {}, formError: null })
   })
 })

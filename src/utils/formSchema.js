@@ -167,3 +167,49 @@ export function validateForm(fields, answers = {}) {
   }
   return errors
 }
+
+export function validateSchema(fields) {
+  const errors = {}
+  let formError = null
+  const list = Array.isArray(fields) ? fields : []
+  const seen = new Set()
+  const dups = new Set()
+  for (const field of list) {
+    if (seen.has(field?.id)) dups.add(field.id)
+    seen.add(field?.id)
+  }
+  if (dups.size > 0) {
+    formError = `Duplicate field ids: ${[...dups].join(', ')}.`
+  }
+  for (const field of list) {
+    const meta = FIELD_REGISTRY[field?.type]
+    if (!meta) {
+      errors[field?.id] = `Unknown field type: ${field?.type}.`
+      continue
+    }
+    if (!String(field.label ?? '').trim()) {
+      errors[field.id] = 'Every field needs a label.'
+      continue
+    }
+    if (meta.hasOptions) {
+      const opts = Array.isArray(field.options) ? field.options : []
+      if (opts.length === 0) {
+        errors[field.id] = 'Add at least one option.'
+        continue
+      }
+      if (opts.some((o) => !String(o?.label ?? '').trim())) {
+        errors[field.id] = 'Every option needs a label.'
+        continue
+      }
+    }
+    if (field.type === 'number' && field.min != null && field.max != null && field.min > field.max) {
+      errors[field.id] = 'Minimum cannot exceed maximum.'
+      continue
+    }
+  }
+  return {
+    ok: formError == null && Object.keys(errors).length === 0,
+    errors,
+    formError,
+  }
+}
