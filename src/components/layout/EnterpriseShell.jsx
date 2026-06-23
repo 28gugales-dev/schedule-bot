@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
 import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
+import { ProfileMenu } from './ProfileMenu.jsx'
+import { CommandTrigger } from './CommandPalette.jsx'
 import { NAV, TITLE, useCollapsibleSidebar } from './navConfig.jsx'
 
 // Inline SVG: panel-left-close / open (collapse chevrons)
@@ -19,13 +21,6 @@ const IconExpand = () => (
     <polyline points="8 6 10 8 8 10" />
   </svg>
 )
-const IconSignOut = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 14H3.5A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2H6" />
-    <polyline points="10 11 13 8 10 5" />
-    <line x1="13" y1="8" x2="6" y2="8" />
-  </svg>
-)
 
 /**
  * Flat enterprise console shell — Brenda-Arjun lineage. A flush, bordered slate
@@ -35,8 +30,7 @@ const IconSignOut = () => (
  * "12 pending" count stays where it's computed).
  */
 export function EnterpriseShell({ portal }) {
-  const navigate = useNavigate()
-  const { user, role, signOut, demoMode, setRole } = useAuth()
+  const { user, signOut, demoMode } = useAuth()
   const links = NAV[portal] ?? []
   const sections = Array.from(new Set(links.map((l) => l.section)))
 
@@ -128,28 +122,9 @@ export function EnterpriseShell({ portal }) {
           ))}
         </nav>
 
-        {/* Footer — role identity + sign out */}
+        {/* Footer — profile + settings menu */}
         <div className="shrink-0 p-2.5">
-          <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2.5'}`}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-scrim text-[11px] font-semibold text-ink">
-              {role === 'admin' ? 'C' : 'S'}
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <p className="truncate text-[12px] font-medium capitalize text-ink">{role}</p>
-                <p className="truncate text-[10px] text-muted">{demoMode ? 'Demo session' : user?.email}</p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={signOut}
-              aria-label="Sign out"
-              title="Sign out"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-scrim hover:text-ink"
-            >
-              <IconSignOut />
-            </button>
-          </div>
+          <ProfileMenu variant="enterprise" collapsed={collapsed} />
         </div>
       </aside>
 
@@ -176,34 +151,13 @@ export function EnterpriseShell({ portal }) {
 
           <div className="flex shrink-0 items-center gap-2.5">
             {demoMode ? (
-              <>
-                <span className="hidden rounded-md bg-warning-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-700 ring-1 ring-warning-100 dark:text-warning-300 sm:inline">
-                  Demo
-                </span>
-                <div className="flex gap-0.5 rounded-lg bg-scrim p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => { setRole('student'); navigate('/student') }}
-                    className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                      role === 'student' ? 'bg-elevated text-ink shadow-sm' : 'text-muted hover:text-ink'
-                    }`}
-                  >
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setRole('admin'); navigate('/admin') }}
-                    className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                      role === 'admin' ? 'bg-elevated text-ink shadow-sm' : 'text-muted hover:text-ink'
-                    }`}
-                  >
-                    Counselor
-                  </button>
-                </div>
-              </>
+              <span className="hidden rounded-md bg-warning-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-700 ring-1 ring-warning-100 dark:text-warning-300 sm:inline">
+                Demo
+              </span>
             ) : (
               <span className="hidden text-sm text-muted sm:inline">{user?.email}</span>
             )}
+            <CommandTrigger />
             <ThemeToggle />
             {/* Desktop sign-out lives in the sidebar footer; this covers < lg */}
             <button

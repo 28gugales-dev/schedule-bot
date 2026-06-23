@@ -77,6 +77,51 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * BLUE TONE — inverted "emphasis beat" slides (Stakes, Before/After, Proof, Close)
+ *
+ * Scoped to the slide stage via [data-tone="blue"]. Tailwind v4 @theme colors
+ * compile to var(--color-*), so remapping those vars here recolors every
+ * primitive (text-ink / text-muted / bg-panel / border / text-brand-* / Em /
+ * warm / good) automatically — no per-component edits. Brand HUE is preserved
+ * (this is the same product blue, just darker as a surface + lighter as text),
+ * so the deck stays one brand across the flip. All text/surface pairs clear
+ * WCAG AA on the #0058b8→#0a4794 surface (white ~6.8–9:1, muted ~6:1).
+ * ─────────────────────────────────────────────────────────────────────────── */
+[data-tone="blue"] {
+  /* Text → light, off-white to avoid halation on saturated blue */
+  --color-ink: #f3f7ff;
+  --color-muted: #c3d6f5;
+  --color-faint: #b3cbf0;
+
+  /* Surfaces → translucent glass on the blue field */
+  --color-panel: rgba(255, 255, 255, 0.10);
+  --color-panel-2: rgba(255, 255, 255, 0.16);
+  --color-border: rgba(255, 255, 255, 0.20);
+  --color-border-strong: rgba(255, 255, 255, 0.34);
+
+  /* Brand accents → light variants so eyebrows / Em / chips read on blue */
+  --color-brand-50: rgba(255, 255, 255, 0.12); /* accent box / chip fill  */
+  --color-brand-200: rgba(255, 255, 255, 0.30); /* accent border / divider */
+  --color-brand-300: #dbe8ff; /* Em emphasis word       */
+  --color-brand-600: #bcd6ff; /* eyebrow / accent text  */
+
+  /* Functional → lighter on blue (large stat numbers, AA for large text) */
+  --color-warm: #fca35a;
+  --color-good: #5fd99a;
+}
+
+/* Primary CTA: a brand-fill button is invisible on a brand surface — invert it
+ * to white-on-blue for the blue tone. Attribute+class specificity (0,2,0) beats
+ * the bg-brand-600 / text-white utilities (0,1,0), so no !important needed. */
+[data-tone="blue"] .cta-btn {
+  background: #ffffff;
+  color: #0a4794;
+}
+[data-tone="blue"] .cta-btn:hover {
+  background: #eaf3fd;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

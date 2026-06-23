@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { slides } from './slides'
 import AuroraGradient from './components/AuroraGradient'
+import BlueSurface from './components/BlueSurface'
 
 // The deck engine: full-screen white stage, keyboard-driven, presenter-mode
 // notes. The slide layer remounts by key on navigation so each slide replays its
@@ -47,34 +48,41 @@ export default function Deck() {
   const current = slides[index]
   const Slide = current.Component
   const nextSlide = slides[index + 1]
+  const blue = current.tone === 'blue'
 
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-canvas">
       <AuroraGradient />
+      <BlueSurface active={blue} />
 
-      {/* progress rail */}
+      {/* progress rail — track + fill flip to light on blue beats */}
       <div className="absolute inset-x-0 top-0 z-30 flex gap-1.5 px-6 pt-5">
         {slides.map((s, i) => (
-          <div key={s.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-border">
+          <div
+            key={s.id}
+            className={`h-[3px] flex-1 overflow-hidden rounded-full transition-colors duration-500 ${blue ? 'bg-white/25' : 'bg-border'}`}
+          >
             <div
-              className="h-full rounded-full bg-brand-600 transition-all duration-500 ease-out"
+              className={`h-full rounded-full transition-all duration-500 ease-out ${blue ? 'bg-white' : 'bg-brand-600'}`}
               style={{ width: i <= index ? '100%' : '0%', opacity: i === index ? 1 : i < index ? 0.5 : 0 }}
             />
           </div>
         ))}
       </div>
 
-      {/* slide stage */}
-      <div key={index} className="absolute inset-0 z-10">
+      {/* slide stage — data-tone recolors every primitive via the token remap */}
+      <div key={index} data-tone={blue ? 'blue' : 'white'} className="absolute inset-0 z-10">
         <Slide />
       </div>
 
-      {/* nav arrows */}
+      {/* nav arrows — light on blue beats */}
       <button
         aria-label="Previous slide"
         onClick={() => go((i) => i - 1)}
         disabled={index === 0}
-        className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full px-3 pb-2 pt-1 text-3xl text-faint transition hover:bg-panel hover:text-ink disabled:pointer-events-none disabled:opacity-0"
+        className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full px-3 pb-2 pt-1 text-3xl transition disabled:pointer-events-none disabled:opacity-0 ${
+          blue ? 'text-white/55 hover:bg-white/10 hover:text-white' : 'text-faint hover:bg-panel hover:text-ink'
+        }`}
       >
         ‹
       </button>
@@ -82,23 +90,34 @@ export default function Deck() {
         aria-label="Next slide"
         onClick={() => go((i) => i + 1)}
         disabled={index === total - 1}
-        className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full px-3 pb-2 pt-1 text-3xl text-faint transition hover:bg-panel hover:text-ink disabled:pointer-events-none disabled:opacity-0"
+        className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full px-3 pb-2 pt-1 text-3xl transition disabled:pointer-events-none disabled:opacity-0 ${
+          blue ? 'text-white/55 hover:bg-white/10 hover:text-white' : 'text-faint hover:bg-panel hover:text-ink'
+        }`}
       >
         ›
       </button>
 
-      {/* bottom chrome */}
-      <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-border/70 px-7 py-4 font-mono text-[11px] uppercase tracking-widest text-faint">
+      {/* bottom chrome — border + text flip to light on blue beats */}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-30 flex items-center justify-between px-7 py-4 font-mono text-[11px] uppercase tracking-widest transition-colors duration-500 ${
+          blue ? 'border-t border-white/15 text-white/55' : 'border-t border-border/70 text-faint'
+        }`}
+      >
         <span className="flex items-center gap-2.5">
-          <span className="font-sans font-bold normal-case tracking-normal text-ink">Schedule AI</span>
-          <span className="text-border-strong">·</span>
+          <span className={`font-sans font-bold normal-case tracking-normal ${blue ? 'text-white' : 'text-ink'}`}>
+            Schedule AI
+          </span>
+          <span className={blue ? 'text-white/30' : 'text-border-strong'}>·</span>
           <span>{current.label}</span>
         </span>
         <div className="flex items-center gap-5">
-          <button onClick={() => setNotes((v) => !v)} className="tracking-widest transition hover:text-ink">
+          <button
+            onClick={() => setNotes((v) => !v)}
+            className={`tracking-widest transition ${blue ? 'hover:text-white' : 'hover:text-ink'}`}
+          >
             notes · N
           </button>
-          <span className="tnum text-muted">
+          <span className={`tnum ${blue ? 'text-white/75' : 'text-muted'}`}>
             {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
           </span>
         </div>

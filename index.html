@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f6f9" />
     <title>Waiver Platform</title>
+    <!-- Demo-embed bootstrap: when loaded with ?demo=admin|student (e.g. embedded
+         in the pitch deck), seed the demo role / theme / skin into localStorage
+         BEFORE the theme+skin boot scripts and AuthProvider read them. Gated
+         entirely behind the param — no effect on normal app usage. -->
+    <script>
+      (function () {
+        try {
+          var p = new URLSearchParams(location.search);
+          var demo = p.get('demo');
+          if (!demo) return;
+          localStorage.setItem('demo_role', demo === 'student' ? 'student' : 'admin');
+          localStorage.setItem('ccc:theme', p.get('theme') || 'light');
+          localStorage.setItem('ccc:skin', p.get('skin') || 'enterprise');
+          localStorage.setItem('ccc:sidebar-collapsed', '0');
+        } catch (e) {}
+      })();
+    </script>
     <!-- No-flash theme boot: resolve & paint the theme BEFORE first paint so the
          page never flashes light-then-dark. Mirrors ThemeProvider's logic; the
          'ccc:theme' key and default-to-system policy MUST match it. -->

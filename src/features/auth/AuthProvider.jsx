@@ -4,19 +4,24 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase.js'
 const AuthContext = createContext(null)
 const DEMO_ROLE_KEY = 'demo_role'
 
-/**
- * Resolve the app role for a Supabase user.
- * Source of truth (in priority order):
- *   1. app_metadata.role  — set server-side, trusted (recommended for prod).
- *   2. user_metadata.role — client-writable, convenient for dev seeding.
- *   3. default 'student'  — anyone authenticated with no explicit role.
- *
- * NOTE: Admin gating is enforced again at the data layer (RLS) — never trust the
- * client role alone for authorization of sensitive operations.
- */
-function resolveRole(user) {
-  if (!user) return null
-  return user.app_metadata?.role || user.user_metadata?.role || 'student'
+// District email domains permitted to sign in (comma-separated env var). Empty =
+// allow all, for local/preview testing.
+//
+// IMPORTANT: this client-side check is UX ONLY. The OAuth callback creates the
+// auth.users row before the app can react, so signing a rejected user out only
+// hides the session — it does not prevent the account. The AUTHORITATIVE district
+// restriction in production is the Google Cloud OAuth consent screen set to
+// "Internal" (Workspace-only). See migration 0004 section A for an optional
+// server-side trigger guard (defense in depth).
+const ALLOWED_DOMAINS = (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS ?? '')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean)
+
+function emailAllowed(email) {
+  if (!ALLOWED_DOMAINS.length) return true
+  const domain = String(email ?? '').split('@')[1]?.toLowerCase()
+  return Boolean(domain && ALLOWED_DOMAINS.includes(domain))
 }
 
 /**
@@ -39,6 +44,11 @@ export function AuthProvider({ children }) {
   const demoMode = !isSupabaseConfigured
 
   const [session, setSession] = useState(null)
+  // profiles.role is the single source of truth for the app role — for BOTH the
+  // UI (this value) and the database (RLS via private.is_counselor()). The JWT is
+  // never trusted for role. Null until the post-session fetch resolves.
+  const [profileRole, setProfileRole] = useState(null)
+  const [authError, setAuthError] = useState(null)
   const [demoRole, setDemoRole] = useState(() => {
     if (!demoMode) return null
     try {
@@ -47,19 +57,45 @@ export function AuthProvider({ children }) {
       return null
     }
   })
-  // Real auth resolves the session async; demo mode is ready immediately.
+  // Real auth resolves the session + role async; demo mode is ready immediately.
   const [loading, setLoading] = useState(!demoMode)
 
   useEffect(() => {
     if (demoMode) return
     let active = true
-    supabase.auth.getSession().then(({ data }) => {
+
+    // Resolve a session into (a) a district-domain check and (b) the app role
+    // read from profiles. loading stays true until BOTH finish, so RoleLanding
+    // never routes a counselor on the default 'student' before the role lands.
+    async function resolve(nextSession) {
+      const user = nextSession?.user ?? null
+
+      if (user && !emailAllowed(user.email)) {
+        setAuthError(`Access is restricted to ${ALLOWED_DOMAINS.join(', ')} accounts.`)
+        await supabase.auth.signOut()
+        if (!active) return
+        setSession(null)
+        setProfileRole(null)
+        setLoading(false)
+        return
+      }
+
       if (!active) return
-      setSession(data.session)
+      setSession(nextSession)
+
+      if (user) {
+        const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        if (!active) return
+        setProfileRole(data?.role ?? 'student')
+      } else {
+        setProfileRole(null)
+      }
       setLoading(false)
-    })
+    }
+
+    supabase.auth.getSession().then(({ data }) => resolve(data.session))
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next)
+      resolve(next)
     })
     return () => {
       active = false
@@ -84,27 +120,32 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => {
     const user = demoMode ? demoUser(demoRole) : (session?.user ?? null)
+    const role = demoMode ? demoRole : user ? (profileRole ?? 'student') : null
     return {
       session,
       user,
-      role: resolveRole(user),
+      role,
       loading,
       isConfigured: isSupabaseConfigured,
       demoMode,
       setRole,
+      authError,
+      clearAuthError: () => setAuthError(null),
+      // Google Workspace SSO is the only sign-in method. `hd` hints Google to the
+      // district domain (enforcement is the Workspace OAuth config, not this hint).
       signInWithGoogle: () =>
         supabase?.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: `${window.location.origin}/` },
+          options: {
+            redirectTo: `${window.location.origin}/`,
+            queryParams: ALLOWED_DOMAINS.length
+              ? { hd: ALLOWED_DOMAINS[0], prompt: 'select_account' }
+              : { prompt: 'select_account' },
+          },
         }),
-      // `role` is written to user_metadata at signup — it's what resolveRole()
-      // reads for that account from then on (see priority order above).
-      signUpWithEmail: (email, password, role) =>
-        supabase?.auth.signUp({ email, password, options: { data: { role } } }),
-      signInWithEmail: (email, password) => supabase?.auth.signInWithPassword({ email, password }),
       signOut: demoMode ? () => setRole(null) : () => supabase?.auth.signOut(),
     }
-  }, [session, loading, demoMode, demoRole, setRole])
+  }, [session, profileRole, loading, demoMode, demoRole, setRole, authError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -25,6 +25,7 @@ export const slides = [
     id: 'stakes',
     label: 'Why it matters',
     Component: Stakes,
+    tone: 'blue',
     notes: `Make it about students and staff, not software. Wrong courses = lost instructional time and angry parents. Missed graduation requirements = the nightmare scenario every director loses sleep over. Burnout = turnover in a role that's already hard to staff. You're naming the cost of the status quo.`,
   },
   {
@@ -49,7 +50,8 @@ export const slides = [
     id: 'beforeafter',
     label: 'Before / After',
     Component: BeforeAfter,
-    notes: `Let the two numbers do the work — don't read them, let them count up. Hours by hand, minutes with Schedule AI. The line that matters: this is a counselor's week back, every term. (Mock figures — replace with the pilot's measured times.)`,
+    tone: 'blue',
+    notes: `Let the two numbers do the work. 2–3 minutes to review a waiver by hand, 10–15 seconds with Schedule AI — about 12× faster. The line that matters: multiply that across a term's waivers and it's hours of a counselor's time back. (2–3 min is the real manual figure; the seconds is our measured run.)`,
   },
   {
     id: 'compliance',
@@ -59,9 +61,10 @@ export const slides = [
   },
   {
     id: 'proof',
-    label: 'Proof',
+    label: 'The difference',
     Component: Proof,
-    notes: `Read the quote slowly, then be quiet. One real customer's relief outweighs any feature list. (Placeholder until a pilot closes — never show this with a fake name; swap in a real, attributed quote or cut the slide.)`,
+    tone: 'blue',
+    notes: `State the core claim plainly and let it land: a waiver that took two to three minutes to review by hand now takes ten to fifteen seconds — the same careful review, without the manual hours. No quote, no testimonial (no deployed schools yet); the metric itself is the proof.`,
   },
   {
     id: 'pricing',
@@ -79,6 +82,7 @@ export const slides = [
     id: 'close',
     label: 'Get started',
     Component: Close,
+    tone: 'blue',
     notes: `Make the ask small and obvious: one pilot, one week. Don't add new information here — restate the promise ("give your counselors their time back") and point at the one button. Then stop talking and let them respond.`,
   },
 ]

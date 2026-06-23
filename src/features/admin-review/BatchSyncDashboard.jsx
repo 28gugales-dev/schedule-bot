@@ -170,7 +170,7 @@ export function BatchSyncDashboard() {
       {/* Sync console bar — countdown + live queue counts on one dense row, with
           Force Sync on the right. Counts live here (not a separate line) so the
           glass skin keeps its status readout once the old duplicate line is gone. */}
-      <div className={isEnterprise ? 'flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3' : 'glass-card flex flex-wrap items-center justify-between gap-4 p-4'}>
+      <div className={isEnterprise ? 'flex flex-wrap items-center justify-between gap-4 border border-border bg-surface px-4 py-3' : 'glass-card !rounded-none flex flex-wrap items-center justify-between gap-4 p-4'}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-baseline gap-2.5">
             <span className="text-sm font-medium text-ink">Next sync</span>
@@ -197,7 +197,7 @@ export function BatchSyncDashboard() {
           type="button"
           onClick={() => setForceConfirmOpen(true)}
           disabled={syncing || pendingCount === 0}
-          className="shrink-0 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="shrink-0 bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {syncing ? 'Syncing…' : 'Force Sync Now'}
         </button>
@@ -207,7 +207,7 @@ export function BatchSyncDashboard() {
       {confirmation && (
         <div
           role="status"
-          className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700 dark:text-success-300 ring-1 ring-success-300"
+          className="bg-success-50 px-4 py-3 text-sm text-success-700 dark:text-success-300 ring-1 ring-success-300"
         >
           {confirmation}
         </div>
@@ -217,7 +217,7 @@ export function BatchSyncDashboard() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-200"
+          className="bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-200"
         >
           {error}
         </div>
@@ -225,14 +225,14 @@ export function BatchSyncDashboard() {
 
       {/* Empty state */}
       {!loading && queue.length === 0 && (
-        <div className="glass-card p-12 text-center">
+        <div className="glass-card !rounded-none p-12 text-center">
           <p className="text-sm text-muted">No approved waivers awaiting sync.</p>
         </div>
       )}
 
       {/* Loading state */}
       {loading && (
-        <div className="glass-card p-5 text-center">
+        <div className="glass-card !rounded-none p-5 text-center">
           <p className="text-sm text-muted">Loading…</p>
         </div>
       )}
@@ -242,7 +242,7 @@ export function BatchSyncDashboard() {
           so the data region uses the full viewport rather than floating above bare
           canvas. Glass keeps its frosted card at natural height. */}
       {!loading && queue.length > 0 && (
-        <div className={isEnterprise ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface' : 'glass-card overflow-hidden'}>
+        <div className={isEnterprise ? 'flex min-h-0 flex-1 flex-col overflow-hidden border border-border bg-surface' : 'glass-card !rounded-none overflow-hidden'}>
           <div className={isEnterprise ? 'min-h-0 flex-1 overflow-auto' : ''}>
           <table className="w-full">
             <thead className={isEnterprise ? 'sticky top-0 z-10 border-b border-border bg-surface' : 'border-b border-hairline bg-glass-weak'}>

@@ -29,12 +29,12 @@ const IconQueue = () => (
   </svg>
 )
 
-const IconRubric = () => (
+const IconForm = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="3" y1="5" x2="13" y2="5" />
-    <line x1="3" y1="8" x2="10" y2="8" />
-    <line x1="3" y1="11" x2="7" y2="11" />
-    <circle cx="12" cy="11" r="1.5" />
+    <rect x="2.5" y="2" width="11" height="12" rx="2" />
+    <line x1="5" y1="5.5" x2="11" y2="5.5" />
+    <line x1="5" y1="8" x2="11" y2="8" />
+    <line x1="5" y1="10.5" x2="8.5" y2="10.5" />
   </svg>
 )
 
@@ -57,6 +57,15 @@ const IconAudit = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="8" cy="8" r="6" />
     <polyline points="8 5 8 8 10 9.5" />
+  </svg>
+)
+
+const IconTeam = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="2.5" />
+    <path d="M1.5 13a4.5 4.5 0 0 1 9 0" />
+    <path d="M11 4.2a2 2 0 0 1 0 3.6" />
+    <path d="M12 13a4.5 4.5 0 0 0-2.2-3.3" />
   </svg>
 )
 
@@ -104,8 +113,9 @@ export const NAV = {
   ],
   admin: [
     { to: '/admin', label: 'Review Queue', end: true, section: 'Review', icon: <IconQueue /> },
-    { to: '/admin/rubric', label: 'Rubric Builder', section: 'Review', icon: <IconRubric /> },
+    { to: '/admin/forms', label: 'Form Builder', section: 'Review', icon: <IconForm /> },
     { to: '/admin/rejected', label: 'Rejected', section: 'Review', icon: <IconRejected /> },
+    { to: '/admin/team', label: 'Team', end: true, section: 'Team', icon: <IconTeam /> },
     { to: '/admin/batch', label: 'Batch Sync', section: 'Sync', icon: <IconBatch /> },
     { to: '/admin/audit', label: 'Activity', end: true, section: 'Audit', icon: <IconActivity /> },
     { to: '/admin/audit/decisions', label: 'Counselor Decisions', section: 'Audit', icon: <IconDecision /> },

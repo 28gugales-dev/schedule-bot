@@ -97,3 +97,37 @@ export function Statement({ children, className = '' }) {
 export function Em({ children }) {
   return <em className="font-serif font-normal italic text-brand-300">{children}</em>
 }
+
+// A real product screenshot in browser chrome — the deck's single, consistent
+// frame for app imagery (three window dots + a faux address pill + the shot).
+// Tokens (border/panel/faint) so it sits right on either tone. `addr` is the
+// address-bar text; `size` scales the chrome for hero vs. thumbnail use.
+export function ShotFrame({ src, alt, addr = 'app.schedule-ai', size = 'lg', className = '', imgClass = '', children }) {
+  const dots = size === 'sm' ? 'h-2 w-2' : 'h-2.5 w-2.5'
+  const barPad = size === 'sm' ? 'px-3 py-2' : 'px-4 py-3'
+  return (
+    <div
+      data-anim
+      className={`overflow-hidden rounded-2xl border border-border bg-panel shadow-[0_12px_40px_rgba(20,23,31,0.10)] ${className}`}
+    >
+      <div className={`flex items-center gap-3 border-b border-border ${barPad}`}>
+        <div className="flex items-center gap-1.5">
+          <span className={`${dots} rounded-full bg-border-strong`} />
+          <span className={`${dots} rounded-full bg-border-strong`} />
+          <span className={`${dots} rounded-full bg-border-strong`} />
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="inline-flex max-w-full items-center gap-2 truncate rounded-full border border-border bg-canvas px-3.5 py-1">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-faint" stroke="currentColor" strokeWidth={1.5} fill="none">
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            <span className="truncate font-mono text-[11px] tracking-tight text-muted">{addr}</span>
+          </div>
+        </div>
+        <div className={size === 'sm' ? 'w-[34px]' : 'w-[42px]'} />
+      </div>
+      {children ? children : <img src={src} alt={alt} className={`block w-full bg-canvas ${imgClass}`} loading="eager" />}
+    </div>
+  )
+}

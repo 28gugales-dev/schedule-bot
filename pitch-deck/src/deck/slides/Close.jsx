@@ -23,7 +23,7 @@ export default function Close() {
         <a
           data-anim
           href="mailto:hello@schedule-ai.example"
-          className="mt-10 inline-flex items-center justify-center rounded-full bg-brand-600 px-8 py-3.5 font-display text-base font-semibold text-white shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-brand-700 hover:shadow-[0_8px_30px_rgba(20,23,31,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          className="cta-btn mt-10 inline-flex items-center justify-center rounded-full bg-brand-600 px-8 py-3.5 font-display text-base font-semibold text-white shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-brand-700 hover:shadow-[0_8px_30px_rgba(20,23,31,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
           Book a pilot
         </a>

@@ -59,8 +59,9 @@ src/
 │   │   └── MyRequests.jsx        # Student's submission history
 │   └── admin-review/
 │       ├── ReviewQueue.jsx       # AG Grid review list → click a row for detail
-│       ├── ReviewDetail.jsx      # Submission vs. OneRoster SIS + rubric verification accordion
-│       ├── RubricBuilder.jsx     # Edit criteria + toggle waivers
+│       ├── ReviewDetail.jsx      # Submission (+ custom answers) vs. OneRoster SIS + rubric verification
+│       ├── FormBuilder.jsx       # Per-form builder: student fields + per-form rubric + AI reference docs
+│       ├── FieldConfigPanel.jsx  # Per-field configuration for the form builder
 │       └── BatchSyncDashboard.jsx # Batch IC sync with 60s countdown
 ├── components/ui/LiquidGlass.jsx # Floating glass chrome decoration
 ├── services/
@@ -127,10 +128,11 @@ src/
    - **Review Detail** — the student's submission side-by-side with the authoritative OneRoster (SIS) record, plus a collapsible rubric-verification accordion (failed checks expanded by default, each showing claimed vs. actual vs. reasoning)
    - Admit/Deny actions with an optional note, toast confirmation on decision
 
-2. **Rubric Builder** — edit evaluation criteria
-   - Add/remove criteria (number fields, boolean toggles)
-   - Toggle waivers active/inactive
-   - Dirty-gated Save button
+2. **Form Builder** (`/admin/forms`) — author each waiver form end to end
+   - **Student fields** — drag-free field palette (11 types), per-field config, reorder, live student preview
+   - **Rubric / logic** — each form's own AI evaluation criteria (per-form, not global); an empty rubric routes to manual review
+   - **Reference docs** — attach policy docs + notes as AI context (config surface; retrieval is a later slice)
+   - Create / archive (soft-delete) forms, toggle active, dirty-gated Save
 
 3. **Batch Sync** — Infinite Campus integration
    - 60-second countdown auto-sync

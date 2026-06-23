@@ -8,10 +8,16 @@ import { NotFound } from './NotFound.jsx'
 import { WaiverIntake } from '../features/student-portal/WaiverIntake.jsx'
 import { MyRequests } from '../features/student-portal/MyRequests.jsx'
 import { ReviewQueue } from '../features/admin-review/ReviewQueue.jsx'
-import { RubricBuilder } from '../features/admin-review/RubricBuilder.jsx'
+import { FormBuilder } from '../features/admin-review/FormBuilder.jsx'
 import { BatchSyncDashboard } from '../features/admin-review/BatchSyncDashboard.jsx'
 import { AuditPage } from '../features/audit/AuditPage.jsx'
 import { RejectedHistory } from '../features/admin-review/RejectedHistory.jsx'
+import { StudentProfile } from '../features/admin-review/StudentProfile.jsx'
+import { TeamPanel } from '../features/admin-team/TeamPanel.jsx'
+import { LegalDoc } from '../features/legal/LegalDoc.jsx'
+import privacyMd from '../../docs/compliance/privacy-policy.md?raw'
+import termsMd from '../../docs/compliance/terms-of-service.md?raw'
+import breachMd from '../../docs/compliance/breach-response-policy.md?raw'
 
 // Route map. Portal subtrees are wrapped in <ProtectedRoute> for role gating;
 // feature child routes (uploads, rubric builder, batch sync, etc.) get added
@@ -27,6 +33,11 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <RoleLanding /> },
       { path: '/login', element: <LoginPage /> },
+      // Public, unauthenticated — policies must be viewable by anyone (districts,
+      // TrustEd reviewers, parents).
+      { path: '/privacy', element: <LegalDoc title="Privacy Policy" source={privacyMd} /> },
+      { path: '/terms', element: <LegalDoc title="Terms of Service" source={termsMd} /> },
+      { path: '/breach-policy', element: <LegalDoc title="Breach Response Policy" source={breachMd} /> },
       {
         path: '/student',
         element: (
@@ -48,9 +59,14 @@ export const router = createBrowserRouter([
         ),
         children: [
           { index: true, element: <ReviewQueue /> },
-          { path: 'rubric', element: <RubricBuilder /> },
+          { path: 'forms', element: <FormBuilder /> },
+          // Back-compat: the old route was /admin/rubric — keep it pointing at the
+          // unified Form Builder so existing links/bookmarks don't 404.
+          { path: 'rubric', element: <FormBuilder /> },
           { path: 'batch', element: <BatchSyncDashboard /> },
           { path: 'rejected', element: <RejectedHistory /> },
+          { path: 'students/:studentId', element: <StudentProfile /> },
+          { path: 'team', element: <TeamPanel /> },
           { path: 'audit', element: <AuditPage view="activity" /> },
           { path: 'audit/decisions', element: <AuditPage view="decisions" /> },
           { path: 'audit/submissions', element: <AuditPage view="submissions" /> },

@@ -1,6 +1,7 @@
 import { useSkin } from '../../features/skin/SkinProvider.jsx'
 import { GlassShell } from './GlassShell.jsx'
 import { EnterpriseShell } from './EnterpriseShell.jsx'
+import { CommandPaletteProvider } from './CommandPalette.jsx'
 
 /**
  * Shell selector. Picks the chrome for the active visual skin:
@@ -17,7 +18,11 @@ import { EnterpriseShell } from './EnterpriseShell.jsx'
  */
 export function AppShell({ portal }) {
   const { skin } = useSkin()
-  return skin === 'enterprise'
-    ? <EnterpriseShell portal={portal} />
-    : <GlassShell portal={portal} />
+  return (
+    <CommandPaletteProvider portal={portal}>
+      {skin === 'enterprise'
+        ? <EnterpriseShell portal={portal} />
+        : <GlassShell portal={portal} />}
+    </CommandPaletteProvider>
+  )
 }

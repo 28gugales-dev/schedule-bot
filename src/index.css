@@ -574,6 +574,57 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.011em;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+ * LEGAL / POLICY PROSE — styling for marked-rendered Markdown in `.legal-doc`.
+ * All colors are design-system vars, so the documents flip across light/dark
+ * and glass/enterprise with no per-skin rules. Headings inherit the body sans
+ * (no font-family override) to stay consistent with the enterprise console.
+ * ═════════════════════════════════════════════════════════════════════════ */
+.legal-doc { line-height: 1.7; font-size: 0.95rem; color: var(--color-ink); }
+.legal-doc > :first-child { margin-top: 0; }
+.legal-doc h1 { font-size: 1.7rem; font-weight: 600; margin: 0 0 0.75rem; }
+.legal-doc h2 { font-size: 1.2rem; font-weight: 600; margin: 1.9rem 0 0.6rem; }
+.legal-doc h3 { font-size: 1.02rem; font-weight: 600; margin: 1.3rem 0 0.4rem; }
+.legal-doc p { margin: 0.65rem 0; }
+.legal-doc ul, .legal-doc ol { margin: 0.65rem 0; padding-left: 1.4rem; }
+.legal-doc li { margin: 0.25rem 0; }
+.legal-doc li::marker { color: var(--color-muted); }
+.legal-doc a { color: var(--color-brand-600); text-decoration: underline; text-underline-offset: 2px; }
+.legal-doc strong { font-weight: 600; }
+.legal-doc hr { border: 0; border-top: 1px solid var(--color-hairline); margin: 1.6rem 0; }
+.legal-doc blockquote {
+  margin: 1rem 0;
+  padding: 0.6rem 1rem;
+  border-left: 3px solid var(--color-brand-600);
+  background: var(--color-scrim);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: 0.86rem;
+}
+.legal-doc blockquote p { margin: 0; }
+.legal-doc code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-scrim);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
+.legal-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+}
+.legal-doc th, .legal-doc td {
+  border: 1px solid var(--color-hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.legal-doc th { background: var(--color-scrim); font-weight: 600; }
+
 /* Skin cross-fade — mirrors `.theme-transition`. Added by SkinProvider for
    ~360ms around a view switch, then removed so it never slows ordinary hovers. */
 @media (prefers-reduced-motion: no-preference) {
@@ -611,4 +662,21 @@ h1, h2, h3, h4, h5, h6 {
   .ag-root-wrapper .ag-header-cell .ag-header-cell-menu-button {
     transition: none;
   }
+}
+
+/* ── Enterprise audit console: square card surfaces ──────────────────────────
+   The dense ledger reads as one structural panel, not a stack of nested rounded
+   cards. The enterprise grid already has a 0px wrapper radius (auditShared.jsx),
+   so the only curve left is the chrome around it — flatten the card surfaces
+   (glass surfaces + the explicit rounded-lg containers/inner detail cards) to
+   match. Controls keep their own shape: buttons (rounded-xl), inputs
+   (.glass-input), pills and dots (rounded-full) are untouched.
+   Scoped to enterprise only — in the glass skin the grid keeps a 14px radius, so
+   flattening its container there would reintroduce the very mismatch this fixes.
+   Unlayered, so it beats the Tailwind `.rounded-lg` utility (@layer utilities);
+   the (0,3,0) selector also outranks `[data-skin="enterprise"] .glass-card`. */
+[data-skin="enterprise"] .audit-console .glass-card,
+[data-skin="enterprise"] .audit-console .glass-panel,
+[data-skin="enterprise"] .audit-console .rounded-lg {
+  border-radius: 0;
 }

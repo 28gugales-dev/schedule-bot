@@ -89,8 +89,8 @@ export function AuditPage({ view = 'activity' }) {
       <section
         className={
           isEnterprise
-            ? `flex flex-col gap-3 ${isGrid ? 'lg:h-[calc(100vh-3.5rem)]' : ''}`
-            : 'fade-up flex flex-col gap-5'
+            ? `audit-console flex flex-col gap-3 ${isGrid ? 'lg:h-[calc(100vh-3.5rem)]' : ''}`
+            : 'audit-console fade-up flex flex-col gap-5'
         }
       >
         {/* Glass keeps an in-page title; enterprise hoists it to the topbar. */}

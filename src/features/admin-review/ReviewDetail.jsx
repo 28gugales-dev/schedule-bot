@@ -1,10 +1,27 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.jsx'
+import { getDocumentUrl } from '../../services/api.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// Open an uploaded document. Real backend stores a private-bucket `path`; signed
+// URLs expire, so we mint a fresh one on click. Demo descriptors carry a usable
+// `url` and getDocumentUrl returns null, so we fall back to it.
+async function openDocument(doc) {
+  let href = doc.url ?? null
+  if (doc.path) {
+    try {
+      const signed = await getDocumentUrl(doc.path)
+      if (signed) href = signed
+    } catch {
+      /* fall back to any url already on the descriptor */
+    }
+  }
+  if (href) window.open(href, '_blank', 'noopener,noreferrer')
+}
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -25,6 +42,67 @@ function Field({ label, children }) {
     <div className="flex flex-col gap-0.5 text-sm">
       <span className="text-xs text-muted">{label}</span>
       <span className="font-medium text-ink">{children}</span>
+    </div>
+  )
+}
+
+// Look up an option's display label by its stored value. If the counselor later
+// removed that option from the form, the stored answer is orphaned — show the raw
+// value with a marker rather than a blank (spec R3).
+function optionLabel(field, value) {
+  const opt = (field.options ?? []).find((o) => o.value === value)
+  return opt ? opt.label : `${value} (option removed)`
+}
+
+// Render a single custom answer for the counselor, by field type. File answers
+// are descriptors (handled separately); everything else resolves to a string.
+function formatAnswer(field, value) {
+  if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) return '—'
+  if (field.type === 'yesNo') return value ? 'Yes' : 'No'
+  if (field.type === 'multiCheckbox') return (Array.isArray(value) ? value : [value]).map((v) => optionLabel(field, v)).join(', ')
+  if (field.type === 'select' || field.type === 'radio') return optionLabel(field, value)
+  return String(value)
+}
+
+// The student's per-form custom answers, rendered from the FROZEN schema snapshot
+// (request.formSchemaSnapshot) × answers map — never the live form, so later edits
+// to the form can't rewrite history. Renders nothing for legacy/empty requests.
+function CustomAnswers({ schema = [], answers = {} }) {
+  const hasInputs = schema.some((f) => f.type !== 'sectionHeader' && f.type !== 'helpText')
+  if (!hasInputs) return null
+  return (
+    <div className="flex flex-col gap-3 border-t border-hairline pt-4">
+      <span className="text-xs text-muted">Additional information</span>
+      {schema.map((f, i) => {
+        if (f.type === 'helpText') return null
+        if (f.type === 'sectionHeader') {
+          return <p key={f.id ?? i} className="eyebrow pt-1">{f.content || f.label}</p>
+        }
+        if (f.type === 'file') {
+          const docs = Array.isArray(answers[f.id]) ? answers[f.id] : answers[f.id] ? [answers[f.id]] : []
+          return (
+            <Field key={f.id} label={f.label}>
+              {docs.length > 0 ? (
+                <span className="flex flex-wrap gap-x-3 gap-y-1">
+                  {docs.map((doc, j) => (
+                    <a
+                      key={j}
+                      href={doc.url ?? '#'}
+                      onClick={(e) => { e.preventDefault(); openDocument(doc) }}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ink underline-offset-2 hover:underline"
+                    >
+                      {doc.name ?? 'file'}
+                    </a>
+                  ))}
+                </span>
+              ) : '—'}
+            </Field>
+          )
+        }
+        return <Field key={f.id} label={f.label}>{formatAnswer(f, answers[f.id])}</Field>
+      })}
     </div>
   )
 }
@@ -73,6 +151,10 @@ function ViewToggle({ value, onChange }) {
 
 function SubmissionBlock({ request, waiverName }) {
   const { submittedAt, studentNote, documents, courseList } = request
+  // Custom file answers also live in documents[] (docType `custom-field:*`); they
+  // surface inside the Additional information block, so keep them out of the
+  // standard Documents list to avoid showing each file twice (spec M2).
+  const standardDocs = documents.filter((d) => !d.type?.startsWith('custom-field:'))
   // 'summary' = the curated reviewer view; 'raw' = the submission verbatim, as
   // the student actually entered it (no injected quotes, no truncation, exact
   // whitespace). Default to summary — counselors skim that first.
@@ -96,16 +178,22 @@ function SubmissionBlock({ request, waiverName }) {
             </div>
           )}
 
-          {documents.length > 0 && (
+          {standardDocs.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <span className="text-xs text-muted">Documents</span>
               <ul className="flex flex-col gap-1.5">
-                {documents.map((doc, i) => (
+                {standardDocs.map((doc, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <span className="rounded bg-scrim px-2 py-0.5 text-xs font-medium capitalize text-muted">
                       {doc.type}
                     </span>
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="font-medium text-ink underline-offset-2 hover:underline">
+                    <a
+                      href={doc.url ?? '#'}
+                      onClick={(e) => { e.preventDefault(); openDocument(doc) }}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-ink underline-offset-2 hover:underline"
+                    >
                       {doc.name}
                     </a>
                   </li>
@@ -124,6 +212,8 @@ function SubmissionBlock({ request, waiverName }) {
               </div>
             </div>
           )}
+
+          <CustomAnswers schema={request.formSchemaSnapshot} answers={request.formAnswers} />
         </div>
       ) : (
         <RawSubmission request={request} waiverName={waiverName} />
@@ -137,6 +227,7 @@ function SubmissionBlock({ request, waiverName }) {
 // truthfully so nothing reads as "typed" that wasn't.
 function RawSubmission({ request, waiverName }) {
   const { submittedAt, studentNote, documents, courseList } = request
+  const standardDocs = documents.filter((d) => !d.type?.startsWith('custom-field:'))
   return (
     <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
       <Field label="Waiver type — selected">{waiverName}</Field>
@@ -155,11 +246,17 @@ function RawSubmission({ request, waiverName }) {
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-muted">Documents — uploaded</span>
-        {documents.length > 0 ? (
+        {standardDocs.length > 0 ? (
           <ul className="flex flex-col gap-1">
-            {documents.map((doc, i) => (
+            {standardDocs.map((doc, i) => (
               <li key={i} className="flex items-baseline justify-between gap-3 font-mono text-[13px]">
-                <a href={doc.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-ink underline-offset-2 hover:underline">
+                <a
+                  href={doc.url ?? '#'}
+                  onClick={(e) => { e.preventDefault(); openDocument(doc) }}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 truncate text-ink underline-offset-2 hover:underline"
+                >
                   {doc.name}
                 </a>
                 <span className="shrink-0 capitalize text-muted">{doc.type}</span>
@@ -183,6 +280,8 @@ function RawSubmission({ request, waiverName }) {
           <p className="italic text-muted">(none)</p>
         )}
       </div>
+
+      <CustomAnswers schema={request.formSchemaSnapshot} answers={request.formAnswers} />
     </div>
   )
 }
