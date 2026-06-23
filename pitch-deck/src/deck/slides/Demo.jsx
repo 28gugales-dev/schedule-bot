@@ -1,21 +1,31 @@
-import { SlideFrame } from '../SlideKit'
+import { SlideRoot } from '../SlideKit'
+import AppFrame from '../components/AppFrame'
 
-// The "show, don't tell" beat: a browser-chrome-framed screen that stands in for
-// the live product demo. The frame is premium but obviously a placeholder.
-//
-// PLACEHOLDER: the aspect-video body is where the real screen-recording footage
-// drops in — replace the play-affordance block below with a <video>/<img> of the
-// actual flow (upload transcript → parsed courses & GPA → schedule → audit view).
+// The "show, don't tell" beat — the LIVE app embedded, not a screenshot. Compact
+// header so the browser-framed embed takes all remaining height (fills cleanly at
+// any window size); the app renders at desktop width and stays crisp. You can
+// scroll/click it during the pitch. Requires the app dev server on :5173 — the
+// ?demo=admin param seeds the demo role/theme/skin.
+const APP_URL = 'http://localhost:5173/admin?demo=admin&theme=light&skin=enterprise'
+
 export default function Demo() {
   return (
-    <SlideFrame eyebrow="See it in action" title="The real product, doing real work.">
-      <div className="mx-auto w-full max-w-[760px]">
-        {/* Browser chrome */}
+    <SlideRoot>
+      <div className="flex h-full w-full flex-col px-10 py-8 md:px-14">
+        <header>
+          <p data-anim className="font-mono text-[11px] font-medium uppercase tracking-[0.26em] text-brand-600">
+            See it in action
+          </p>
+          <h2 data-anim className="mt-2.5 font-display text-3xl font-semibold leading-[1.06] tracking-tight text-ink md:text-[2.5rem]">
+            The real product, doing real work.
+          </h2>
+        </header>
+
+        {/* Browser-framed live embed — flexes to fill the remaining height. */}
         <div
           data-anim
-          className="overflow-hidden rounded-2xl border border-border bg-panel shadow-[0_8px_30px_rgba(20,23,31,0.06)]"
+          className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-[0_18px_50px_rgba(20,23,31,0.12)]"
         >
-          {/* Top bar: three window dots + a faux address pill */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-border-strong" />
@@ -23,43 +33,22 @@ export default function Demo() {
               <span className="h-2.5 w-2.5 rounded-full bg-border-strong" />
             </div>
             <div className="flex flex-1 items-center justify-center">
-              <div className="inline-flex max-w-full items-center gap-2 truncate rounded-full border border-border bg-canvas px-3.5 py-1">
-                <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-faint" stroke="currentColor" strokeWidth={1.5} fill="none">
-                  <rect x="5" y="11" width="14" height="9" rx="2" />
-                  <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                </svg>
-                <span className="truncate font-mono text-[11px] tracking-tight text-muted">
-                  app.schedule-ai<span className="text-faint"> / Transcript to Schedule</span>
-                </span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-canvas px-3.5 py-1">
+                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-good" />
+                <span className="font-mono text-[11px] tracking-tight text-muted">app.schedule-ai / Review Queue · live</span>
               </div>
             </div>
-            {/* spacer to balance the dots, keeps the pill optically centered */}
             <div className="w-[42px]" />
           </div>
-
-          {/* Screen body: labeled 16:9 placeholder */}
-          <div className="relative flex aspect-video items-center justify-center bg-panel-2">
-            <div className="flex flex-col items-center">
-              {/* Play affordance: triangle in a ring — brand blue only */}
-              <span className="flex h-16 w-16 items-center justify-center rounded-full border border-brand-200 bg-canvas shadow-sm">
-                <svg viewBox="0 0 24 24" className="ml-0.5 h-6 w-6 text-brand-600" fill="currentColor">
-                  <path d="M8 5.5v13l11-6.5z" />
-                </svg>
-              </span>
-              <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.28em] text-faint">
-                Live product demo
-              </p>
-            </div>
+          <div className="relative min-h-0 flex-1">
+            <AppFrame src={APP_URL} title="Schedule AI — live review queue" />
           </div>
         </div>
 
-        {/* One-line caption: the flow the footage will show */}
-        <p data-anim className="mt-5 text-center text-sm leading-relaxed text-muted">
-          Real screen recording: upload transcript <span className="text-brand-400">→</span> parsed
-          courses &amp; GPA <span className="text-brand-400">→</span> schedule generated{' '}
-          <span className="text-brand-400">→</span> audit view.
+        <p data-anim className="mt-3.5 text-center text-[13px] leading-relaxed text-muted">
+          The live app — scroll and click it. An AI recommendation &amp; confidence on every request; the counselor makes the final call.
         </p>
       </div>
-    </SlideFrame>
+    </SlideRoot>
   )
 }

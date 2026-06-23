@@ -13,6 +13,7 @@
 import {
   WAIVER_TYPES,
   RUBRIC_CRITERIA,
+  defaultFormCriteria,
   REVIEW_QUEUE,
   BATCH_SYNC_QUEUE,
   SEED_SUBMISSIONS,
@@ -28,6 +29,7 @@ import { canSubmit } from '../utils/rateLimiter.js'
 import { buildSyncPackage } from '../utils/batchProcessor.js'
 import { releaseSeat } from '../utils/seatAvailability.js'
 import { slugifyWaiverId } from '../utils/formSchema.js'
+import { waiverWindowStatus } from '../utils/waiverWindow.js'
 import * as waitlist from './waitlist.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import * as sb from './supabaseApi.js'
@@ -71,6 +73,17 @@ export function diffWaiverType(before, after) {
   const bCount = (b.formSchema ?? []).length
   const aCount = (a.formSchema ?? []).length
   if (bCount !== aCount) diff.push({ entity, field: 'fieldCount', from: bCount, to: aCount })
+  // Rubric + reference docs are summarized as counts (the full arrays in the
+  // audit would be noise; the rubric.update audit on the old global path was
+  // already count-based via diffRubric).
+  const bEnabled = (b.criteria ?? []).filter((c) => c.enabled).length
+  const aEnabled = (a.criteria ?? []).filter((c) => c.enabled).length
+  if (bEnabled !== aEnabled || (b.criteria ?? []).length !== (a.criteria ?? []).length) {
+    diff.push({ entity, field: 'activeRubricRules', from: bEnabled, to: aEnabled })
+  }
+  const bDocs2 = (b.referenceDocs ?? []).length
+  const aDocs2 = (a.referenceDocs ?? []).length
+  if (bDocs2 !== aDocs2) diff.push({ entity, field: 'referenceDocs', from: bDocs2, to: aDocs2 })
   return diff
 }
 
@@ -84,7 +97,7 @@ const clone = (v) => JSON.parse(JSON.stringify(v))
 // hydrate from localStorage on init and write back after every mutation. Bump
 // SEED_VERSION whenever the mockData fixtures change shape/content, so returning
 // demo browsers rebuild from the new seed instead of keeping stale cached data.
-const SEED_VERSION = '2'
+const SEED_VERSION = '4'
 const NS = 'schedulebot.api.v1'
 const LS_KEYS = {
   waivers: `${NS}.waivers`,
@@ -201,6 +214,7 @@ function deriveDisplayStatus(request) {
 // Upload transcript / course list / supporting docs. Returns the stored file
 // descriptors the submission step will reference.
 export async function uploadStudentDocuments(files) {
+  if (isSupabaseConfigured) return sb.uploadStudentDocuments(files)
   await delay(700)
   const stored = (files || []).map((f, i) => ({
     id: `doc-${Date.now()}-${i}`,
@@ -210,6 +224,13 @@ export async function uploadStudentDocuments(files) {
     url: `/mock/uploads/${encodeURIComponent(f.name)}`,
   }))
   return { uploadId: `up-${Date.now()}`, files: stored }
+}
+
+// Fresh signed URL for a stored document. Demo descriptors carry a usable `url`
+// already, so the viewer falls back to that when this returns null.
+export async function getDocumentUrl(path, expiresIn = 300) {
+  if (isSupabaseConfigured) return sb.getDocumentUrl(path, expiresIn)
+  return null
 }
 
 // Only active waiver types are offered to students.
@@ -240,6 +261,12 @@ export async function createWaiverType(input, actor = null) {
     active: input.active ?? false,
     requiredDocs: input.requiredDocs ?? [],
     formSchema: input.formSchema ?? [],
+    // New forms inherit the default rubric so the AI recommendation behaves from
+    // day one; reference docs start empty.
+    criteria: input.criteria ?? defaultFormCriteria(),
+    referenceDocs: input.referenceDocs ?? [],
+    openAt: input.openAt || null,
+    closeAt: input.closeAt || null,
   }
   waivers = [...waivers, created]
   persist()
@@ -362,7 +389,22 @@ export async function submitWaiver(payload, actor = null) {
   // from an immutable copy (mirrors freezeRuleVersion). [] for legacy/no-form
   // types. formAnswers arrives via ...payload; the snapshot is server-derived.
   const wt = waivers.find((w) => w.id === payload.waiverTypeId)
+  // Window gate (mirrors the requests_insert_own RLS in real mode): block a
+  // not-yet-open ('scheduled') or past-close ('closed') form. Active/inactive is
+  // governed by the picker (demo) + RLS (real), so it is NOT re-checked here.
+  if (wt) {
+    const wStatus = waiverWindowStatus({ active: wt.active, openAt: wt.openAt ?? null, closeAt: wt.closeAt ?? null })
+    if (wStatus === 'scheduled' || wStatus === 'closed') {
+      throw new Error('This form is not currently open for submissions.')
+    }
+  }
   const formSchemaSnapshot = clone(wt?.formSchema ?? [])
+  // Score against the form's OWN rubric (per-form). An EMPTY array is honored as
+  // "counselor cleared the rubric → manual review" (the engine returns 'review'
+  // for zero rules), matching the Form Builder's empty-state copy. Only a missing
+  // criteria (null/undefined — malformed, never produced by the builder) falls
+  // back to the global default set.
+  const formCriteria = Array.isArray(wt?.criteria) ? wt.criteria : criteria
   const request = {
     id: `req-${Date.now()}`,
     ...payload,
@@ -382,7 +424,7 @@ export async function submitWaiver(payload, actor = null) {
   const recommendation = payload.transcriptData
     ? evaluateAgainstRubric(
         { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
-        criteria,
+        formCriteria,
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
 
@@ -406,7 +448,7 @@ export async function submitWaiver(payload, actor = null) {
       formAnswers: payload.formAnswers ?? {},
       formSchemaSnapshot,
       recommendation,
-      ruleVersion: freezeRuleVersion(criteria),
+      ruleVersion: freezeRuleVersion(formCriteria),
     },
   ]
   persist()
@@ -489,6 +531,58 @@ export async function requestRequestDeletion(requestId) {
   return { ok: true, requestId }
 }
 
+// ---- Data rights: export + deletion -------------------------------------
+// Student SAR — a copy of everything held about the signed-in student.
+export async function exportMyData() {
+  if (isSupabaseConfigured) return sb.exportMyData()
+  await delay()
+  return { exportedAt: new Date().toISOString(), subject: 'demo-student', profile: null, requests: clone(submissions) }
+}
+
+// Counselor: one student's full record (parental access request).
+export async function exportStudentData(studentId) {
+  if (isSupabaseConfigured) return sb.exportStudentData(studentId)
+  await delay()
+  return {
+    exportedAt: new Date().toISOString(),
+    subject: studentId,
+    profile: null,
+    requests: clone(submissions.filter((s) => s.studentId === studentId)),
+  }
+}
+
+// Counselor/admin: all district data (termination data-return obligation).
+export async function exportAllData() {
+  if (isSupabaseConfigured) return sb.exportAllData()
+  await delay()
+  return { exportedAt: new Date().toISOString(), profiles: [], requests: clone(submissions), waiverTypes: clone(waivers) }
+}
+
+// Counselor fulfils a deletion request: destroy ALL of a student's records.
+export async function deleteStudentData(studentId) {
+  if (isSupabaseConfigured) return sb.deleteStudentData(studentId)
+  await delay(300)
+  submissions = submissions.filter((s) => s.studentId !== studentId)
+  queue = queue.filter((r) => (r.student?.id ?? r.studentId) !== studentId)
+  persist()
+  await safeAudit({
+    action: 'record.delete',
+    actor: DEFAULT_ACTOR,
+    summary: `Destroyed all records for student ${studentId} (deletion fulfilment)`,
+  })
+  return { ok: true, studentId }
+}
+
+// Counselor deletes a single request record.
+export async function deleteRequest(requestId) {
+  if (isSupabaseConfigured) return sb.deleteRequest(requestId)
+  await delay(300)
+  submissions = submissions.filter((s) => s.id !== requestId)
+  queue = queue.filter((r) => r.id !== requestId)
+  persist()
+  return { ok: true, requestId }
+}
+
 // ---- Admin / counselor portal -------------------------------------------
 
 // Priority-queue ordered (graduation risk + submission age), not raw
@@ -510,6 +604,51 @@ export async function fetchOneRosterRecord(studentId) {
   await delay(300)
   const record = ONE_ROSTER[studentId]
   return record ? clone(record) : null
+}
+
+// Counselor: typeahead over students by name (command-palette quick-find).
+// Demo draws its student list from the review-queue + denied-history snapshots
+// (seed submissions carry no student identity). Names only, capped — this is
+// NOT a record disclosure; that is logged when a full record is opened.
+export async function searchStudents(query) {
+  if (isSupabaseConfigured) return sb.searchStudents(query)
+  await delay(120)
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const seen = new Map()
+  for (const r of [...queue, ...deniedHistory]) {
+    const s = r.student
+    if (!s?.id || seen.has(s.id)) continue
+    if (!String(s.name).toLowerCase().includes(q)) continue
+    seen.set(s.id, { id: s.id, name: s.name, grade: s.grade ?? null })
+  }
+  return Array.from(seen.values()).slice(0, 10)
+}
+
+// Counselor: one student's record — identity snapshot + their request history.
+// Demo assembles it from the queue (pending) + denied history; real mode returns
+// the full persisted history and logs the disclosure (see supabaseApi).
+export async function fetchStudentRecord(studentId) {
+  if (isSupabaseConfigured) return sb.fetchStudentRecord(studentId)
+  await delay(250)
+  const pending = queue.filter((r) => r.student?.id === studentId)
+  const denied = deniedHistory.filter((r) => r.student?.id === studentId)
+  const snap = pending[0]?.student ?? denied[0]?.student ?? { id: studentId, name: studentId }
+  const requests = [
+    ...pending.map((r) => ({
+      id: r.id, waiverTypeId: r.waiverTypeId, status: 'submitted',
+      submittedAt: r.submittedAt, studentNote: r.studentNote ?? '',
+    })),
+    ...denied.map((r) => ({
+      id: r.id, waiverTypeId: r.waiverTypeId, status: 'denied',
+      submittedAt: r.submittedAt, decidedAt: r.deniedAt ?? null,
+      studentNote: r.studentNote ?? '', counselorNote: r.counselorNote ?? '',
+    })),
+  ]
+  return {
+    student: { id: snap.id, name: snap.name, grade: snap.grade ?? null, gpa: snap.gpa ?? null, email: null },
+    requests,
+  }
 }
 
 // Log an admit/deny decision. Removes the request from the queue; on admit it

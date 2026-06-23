@@ -214,6 +214,37 @@ export function validateSchema(fields) {
   }
 }
 
+// Collect the File[] held in custom `file` fields into upload descriptors, with a
+// namespaced docType (`custom-field:<id>`) so they never match a literal in a
+// waiver's requiredDocs (which would corrupt findMissingDocs). Pure: takes the
+// schema + the wizard's answer map, returns the list handed to uploadStudentDocuments.
+export function collectCustomFileDocs(schema, answers = {}) {
+  if (!Array.isArray(schema)) return []
+  const out = []
+  for (const field of schema) {
+    if (field?.type !== 'file') continue
+    const files = Array.isArray(answers[field.id]) ? answers[field.id] : []
+    for (const file of files) {
+      out.push({ file, name: file.name, size: file.size, docType: `custom-field:${field.id}` })
+    }
+  }
+  return out
+}
+
+// Build the relink function buildFormAnswers needs: maps a file field id to its
+// uploaded descriptor(s) by namespaced docType. Multiple-file fields return the
+// full array; single-file fields return one descriptor (or null). Pure over the
+// descriptor list uploadStudentDocuments returned.
+export function makeUploadRelink(schema, uploadedFiles = []) {
+  const list = Array.isArray(uploadedFiles) ? uploadedFiles : []
+  return (fieldId) => {
+    const matches = list.filter((d) => d.type === `custom-field:${fieldId}`)
+    const field = (Array.isArray(schema) ? schema : []).find((f) => f.id === fieldId)
+    if (field?.multiple) return matches
+    return matches[0] ?? null
+  }
+}
+
 export function buildFormAnswers(schema, customAnswers = {}, relinkFn = () => null) {
   const out = {}
   if (!Array.isArray(schema)) return out

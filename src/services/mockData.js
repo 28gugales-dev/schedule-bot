@@ -7,6 +7,25 @@
 // the admin review panel can render a recommendation card during UI dev. It is
 // NOT produced by real logic — see the boundary rule in PLANNING_SCRATCHPAD.md.
 
+// The default AI scoring rubric. Each NEW form starts from a fresh copy of this
+// set; counselors then tune values/enabled per form in the Form Builder. The
+// engine (evaluateAgainstRubric) only auto-evaluates these canonical ids — extra
+// criteria a counselor adds are advisory (recorded, shown, not machine-scored),
+// matching the pre-per-form behaviour.
+export const RUBRIC_CRITERIA = [
+  { id: 'min-gpa', label: 'Minimum cumulative GPA', type: 'number', value: 2.5, enabled: true },
+  { id: 'prior-credit', label: 'Prior equivalent credit on transcript', type: 'boolean', value: true, enabled: true },
+  { id: 'no-conflict', label: 'No unresolved schedule conflict', type: 'boolean', value: true, enabled: true },
+  { id: 'counselor-note', label: 'Counselor note required on override', type: 'boolean', value: false, enabled: false },
+  { id: 'min-attendance', label: 'Minimum attendance rate %', type: 'number', value: 85, enabled: true },
+  { id: 'prereq-complete', label: 'Prerequisite course completed', type: 'boolean', value: true, enabled: true },
+  { id: 'within-window', label: 'Within add/drop window', type: 'boolean', value: false, enabled: true },
+]
+
+// Fresh deep copy of the default rubric so each seeded form owns its criteria
+// array (never a shared reference that one form's edit could mutate across all).
+export const defaultFormCriteria = () => RUBRIC_CRITERIA.map((c) => ({ ...c }))
+
 // One richly-populated demo waiver type so the Form Builder + intake render
 // non-empty in demo mode. Exercises sectionHeader + shortText + multiCheckbox
 // + file + yesNo. Inactive by default so a half-built demo never leaks to
@@ -62,6 +81,23 @@ const MEDICAL_EXEMPTION_DEMO = {
       required: true,
     },
   ],
+  // Per-form rubric: medical exemptions don't gate on GPA, so min-gpa is disabled
+  // here (shows the per-form tuning in demo mode); attendance still matters.
+  criteria: defaultFormCriteria().map((c) =>
+    c.id === 'min-gpa' ? { ...c, enabled: false } : c,
+  ),
+  // One demo reference doc so the "Reference docs (AI context)" section renders
+  // non-empty. Config-only for now — no retrieval pipeline reads it yet.
+  referenceDocs: [
+    {
+      id: 'ref-medical-policy',
+      title: 'District medical exemption policy',
+      note: 'Section 4.2 — what qualifies, and which accommodations require a physician sign-off.',
+      fileName: 'medical_exemption_policy.pdf',
+      url: '/mock/reference/medical_exemption_policy.pdf',
+      size: 184320,
+    },
+  ],
 }
 
 export const WAIVER_TYPES = [
@@ -71,7 +107,20 @@ export const WAIVER_TYPES = [
     description: 'Skip a listed prerequisite when prior coursework or scores cover it.',
     active: true,
     requiredDocs: ['courseList'],
-    formSchema: [],
+    formSchema: [
+      { id: 'prereq-header', type: 'sectionHeader', label: 'Prerequisite details', content: 'Tell us which prerequisite you want to skip and how it is already covered.' },
+      { id: 'prereq-name', type: 'shortText', label: 'Which prerequisite are you requesting to skip?', required: true, helpText: 'Use the course name as it appears in the catalog.', placeholder: 'e.g. Algebra II', maxLength: 120 },
+      { id: 'coverage', type: 'longText', label: 'How is the prerequisite already covered?', required: true, helpText: 'Prior course, test score, or relevant experience.', placeholder: '' },
+      { id: 'evidence-type', type: 'select', label: 'Type of evidence', required: true, options: [
+        { value: 'prior-course', label: 'Prior course / transfer credit' },
+        { value: 'test-score', label: 'Standardized test score' },
+        { value: 'summer-program', label: 'Summer / community-college program' },
+        { value: 'other', label: 'Other' },
+      ] },
+      { id: 'evidence-file', type: 'file', label: 'Supporting evidence (optional)', required: false, helpText: 'Transcript excerpt, score report, or certificate.', accept: '.pdf,.png,.jpg,.jpeg', multiple: false },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   {
     id: 'schedule-conflict',
@@ -79,7 +128,18 @@ export const WAIVER_TYPES = [
     description: 'Resolve two required courses scheduled in the same block.',
     active: true,
     requiredDocs: ['courseList'],
-    formSchema: [],
+    formSchema: [
+      { id: 'conflicting-courses', type: 'shortText', label: 'Which two courses conflict?', required: true, placeholder: 'e.g. AP Biology and Band (3rd period)', maxLength: 160 },
+      { id: 'resolution', type: 'radio', label: 'Preferred resolution', required: true, options: [
+        { value: 'move-one', label: 'Move one course to another period' },
+        { value: 'online-section', label: 'Take one section online' },
+        { value: 'study-hall-swap', label: 'Swap a study hall' },
+        { value: 'other', label: 'Other (explain below)' },
+      ] },
+      { id: 'conflict-notes', type: 'longText', label: 'Anything else we should know?', required: false, placeholder: '' },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   {
     id: 'credit-recovery',
@@ -87,15 +147,53 @@ export const WAIVER_TYPES = [
     description: 'Recover credit for a failed course via an alternate path.',
     active: true,
     requiredDocs: ['supporting'],
-    formSchema: [],
+    // Demo: a CLOSED window (close date in the past) — appears greyed in the
+    // student picker and is blocked at submit.
+    openAt: null,
+    closeAt: '2026-06-10',
+    formSchema: [
+      { id: 'recover-course', type: 'shortText', label: 'Which course are you recovering?', required: true, placeholder: 'e.g. English 11', maxLength: 120 },
+      { id: 'recover-method', type: 'select', label: 'Recovery method', required: true, options: [
+        { value: 'summer-school', label: 'Summer school' },
+        { value: 'online-credit', label: 'Online credit-recovery course' },
+        { value: 'retake', label: 'Retake next term' },
+        { value: 'packet', label: 'Credit-recovery packet' },
+      ] },
+      { id: 'target-date', type: 'date', label: 'Target completion date', required: true },
+      { id: 'spoke-teacher', type: 'yesNo', label: 'Have you spoken with the course teacher?', required: true },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   {
     id: 'ap-entry',
     name: 'Advanced Placement Entry',
     description: 'Enter an AP course without the standard gating sequence.',
-    active: false,
+    active: true,
     requiredDocs: [],
-    formSchema: [],
+    // Demo: a SCHEDULED window (opens later this year) — visible but not yet
+    // submittable; the picker shows "Opens later".
+    openAt: '2026-08-01',
+    closeAt: '2026-09-15',
+    formSchema: [
+      { id: 'ap-course', type: 'select', label: 'Which AP course?', required: true, options: [
+        { value: 'ap-bio', label: 'AP Biology' },
+        { value: 'ap-calc', label: 'AP Calculus AB' },
+        { value: 'ap-us-history', label: 'AP US History' },
+        { value: 'ap-lang', label: 'AP English Language' },
+        { value: 'ap-cs', label: 'AP Computer Science A' },
+        { value: 'other', label: 'Other' },
+      ] },
+      { id: 'readiness', type: 'longText', label: 'Why are you ready without the standard prerequisite sequence?', required: true, placeholder: '' },
+      { id: 'readiness-evidence', type: 'multiCheckbox', label: 'Readiness evidence', required: false, helpText: 'Select all that apply.', options: [
+        { value: 'prior-honors', label: 'Prior honors coursework' },
+        { value: 'test-scores', label: 'Strong test scores' },
+        { value: 'teacher-rec', label: 'Teacher recommendation' },
+        { value: 'summer-prep', label: 'Summer prep / self-study' },
+      ] },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   {
     id: 'grad-substitution',
@@ -103,7 +201,16 @@ export const WAIVER_TYPES = [
     description: 'Substitute an equivalent course for a graduation requirement.',
     active: true,
     requiredDocs: ['courseList', 'supporting'],
-    formSchema: [],
+    formSchema: [
+      { id: 'requirement', type: 'shortText', label: 'Graduation requirement to substitute', required: true, placeholder: 'e.g. Fine Arts credit', maxLength: 120 },
+      { id: 'substitute', type: 'shortText', label: 'Proposed substitute course', required: true, placeholder: 'e.g. Yearbook / Digital Media', maxLength: 120 },
+      { id: 'equivalence', type: 'longText', label: 'Why is the substitute equivalent?', required: true, helpText: 'Outcomes, hours, and skills covered.', placeholder: '' },
+      { id: 'syllabus', type: 'file', label: 'Course syllabus or description', required: true, accept: '.pdf,.png,.jpg,.jpeg', multiple: false },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [
+      { id: 'ref-grad-policy', title: 'Graduation requirements handbook', note: 'Section 3 — approved substitutions and the equivalence standard.', fileName: 'graduation_requirements.pdf', url: '/mock/reference/graduation_requirements.pdf', size: 220160 },
+    ],
   },
   {
     id: 'late-add-drop',
@@ -111,7 +218,17 @@ export const WAIVER_TYPES = [
     description: 'Add or drop a course after the standard registration deadline.',
     active: true,
     requiredDocs: ['courseList'],
-    formSchema: [],
+    formSchema: [
+      { id: 'add-or-drop', type: 'radio', label: 'Add or drop?', required: true, options: [
+        { value: 'add', label: 'Add a course' },
+        { value: 'drop', label: 'Drop a course' },
+      ] },
+      { id: 'which-course', type: 'shortText', label: 'Which course?', required: true, placeholder: 'e.g. Pre-Calculus (2nd period)', maxLength: 120 },
+      { id: 'change-reason', type: 'longText', label: 'Reason for the late change', required: true, placeholder: '' },
+      { id: 'after-deadline-ack', type: 'yesNo', label: 'I understand this is past the standard deadline.', required: true },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   {
     id: 'online-course',
@@ -119,7 +236,21 @@ export const WAIVER_TYPES = [
     description: 'Enroll in an accredited online course for credit toward graduation.',
     active: true,
     requiredDocs: ['supporting'],
-    formSchema: [],
+    // Demo: a bounded window that is currently OPEN (shows the open/close range
+    // on an open form).
+    openAt: '2026-06-01',
+    closeAt: '2026-06-30',
+    formSchema: [
+      { id: 'provider', type: 'shortText', label: 'Course provider / platform', required: true, placeholder: 'e.g. BYU Independent Study', maxLength: 120 },
+      { id: 'course-name', type: 'shortText', label: 'Course name', required: true, placeholder: '', maxLength: 120 },
+      { id: 'accredited', type: 'yesNo', label: 'Is the provider accredited?', required: true },
+      { id: 'credits', type: 'number', label: 'Credits requested', required: true, placeholder: '0.5', min: 0, max: 4, step: 0.5 },
+      { id: 'syllabus', type: 'file', label: 'Course accreditation / syllabus', required: true, accept: '.pdf,.png,.jpg,.jpeg', multiple: false },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [
+      { id: 'ref-online-policy', title: 'Online & external credit policy', note: 'Which providers are pre-approved and the per-year credit cap.', fileName: 'online_credit_policy.pdf', url: '/mock/reference/online_credit_policy.pdf', size: 156672 },
+    ],
   },
   {
     id: 'pe-exemption',
@@ -127,19 +258,21 @@ export const WAIVER_TYPES = [
     description: 'Waive the physical education requirement due to health or athletic status.',
     active: false,
     requiredDocs: ['supporting'],
-    formSchema: [],
+    formSchema: [
+      { id: 'pe-basis', type: 'radio', label: 'Exemption basis', required: true, options: [
+        { value: 'medical', label: 'Medical' },
+        { value: 'athletics', label: 'Interscholastic athletics' },
+        { value: 'marching-band', label: 'Marching band' },
+        { value: 'jrotc', label: 'JROTC' },
+      ] },
+      { id: 'pe-start', type: 'date', label: 'Start date', required: true },
+      { id: 'pe-end', type: 'date', label: 'End date', required: false, helpText: 'Leave blank if ongoing for the year.' },
+      { id: 'pe-doc', type: 'file', label: 'Supporting documentation', required: true, accept: '.pdf,.png,.jpg,.jpeg', multiple: false },
+    ],
+    criteria: defaultFormCriteria(),
+    referenceDocs: [],
   },
   MEDICAL_EXEMPTION_DEMO,
-]
-
-export const RUBRIC_CRITERIA = [
-  { id: 'min-gpa', label: 'Minimum cumulative GPA', type: 'number', value: 2.5, enabled: true },
-  { id: 'prior-credit', label: 'Prior equivalent credit on transcript', type: 'boolean', value: true, enabled: true },
-  { id: 'no-conflict', label: 'No unresolved schedule conflict', type: 'boolean', value: true, enabled: true },
-  { id: 'counselor-note', label: 'Counselor note required on override', type: 'boolean', value: false, enabled: false },
-  { id: 'min-attendance', label: 'Minimum attendance rate %', type: 'number', value: 85, enabled: true },
-  { id: 'prereq-complete', label: 'Prerequisite course completed', type: 'boolean', value: true, enabled: true },
-  { id: 'within-window', label: 'Within add/drop window', type: 'boolean', value: false, enabled: true },
 ]
 
 // Pending review requests. Each carries everything the Unified Info Panel needs

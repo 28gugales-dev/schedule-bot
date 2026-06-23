@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   FIELD_REGISTRY, makeUniqueId, slugifyWaiverId, createDefaultField,
   buildDefaults, validateForm, validateSchema, buildFormAnswers,
+  collectCustomFileDocs, makeUploadRelink,
 } from '../formSchema.js'
 
 describe('FIELD_REGISTRY', () => {
@@ -461,5 +462,73 @@ describe('buildFormAnswers', () => {
   it('tolerates null/undefined schema', () => {
     expect(buildFormAnswers(null, {})).toEqual({})
     expect(buildFormAnswers(undefined, {})).toEqual({})
+  })
+})
+
+// The submit-time wiring extracted from WaiverIntake.handleSubmit. This is the
+// exact path that previously dropped student answers + custom files; tested pure
+// so it can't silently regress (jsdom-free).
+describe('custom file upload wiring (collectCustomFileDocs + makeUploadRelink + buildFormAnswers)', () => {
+  const f = (name) => ({ name, size: name.length * 10 }) // stand-in File
+
+  const schema = [
+    { id: 'why', type: 'longText', label: 'Why?' },
+    { id: 'note-pdf', type: 'file', label: 'Single doc', multiple: false },
+    { id: 'photos', type: 'file', label: 'Photos', multiple: true },
+    { id: 'header', type: 'sectionHeader', label: 'Section', content: 'x' },
+  ]
+
+  it('collectCustomFileDocs flattens only file fields, namespacing docType', () => {
+    const answers = {
+      why: 'because',
+      'note-pdf': [f('note.pdf')],
+      photos: [f('a.jpg'), f('b.jpg')],
+    }
+    const docs = collectCustomFileDocs(schema, answers)
+    expect(docs).toEqual([
+      { file: answers['note-pdf'][0], name: 'note.pdf', size: 80, docType: 'custom-field:note-pdf' },
+      { file: answers.photos[0], name: 'a.jpg', size: 50, docType: 'custom-field:photos' },
+      { file: answers.photos[1], name: 'b.jpg', size: 50, docType: 'custom-field:photos' },
+    ])
+  })
+
+  it('collectCustomFileDocs ignores empty/missing file answers and non-file fields', () => {
+    expect(collectCustomFileDocs(schema, { why: 'x' })).toEqual([])
+    expect(collectCustomFileDocs(null, {})).toEqual([])
+  })
+
+  it('makeUploadRelink returns one descriptor for single-file, an array for multiple', () => {
+    const uploaded = [
+      { id: 'd1', name: 'note.pdf', type: 'custom-field:note-pdf', url: '/u/note.pdf' },
+      { id: 'd2', name: 'a.jpg', type: 'custom-field:photos', url: '/u/a.jpg' },
+      { id: 'd3', name: 'b.jpg', type: 'custom-field:photos', url: '/u/b.jpg' },
+      { id: 'd4', name: 'transcript.pdf', type: 'transcript', url: '/u/t.pdf' }, // unrelated
+    ]
+    const relink = makeUploadRelink(schema, uploaded)
+    expect(relink('note-pdf')).toEqual(uploaded[0])          // single → descriptor
+    expect(relink('photos')).toEqual([uploaded[1], uploaded[2]]) // multiple → array
+    expect(relink('missing')).toBe(null)                     // no match → null
+  })
+
+  it('end-to-end: buildFormAnswers stores typed answers + re-linked descriptors, never File objects', () => {
+    const answers = {
+      why: 'because',
+      'note-pdf': [f('note.pdf')],
+      photos: [f('a.jpg'), f('b.jpg')],
+    }
+    const uploaded = [
+      { id: 'd1', name: 'note.pdf', type: 'custom-field:note-pdf', url: '/u/note.pdf' },
+      { id: 'd2', name: 'a.jpg', type: 'custom-field:photos', url: '/u/a.jpg' },
+      { id: 'd3', name: 'b.jpg', type: 'custom-field:photos', url: '/u/b.jpg' },
+    ]
+    const formAnswers = buildFormAnswers(schema, answers, makeUploadRelink(schema, uploaded))
+    expect(formAnswers).toEqual({
+      why: 'because',
+      'note-pdf': uploaded[0],
+      photos: [uploaded[1], uploaded[2]],
+    })
+    expect('header' in formAnswers).toBe(false) // display-only stripped
+    // Round-trips as JSON (no File/Set leaks reach the persisted column).
+    expect(() => JSON.stringify(formAnswers)).not.toThrow()
   })
 })

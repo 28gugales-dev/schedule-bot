@@ -298,11 +298,10 @@ export function ReviewQueue() {
   // was removed because it suppresses that h-scroll and clips the right columns.
   const ROW_H = 44
   const HEADER_H = 46
-  // Glass hugs content; the enterprise console is a paginated, filterable grid
-  // with a fixed viewport (the floating-filter row + pagination bar need room).
-  const gridHeight = isEnterprise
-    ? 600
-    : HEADER_H + queue.length * ROW_H + 18
+  // Glass hugs its content (no dead space below the rows). The enterprise console
+  // instead fills the viewport via a flex chain (section h-[calc] → wrapper
+  // flex-1 → grid h-100%) so its pagination bar sits flush at the bottom.
+  const gridHeight = HEADER_H + queue.length * ROW_H + 18
 
   // ── Column defs ──────────────────────────────────────────────────────────────
   const columnDefs = useMemo(() => [
@@ -432,7 +431,7 @@ export function ReviewQueue() {
   // ── Render: queue list ───────────────────────────────────────────────────────
   return (
     <>
-    <section className={isEnterprise ? 'flex flex-col' : 'fade-up flex flex-col gap-5'}>
+    <section className={isEnterprise ? 'flex flex-col lg:h-[calc(100vh-3.5rem)]' : 'fade-up flex flex-col gap-5'}>
       {/* Page header — enterprise hoists this into the topbar (see topbarChrome) */}
       {!isEnterprise && (
         <div>
@@ -464,8 +463,8 @@ export function ReviewQueue() {
         <EmptyState />
       ) : (
         <>
-          <div className={isEnterprise ? 'overflow-hidden' : 'glass-card overflow-hidden p-1.5'}>
-            <div style={{ height: gridHeight, width: '100%' }}>
+          <div className={isEnterprise ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'glass-card overflow-hidden p-1.5'}>
+            <div className={isEnterprise ? 'min-h-0 flex-1' : ''} style={{ height: isEnterprise ? '100%' : gridHeight, width: '100%' }}>
               <AgGridReact
                 theme={gridTheme}
                 rowData={queue}

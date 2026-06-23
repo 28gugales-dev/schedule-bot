@@ -1,14 +1,19 @@
 import { SlideRoot, Statement } from '../SlideKit'
-import ScheduleBlocks3D from '../components/ScheduleBlocks3D'
+import FloatingAppScreens from '../components/FloatingAppScreens'
 
-// Original Meet beat, on white: 3D glass schedule blocks behind the name + the
-// one-line promise. The signature "reveal" frame.
+// Meet beat, on white: real product screens (review queue, dashboard, AI, policy,
+// intake, audit) drifting in little window cards behind the name + the one-line
+// promise. The reveal frame — now showing the actual app, not abstract shapes.
 export default function Meet() {
   return (
     <div className="relative h-full w-full">
-      <div className="pointer-events-none absolute inset-0">
-        <ScheduleBlocks3D />
-      </div>
+      <FloatingAppScreens />
+      {/* tight white spotlight behind the wordmark only — keeps the title crisp
+          without washing out the (now larger) app screens around the edges */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(42% 34% at 50% 50%, rgba(255,255,255,0.94) 38%, rgba(255,255,255,0.7) 62%, transparent 84%)' }}
+      />
       <div className="relative z-10 h-full">
         <SlideRoot>
           <div className="mx-auto flex h-full max-w-[1160px] flex-col items-center justify-center px-16 text-center">

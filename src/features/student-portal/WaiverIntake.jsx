@@ -5,7 +5,7 @@ import { extractTextFromFile } from '../../utils/pdfText.js'
 import { parseTranscriptData } from '../../utils/schedulingLogic.js'
 import { parseCourseListText } from '../../utils/courseListParser.js'
 import { saveTranscript, getSavedTranscripts, saveCourseList, getSavedCourseLists } from '../../services/transcriptStore.js'
-import { buildDefaults, validateForm } from '../../utils/formSchema.js'
+import { buildDefaults, validateForm, buildFormAnswers, collectCustomFileDocs, makeUploadRelink } from '../../utils/formSchema.js'
 import { UploadZone } from './UploadZone.jsx'
 import { WaiverSelectGrid } from './WaiverSelectGrid.jsx'
 import { RequestTracker } from './RequestTracker.jsx'
@@ -14,6 +14,11 @@ import { CourseListEntry } from './CourseListEntry.jsx'
 import { FieldRenderer } from '../forms/FieldRenderer.jsx'
 
 const EMPTY_COURSE_BOXES = Array(7).fill('')
+
+// Identifier for the consent disclosure copy shown at submit. Bump whenever the
+// "How your information is used" text changes — it's stored on the request
+// (consent_version) so an audit shows exactly which disclosure the student saw.
+const CONSENT_VERSION = 'ferpa-2026-06-23'
 
 // Guided student intake: Documents -> Waiver type -> [Additional questions] -> Review & submit -> Tracker.
 // Steps are keyed (not index-gated) because the "Additional questions" step is
@@ -123,6 +128,8 @@ export function WaiverIntake() {
   const [submitting, setSubmitting] = useState(false)
   const [submittedId, setSubmittedId] = useState(null)
   const [error, setError] = useState(null)
+  const [consentGiven, setConsentGiven] = useState(false)
+  const [autofilled, setAutofilled] = useState(false)
 
   // Parsed-document state (transcriptParser / courseListParser output).
   const [transcriptData, setTranscriptData] = useState(null) // { gpa, studentGrade, completed: Set, recognized, unrecognized }
@@ -191,8 +198,8 @@ export function WaiverIntake() {
   const hasCustomFields = (selectedWaiver?.formSchema?.length ?? 0) > 0
   const steps = useMemo(
     () => [
-      { key: 'documents', label: 'Documents' },
       { key: 'waiver', label: 'Waiver type' },
+      { key: 'documents', label: 'Your info' },
       ...(hasCustomFields ? [{ key: 'custom', label: 'Additional questions' }] : []),
       { key: 'review', label: 'Review & submit' },
     ],
@@ -243,6 +250,22 @@ export function WaiverIntake() {
     setCourseListEntries(saved.entries?.length ? saved.entries : EMPTY_COURSE_BOXES)
   }, [])
 
+  // Auto-fill the transcript + course list (the student's "schedule") from their
+  // most recent saved entry on mount, so a returning student doesn't re-enter the
+  // same data for every new form. Everything stays editable on the Your-info step.
+  const didAutofill = useRef(false)
+  useEffect(() => {
+    if (didAutofill.current) return
+    didAutofill.current = true
+    const t = savedTranscripts[0]
+    const c = savedCourseLists[0]
+    let filled = false
+    if (t?.parsed && !transcriptData) { applySavedTranscript(t); filled = true }
+    if (c?.entries?.some((e) => e.trim())) { setCourseListEntries(c.entries); filled = true }
+    if (filled) setAutofilled(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Persist the typed course list once the student moves past it, rather
   // than on every keystroke (which would spam the "previous course list" list).
   const persistCourseList = useCallback(() => {
@@ -264,22 +287,22 @@ export function WaiverIntake() {
   // waiver: a pick + (for swap types) a from/to pair; custom: zero validation
   // errors; review: always advanceable (submit handles the rest).
   const canAdvance =
-    currentKey === 'documents'
-      ? Boolean(transcriptFileName) && courseListData.courseNames.length > 0
-      : currentKey === 'waiver'
-        ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
+    currentKey === 'waiver'
+      ? Boolean(selectedWaiverId)
+      : currentKey === 'documents'
+        ? Boolean(transcriptFileName) && courseListData.courseNames.length > 0 && (!needsSwap || (swap.fromCourse && swap.toCourse))
         : currentKey === 'custom'
           ? Object.keys(customLiveErrors).length === 0
           : true
 
   // Why "Continue" is disabled — surfaced to the user instead of a dead button.
   const advanceHint =
-    currentKey === 'documents'
-      ? 'Upload your transcript and enter your course list to continue.'
-      : currentKey === 'waiver'
+    currentKey === 'waiver'
+      ? 'Select a waiver type to continue.'
+      : currentKey === 'documents'
         ? needsSwap
-          ? 'Select a waiver type and a course swap to continue.'
-          : 'Select a waiver type to continue.'
+          ? 'Upload your transcript, enter your course list, and choose a course swap to continue.'
+          : 'Upload your transcript and enter your course list to continue.'
         : currentKey === 'custom'
           ? 'Answer the required questions to continue.'
           : ''
@@ -288,14 +311,22 @@ export function WaiverIntake() {
     setSubmitting(true)
     setError(null)
     try {
-      // Flatten controlled File[] lists into the plain descriptors the API reads
-      // ({name, size, docType}). File objects are never mutated — docType is
-      // assigned here, at the seam, from which list each file came.
+      const schema = selectedWaiver?.formSchema ?? []
+      // Flatten controlled File[] lists into descriptors the API reads. The real
+      // uploader needs the bytes, so the File is carried on `.file`; the demo path
+      // only reads name/size/docType. File objects are never mutated — docType is
+      // assigned here, at the seam, from which list each file came. Custom file-field
+      // uploads (namespaced `custom-field:<id>`) ride alongside, then re-link below.
       const docs = [
-        ...transcript.map((f) => ({ name: f.name, size: f.size, docType: 'transcript' })),
-        ...supporting.map((f) => ({ name: f.name, size: f.size, docType: 'supporting' })),
+        ...transcript.map((f) => ({ file: f, name: f.name, size: f.size, docType: 'transcript' })),
+        ...supporting.map((f) => ({ file: f, name: f.name, size: f.size, docType: 'supporting' })),
+        ...collectCustomFileDocs(schema, customAnswers),
       ]
       const upload = await uploadStudentDocuments(docs)
+      // Serialize per-form answers (display-only fields stripped, file fields
+      // re-linked to their uploaded descriptors — File objects never reach the
+      // JSON column). This is what the counselor sees in ReviewDetail.
+      const formAnswers = buildFormAnswers(schema, customAnswers, makeUploadRelink(schema, upload.files))
       const res = await submitWaiver({
         studentId,
         waiverTypeId: selectedWaiverId,
@@ -306,6 +337,9 @@ export function WaiverIntake() {
         fromCourse: swap.fromCourse,
         toCourse: swap.toCourse,
         transcriptData,
+        formAnswers,
+        consentGiven,
+        consentVersion: CONSENT_VERSION,
       })
       setSubmittedId(res.requestId)
     } catch (e) {
@@ -313,7 +347,7 @@ export function WaiverIntake() {
     } finally {
       setSubmitting(false)
     }
-  }, [transcript, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
+  }, [transcript, supporting, selectedWaiver, selectedWaiverId, customAnswers, note, studentId, courseListData, swap, transcriptData, consentGiven])
 
   const handleContinue = useCallback(() => {
     if (currentKey === 'documents') persistCourseList()
@@ -353,12 +387,13 @@ export function WaiverIntake() {
     setSwap({ fromCourse: null, toCourse: null })
     setCustomAnswers({})
     setCustomErrors({})
+    setConsentGiven(false)
   }
 
   // Post-submit: confirmation + live tracker.
   if (submittedId) {
     return (
-      <section className="fade-up space-y-6">
+      <section className="fade-up space-y-5">
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Request submitted</h1>
           <p className="mt-1 text-sm text-muted">
@@ -378,11 +413,11 @@ export function WaiverIntake() {
   }
 
   return (
-    <section className="fade-up space-y-6">
+    <section className="fade-up space-y-5">
       <div>
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">New waiver request</h1>
         <p className="mt-1 text-sm text-muted">
-          Upload your documents, choose a waiver type, then review and submit.
+          Choose a waiver type, add your info, then review and submit.
         </p>
       </div>
 
@@ -408,8 +443,13 @@ export function WaiverIntake() {
 
       {currentKey === 'documents' && (
         <div className="glass-card space-y-6 p-5">
+          {autofilled && (
+            <div className="flex items-center gap-2 rounded-lg bg-success-50 px-3 py-2 text-xs text-success-700 dark:text-success-300 ring-1 ring-success-100">
+              <span>Filled in from your last request — edit anything that changed.</span>
+            </div>
+          )}
           <div>
-            <PreviousDocSelect label="transcript" saved={priorTranscripts} onApply={applySavedTranscript} />
+            {!autofilled && <PreviousDocSelect label="transcript" saved={priorTranscripts} onApply={applySavedTranscript} />}
             <UploadZone
               label="Transcript (PDF)"
               hint="Required. Your official or unofficial transcript."
@@ -431,13 +471,27 @@ export function WaiverIntake() {
             )}
           </div>
           <div>
-            <PreviousDocSelect label="course list" saved={priorCourseLists} onApply={applySavedCourseList} />
+            {!autofilled && <PreviousDocSelect label="course list" saved={priorCourseLists} onApply={applySavedCourseList} />}
             <p className="text-sm font-medium text-ink mb-1">Course list</p>
             <p className="text-xs text-muted mb-3">
               Required. Type each current/planned course — one box per period. Add more for special cases.
             </p>
             <CourseListEntry values={courseListEntries} onChange={setCourseListEntries} />
           </div>
+          {needsSwap && (
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">Course swap</p>
+              <p className="text-xs text-muted mb-2">
+                Pick which course to drop or replace, from your course list above.
+              </p>
+              <CourseSwapPanel
+                courseListNames={courseListData?.courseNames ?? []}
+                student={{ currentGrade: transcriptData?.studentGrade ?? 9, completed: transcriptData?.completed ?? new Set() }}
+                value={swap}
+                onChange={setSwap}
+              />
+            </div>
+          )}
           <UploadZone
             label="Supporting documents"
             hint="Optional. Add any extra files to support your request."
@@ -460,17 +514,6 @@ export function WaiverIntake() {
               selectedId={selectedWaiverId}
               onSelect={setSelectedWaiverId}
             />
-          )}
-          {needsSwap && (
-            <div>
-              <p className="text-sm font-medium text-ink mb-2">Course swap</p>
-              <CourseSwapPanel
-                courseListNames={courseListData?.courseNames ?? []}
-                student={{ currentGrade: transcriptData?.studentGrade ?? 9, completed: transcriptData?.completed ?? new Set() }}
-                value={swap}
-                onChange={setSwap}
-              />
-            </div>
           )}
         </div>
       )}
@@ -544,6 +587,29 @@ export function WaiverIntake() {
               className="glass-input mt-2 w-full px-3 py-2 text-sm"
             />
           </div>
+
+          {/* FERPA consent — tells the student exactly what happens to their data,
+              and records explicit opt-in (consent_given_at / consent_version). The
+              service + DB both reject a submit without it. */}
+          <div className="rounded-lg bg-brand-50/60 p-4 ring-1 ring-brand-100 dark:bg-brand-950/30">
+            <h3 className="text-sm font-semibold text-ink">How your information is used</h3>
+            <ul className="mt-2 space-y-1.5 text-xs text-muted">
+              <li><strong className="font-medium text-ink">What you're sharing:</strong> your transcript, GPA, grade level, course list, your note, and any files you uploaded.</li>
+              <li><strong className="font-medium text-ink">Who sees it:</strong> only the school counselor(s) and authorized staff who review this request.</li>
+              <li><strong className="font-medium text-ink">Why:</strong> to evaluate and decide your waiver request, and to keep a record of that decision.</li>
+              <li><strong className="font-medium text-ink">Your rights:</strong> these are education records protected under FERPA. You can withdraw this request while it's pending, or request its deletion after a decision, from “My requests.”</li>
+              <li><strong className="font-medium text-ink">Never:</strong> sold, or shared with anyone outside your school.</li>
+            </ul>
+            <label className="mt-3 flex items-start gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={consentGiven}
+                onChange={(e) => setConsentGiven(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
+              />
+              <span>I consent to my counselor reviewing the information above to process this waiver request.</span>
+            </label>
+          </div>
         </div>
       )}
 
@@ -572,14 +638,19 @@ export function WaiverIntake() {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
-          >
-            {submitting ? 'Submitting…' : 'Submit request'}
-          </button>
+          <div className="flex items-center gap-3">
+            {!consentGiven && (
+              <span className="hidden text-xs text-muted sm:inline">Confirm the consent box to submit.</span>
+            )}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !consentGiven}
+              className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? 'Submitting…' : 'Submit request'}
+            </button>
+          </div>
         )}
       </div>
     </section>

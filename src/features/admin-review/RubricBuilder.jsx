@@ -1,9 +1,24 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchRubricCriteria, fetchAllWaivers, updateRubricCriteria } from '../../services/api.js'
+import { useState, useEffect, useCallback } from 'react'
+import { fetchAllWaivers, createWaiverType, updateWaiverType, deleteWaiverType } from '../../services/api.js'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
 import { actorFromAuth } from '../../services/audit.js'
+import { FIELD_REGISTRY, createDefaultField, makeUniqueId, validateSchema } from '../../utils/formSchema.js'
+import { waiverWindowStatus, windowStatusLabel } from '../../utils/waiverWindow.js'
 
-// Simple accessible toggle switch
+const DOC_OPTIONS = [
+  { value: 'transcript', label: 'Transcript' },
+  { value: 'courseList', label: 'Course list' },
+  { value: 'supporting', label: 'Supporting document' },
+]
+
+const STATUS_STYLE = {
+  open: 'bg-success-50 text-success-700 dark:text-success-300',
+  scheduled: 'bg-warning-50 text-warning-700 dark:text-warning-300',
+  closed: 'bg-scrim text-muted',
+  inactive: 'bg-scrim text-muted',
+}
+
+// ── Toggle (shared) ──────────────────────────────────────────────────────────
 function Toggle({ checked, onChange, id, label }) {
   return (
     <button
@@ -21,7 +36,6 @@ function Toggle({ checked, onChange, id, label }) {
     >
       <span
         className={[
-          // Knob stays white in both themes — an iOS-style control affordance, not a themed surface.
           'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
           checked ? 'translate-x-4' : 'translate-x-0',
         ].join(' ')}
@@ -30,509 +44,408 @@ function Toggle({ checked, onChange, id, label }) {
   )
 }
 
-export function RubricBuilder() {
-  const { user, role } = useAuth()
-  const [criteria, setCriteria] = useState([])
-  const [waivers, setWaivers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const [savedMsg, setSavedMsg] = useState(false)
-  const [error, setError] = useState(null)
+function StatusBadge({ status }) {
+  return (
+    <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[status] ?? 'bg-scrim text-muted'}`}>
+      {windowStatusLabel(status)}
+    </span>
+  )
+}
 
-  // Manual "add criterion" form
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [draftLabel, setDraftLabel] = useState('')
-  const [draftType, setDraftType] = useState('number')
-  const [draftValue, setDraftValue] = useState('')
-
-  // JSON config import — error is kept separate from `error` so it renders next
-  // to the import control and never collides with the load/save early-returns.
-  const [importError, setImportError] = useState(null)
-  const fileInputRef = useRef(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    Promise.all([fetchRubricCriteria(), fetchAllWaivers()])
-      .then(([c, w]) => {
-        if (cancelled) return
-        setCriteria(c)
-        setWaivers(w)
-        setLoading(false)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(err?.message ?? 'Failed to load')
-        setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [])
-
-  // Auto-dismiss the "Saved" confirmation; cleanup-safe across re-saves/unmount.
-  useEffect(() => {
-    if (!savedMsg) return undefined
-    const t = setTimeout(() => setSavedMsg(false), 2500)
-    return () => clearTimeout(t)
-  }, [savedMsg])
-
-  const updateCriterion = useCallback((id, patch) => {
-    setCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-    setDirty(true)
-    setSavedMsg(false)
-  }, [])
-
-  const updateWaiver = useCallback((id, patch) => {
-    setWaivers((prev) => prev.map((w) => (w.id === id ? { ...w, ...patch } : w)))
-    setDirty(true)
-    setSavedMsg(false)
-  }, [])
-
-  const removeCriterion = useCallback((id) => {
-    setCriteria((prev) => prev.filter((c) => c.id !== id))
-    setDirty(true)
-    setSavedMsg(false)
-  }, [])
-
-  // Stable, collision-free id from a label slug (timestamp fallback when the
-  // slug is empty). `taken` is the set of ids that already exist.
-  const makeUniqueId = (label, taken) => {
-    const slug = String(label || '')
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-    const base = `crit-${slug || Date.now()}`
-    if (!taken.has(base)) return base
-    let n = 2
-    while (taken.has(`${base}-${n}`)) n += 1
-    return `${base}-${n}`
+// ── Options editor (select / radio / multiCheckbox) ─────────────────────────
+function OptionsEditor({ options = [], onChange }) {
+  const setOpt = (i, label) => onChange(options.map((o, j) => (j === i ? { ...o, label } : o)))
+  const addOpt = () => {
+    const value = makeUniqueId('option', options.map((o) => o.value))
+    onChange([...options, { value, label: '' }])
   }
+  const removeOpt = (i) => onChange(options.filter((_, j) => j !== i))
+  return (
+    <div className="mt-2 space-y-1.5">
+      <span className="text-xs font-medium text-muted">Options</span>
+      {options.map((o, i) => (
+        <div key={o.value} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={o.label}
+            onChange={(e) => setOpt(i, e.target.value)}
+            placeholder={`Option ${i + 1}`}
+            className="glass-input flex-1 px-3 py-1.5 text-sm text-ink"
+            aria-label={`Option ${i + 1} label`}
+          />
+          <button
+            type="button"
+            onClick={() => removeOpt(i)}
+            className="rounded-md p-1 text-muted transition hover:text-danger-600"
+            aria-label={`Remove option ${i + 1}`}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l8 8M14 6l-8 8" />
+            </svg>
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addOpt}
+        className="text-xs font-medium text-brand-700 transition hover:text-brand-800 dark:text-brand-300"
+      >
+        + Add option
+      </button>
+    </div>
+  )
+}
 
-  const handleAddCriterion = useCallback(() => {
-    const label = draftLabel.trim()
-    if (!label) return
-    setCriteria((prev) => {
-      const id = makeUniqueId(label, new Set(prev.map((c) => c.id)))
-      const value = draftType === 'number' ? (draftValue === '' ? 0 : Number(draftValue)) : Boolean(draftValue)
-      return [...prev, { id, label, type: draftType, value, enabled: true }]
+// ── One field's editor row ──────────────────────────────────────────────────
+function FieldEditorRow({ field, index, total, error, onChange, onMove, onRemove }) {
+  const meta = FIELD_REGISTRY[field.type]
+  const isDisplay = meta?.isDisplayOnly
+  return (
+    <li className="rounded-xl bg-scrim p-3 ring-1 ring-hairline">
+      <div className="flex items-start gap-3">
+        <span className="mt-1.5 flex-shrink-0 rounded-md bg-elevated px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-hairline">
+          {meta?.label ?? field.type}
+        </span>
+        <div className="min-w-0 flex-1 space-y-2">
+          <input
+            type="text"
+            value={field.label ?? ''}
+            onChange={(e) => onChange({ label: e.target.value })}
+            placeholder="Question label"
+            className="glass-input w-full px-3 py-1.5 text-sm text-ink"
+            aria-label={`Field ${index + 1} label`}
+          />
+          {isDisplay ? (
+            <textarea
+              rows={2}
+              value={field.content ?? ''}
+              onChange={(e) => onChange({ content: e.target.value })}
+              placeholder="Body text shown to the student"
+              className="glass-input w-full px-3 py-1.5 text-sm text-ink"
+              aria-label={`Field ${index + 1} content`}
+            />
+          ) : (
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <Toggle
+                  checked={Boolean(field.required)}
+                  onChange={(v) => onChange({ required: v })}
+                  label={`Required: ${field.label}`}
+                />
+                <span className="text-muted">Required</span>
+              </label>
+              <input
+                type="text"
+                value={field.helpText ?? ''}
+                onChange={(e) => onChange({ helpText: e.target.value })}
+                placeholder="Help text (optional)"
+                className="glass-input flex-1 min-w-[8rem] px-3 py-1.5 text-sm text-ink"
+                aria-label={`Field ${index + 1} help text`}
+              />
+            </div>
+          )}
+          {meta?.hasOptions && (
+            <OptionsEditor options={field.options ?? []} onChange={(options) => onChange({ options })} />
+          )}
+          {error && <p className="text-xs text-danger-600 dark:text-danger-400" role="alert">{error}</p>}
+        </div>
+        <div className="flex flex-shrink-0 flex-col gap-1">
+          <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Move up"
+            className="rounded-md p-1 text-muted transition hover:text-ink disabled:opacity-30">
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 15V5M5 10l5-5 5 5" /></svg>
+          </button>
+          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Move down"
+            className="rounded-md p-1 text-muted transition hover:text-ink disabled:opacity-30">
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 5v10M15 10l-5 5-5-5" /></svg>
+          </button>
+          <button type="button" onClick={onRemove} aria-label={`Remove ${field.label}`}
+            className="rounded-md p-1 text-muted transition hover:text-danger-600">
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" /></svg>
+          </button>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+// ── Full form editor (detail) ───────────────────────────────────────────────
+const BLANK = { name: '', description: '', active: false, openAt: null, closeAt: null, requiredDocs: [], formSchema: [] }
+
+function FormEditor({ waiver, onCancel, onSaved }) {
+  const { user, role } = useAuth()
+  const isNew = !waiver
+  const [draft, setDraft] = useState(() => ({ ...BLANK, ...(waiver ?? {}) }))
+  const [addType, setAddType] = useState('shortText')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  const patch = (p) => setDraft((d) => ({ ...d, ...p }))
+
+  const toggleDoc = (value) =>
+    setDraft((d) => ({
+      ...d,
+      requiredDocs: d.requiredDocs.includes(value)
+        ? d.requiredDocs.filter((x) => x !== value)
+        : [...d.requiredDocs, value],
+    }))
+
+  const addField = () => {
+    const f = createDefaultField(addType)
+    if (!f) return
+    setDraft((d) => {
+      const id = makeUniqueId(f.label, d.formSchema.map((x) => x.id))
+      return { ...d, formSchema: [...d.formSchema, { ...f, id }] }
     })
-    setDirty(true)
-    setSavedMsg(false)
-    setDraftLabel('')
-    setDraftType('number')
-    setDraftValue('')
-    setShowAddForm(false)
-  }, [draftLabel, draftType, draftValue])
+  }
+  const patchField = (i, p) =>
+    setDraft((d) => ({ ...d, formSchema: d.formSchema.map((f, j) => (j === i ? { ...f, ...p } : f)) }))
+  const moveField = (i, dir) =>
+    setDraft((d) => {
+      const next = [...d.formSchema]
+      const j = i + dir
+      if (j < 0 || j >= next.length) return d
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return { ...d, formSchema: next }
+    })
+  const removeField = (i) =>
+    setDraft((d) => ({ ...d, formSchema: d.formSchema.filter((_, j) => j !== i) }))
 
-  const handleImportFile = useCallback((file) => {
-    setImportError(null)
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result))
-        const list = Array.isArray(parsed) ? parsed : parsed?.criteria
-        if (!Array.isArray(list)) {
-          throw new Error('Expected an array of criteria or an object with a "criteria" array.')
-        }
-        const cleaned = list.map((raw, i) => {
-          if (!raw || typeof raw !== 'object') {
-            throw new Error(`Entry ${i + 1} is not an object.`)
-          }
-          if (typeof raw.label !== 'string' || !raw.label.trim()) {
-            throw new Error(`Entry ${i + 1} is missing a "label".`)
-          }
-          if (raw.type !== 'number' && raw.type !== 'boolean') {
-            throw new Error(`Entry ${i + 1} has an invalid "type" (expected "number" or "boolean").`)
-          }
-          const value =
-            raw.value === undefined || raw.value === null
-              ? raw.type === 'number' ? 0 : false
-              : raw.type === 'number' ? Number(raw.value) || 0 : Boolean(raw.value)
-          return {
-            id: typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : null,
-            label: raw.label.trim(),
-            type: raw.type,
-            value,
-            enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
-          }
-        })
-        setCriteria((prev) => {
-          const taken = new Set(prev.map((c) => c.id))
-          const added = []
-          for (const entry of cleaned) {
-            if (entry.id && taken.has(entry.id)) continue // de-dupe by id
-            const id = entry.id || makeUniqueId(entry.label, taken)
-            taken.add(id)
-            added.push({ ...entry, id })
-          }
-          return [...prev, ...added]
-        })
-        setDirty(true)
-        setSavedMsg(false)
-      } catch (err) {
-        setImportError(err?.message ? `Import failed: ${err.message}` : 'Import failed: could not parse JSON.')
-      }
-    }
-    reader.onerror = () => setImportError('Import failed: could not read the file.')
-    reader.readAsText(file)
-  }, [])
-
-  const onFilePicked = useCallback((e) => {
-    const file = e.target.files?.[0]
-    handleImportFile(file)
-    e.target.value = '' // allow re-importing the same file
-  }, [handleImportFile])
-
-  const onDropFile = useCallback((e) => {
-    e.preventDefault()
-    handleImportFile(e.dataTransfer.files?.[0])
-  }, [handleImportFile])
-
-  const handleSave = useCallback(async () => {
-    setSaving(true)
+  const handleSave = async () => {
     setError(null)
-    // Coerce empty/NaN number values to 0 at the save seam (independent of blur).
-    const normalized = criteria.map((c) =>
-      c.type === 'number' && (c.value === '' || Number.isNaN(c.value))
-        ? { ...c, value: 0 }
-        : c,
-    )
+    setFieldErrors({})
+    if (!draft.name.trim()) {
+      setError('Give the form a name.')
+      return
+    }
+    if (draft.openAt && draft.closeAt && draft.openAt > draft.closeAt) {
+      setError('Close date must be on or after the open date.')
+      return
+    }
+    const v = validateSchema(draft.formSchema)
+    if (!v.ok) {
+      setFieldErrors(v.errors)
+      setError(v.formError ?? 'Fix the highlighted questions before saving.')
+      return
+    }
+    setSaving(true)
     try {
-      const result = await updateRubricCriteria(normalized, waivers, actorFromAuth(user, role))
-      if (result?.ok !== false) {
-        if (result?.criteria) setCriteria(result.criteria)
-        if (result?.waivers) setWaivers(result.waivers)
-        setDirty(false)
-        setSavedMsg(true)
-      } else {
-        setError('Save returned an error — please try again.')
+      const actor = actorFromAuth(user, role)
+      const body = {
+        name: draft.name.trim(),
+        description: draft.description ?? '',
+        active: draft.active,
+        requiredDocs: draft.requiredDocs,
+        formSchema: draft.formSchema,
+        openAt: draft.openAt || null,
+        closeAt: draft.closeAt || null,
       }
-    } catch (err) {
-      setError(err?.message ?? 'Save failed')
-    } finally {
+      if (isNew) await createWaiverType(body, actor)
+      else await updateWaiverType(waiver.id, body, actor)
+      onSaved()
+    } catch (e) {
+      setError(e?.message ?? 'Save failed.')
       setSaving(false)
     }
-  }, [criteria, waivers])
-
-  if (loading) {
-    return (
-      <section>
-        <p className="text-sm text-muted">Loading…</p>
-      </section>
-    )
   }
 
-  if (error && !criteria.length && !waivers.length) {
-    return (
-      <section>
-        <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p>
-      </section>
-    )
+  const handleArchive = async () => {
+    if (!waiver) return
+    if (!window.confirm(`Archive "${waiver.name}"? Students will no longer see it.`)) return
+    setSaving(true)
+    try {
+      await deleteWaiverType(waiver.id, actorFromAuth(user, role))
+      onSaved()
+    } catch (e) {
+      setError(e?.message ?? 'Archive failed.')
+      setSaving(false)
+    }
   }
 
   return (
-    <section className="fade-up space-y-6">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Rubric &amp; Criteria Builder</h1>
-          <p className="mt-1 text-sm text-muted">
-            Edit automated review rules and control which waiver types are offered to students.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {savedMsg && (
-            <span className="text-sm font-medium text-success-700 dark:text-success-300" role="status">
-              Saved
-            </span>
+    <section className="fade-up space-y-5">
+      <div className="flex items-center justify-between gap-4">
+        <button type="button" onClick={onCancel} className="text-sm font-medium text-muted transition hover:text-ink">
+          ← Back to forms
+        </button>
+        <div className="flex items-center gap-3">
+          {error && <span className="text-sm text-danger-600 dark:text-danger-400" role="alert">{error}</span>}
+          {!isNew && (
+            <button type="button" onClick={handleArchive} disabled={saving}
+              className="glass-input rounded-xl px-3 py-2 text-sm font-medium text-danger-600 transition hover:bg-glass-hover disabled:opacity-50">
+              Archive
+            </button>
           )}
-          {error && (
-            <span className="text-sm text-danger-600 dark:text-danger-400" role="alert">
-              {error}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !dirty}
-            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save changes'}
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50">
+            {saving ? 'Saving…' : isNew ? 'Create form' : 'Save changes'}
           </button>
         </div>
       </div>
 
-      {/* Section 1 — Evaluation criteria */}
-      <div className="glass-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className="text-base font-semibold text-ink">Evaluation criteria</h2>
+      {/* Basics */}
+      <div className="glass-card space-y-4 p-5">
+        <h2 className="text-base font-semibold text-ink">{isNew ? 'New form' : 'Form details'}</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Name</span>
+            <input type="text" value={draft.name} onChange={(e) => patch({ name: e.target.value })}
+              placeholder="e.g. Prerequisite Override" className="glass-input px-3 py-2 text-sm text-ink" />
+          </label>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm">
+            <Toggle checked={draft.active} onChange={(v) => patch({ active: v })} label="Active" />
+            <span className="text-ink">{draft.active ? 'Active — visible to students' : 'Inactive — hidden'}</span>
+          </label>
+        </div>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Description</span>
+          <textarea rows={2} value={draft.description} onChange={(e) => patch({ description: e.target.value })}
+            placeholder="Short explanation shown on the form card" className="glass-input px-3 py-2 text-sm text-ink" />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Opens</span>
+            <input type="date" value={draft.openAt ?? ''} onChange={(e) => patch({ openAt: e.target.value || null })}
+              className="glass-input px-3 py-2 text-sm text-ink" />
+            <span className="text-xs text-muted">Empty = open immediately.</span>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Closes</span>
+            <input type="date" value={draft.closeAt ?? ''} onChange={(e) => patch({ closeAt: e.target.value || null })}
+              className="glass-input px-3 py-2 text-sm text-ink" />
+            <span className="text-xs text-muted">Empty = never closes.</span>
+          </label>
+        </div>
+        <div>
+          <span className="text-sm font-medium text-ink">Required documents</span>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {DOC_OPTIONS.map((d) => (
+              <label key={d.value} className="flex items-center gap-2 text-sm text-ink">
+                <input type="checkbox" checked={draft.requiredDocs.includes(d.value)} onChange={() => toggleDoc(d.value)}
+                  className="h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500" />
+                {d.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Custom questions */}
+      <div className="glass-card space-y-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Custom questions</h2>
+            <p className="mt-0.5 text-xs text-muted">Extra fields the student answers when applying with this form.</p>
+          </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAddForm((v) => !v)}
-              aria-expanded={showAddForm}
-              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
-            >
-              {showAddForm ? 'Cancel' : 'Add criterion'}
+            <select value={addType} onChange={(e) => setAddType(e.target.value)}
+              className="glass-input px-3 py-1.5 text-sm text-ink" aria-label="New question type">
+              {Object.values(FIELD_REGISTRY).map((m) => (
+                <option key={m.type} value={m.type}>{m.label}</option>
+              ))}
+            </select>
+            <button type="button" onClick={addField}
+              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover">
+              Add question
             </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
-            >
-              Import JSON
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json,.json"
-              onChange={onFilePicked}
-              className="sr-only"
-              aria-label="Import criteria from a JSON file"
-            />
           </div>
         </div>
-
-        {/* Manual add form */}
-        {showAddForm && (
-          <div className="mb-4 rounded-xl bg-scrim p-4 ring-1 ring-hairline">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="new-criterion-label" className="text-xs font-medium text-muted">
-                  Label
-                </label>
-                <input
-                  id="new-criterion-label"
-                  type="text"
-                  value={draftLabel}
-                  onChange={(e) => setDraftLabel(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && draftLabel.trim()) handleAddCriterion()
-                  }}
-                  placeholder="e.g. Minimum GPA"
-                  className="glass-input w-48 px-3 py-1.5 text-sm text-ink"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="new-criterion-type" className="text-xs font-medium text-muted">
-                  Type
-                </label>
-                <select
-                  id="new-criterion-type"
-                  value={draftType}
-                  onChange={(e) => {
-                    setDraftType(e.target.value)
-                    setDraftValue('')
-                  }}
-                  className="glass-input px-3 py-1.5 text-sm text-ink"
-                >
-                  <option value="number">Number</option>
-                  <option value="boolean">Yes-No</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-muted">Default value</span>
-                {draftType === 'number' ? (
-                  <input
-                    id="new-criterion-value"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={draftValue}
-                    onChange={(e) => setDraftValue(e.target.value)}
-                    placeholder="0"
-                    className="glass-input w-24 px-3 py-1.5 text-sm text-ink"
-                    aria-label="Default value for the new criterion"
-                  />
-                ) : (
-                  <div className="flex h-[34px] items-center gap-2">
-                    <Toggle
-                      id="new-criterion-value"
-                      checked={Boolean(draftValue)}
-                      onChange={(val) => setDraftValue(val)}
-                      label="Default required state for the new criterion"
-                    />
-                    <span className="text-sm text-muted">{draftValue ? 'Required' : 'Not required'}</span>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleAddCriterion}
-                disabled={!draftLabel.trim()}
-                className="rounded-xl bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Drag-and-drop import area + JSON shape hint */}
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onDropFile}
-          className="mb-4 rounded-xl border-2 border-dashed border-hairline-strong bg-glass-weak px-4 py-3 text-xs text-muted backdrop-blur-sm"
-        >
-          Drag a <span className="font-medium text-ink">.json</span> file here, or use{' '}
-          <span className="font-medium text-ink">Import JSON</span>. Expected shape:{' '}
-          <code className="rounded bg-scrim px-1 py-0.5 text-[11px] text-ink ring-1 ring-hairline">
-            [{'{'} "label": "Minimum GPA", "type": "number", "value": 2.5, "enabled": true {'}'}]
-          </code>
-        </div>
-        {importError && (
-          <p className="mb-4 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600 dark:text-danger-400" role="alert">
-            {importError}
-          </p>
-        )}
-
-        {criteria.length === 0 ? (
-          <p className="text-sm text-muted">No criteria defined.</p>
+        {draft.formSchema.length === 0 ? (
+          <p className="text-sm text-muted">No custom questions — students only fill the standard fields.</p>
         ) : (
-          <ul className="divide-y divide-hairline" role="list">
-            {criteria.map((criterion) => (
-              <li
-                key={criterion.id}
-                className={[
-                  'flex items-center gap-4 py-3',
-                  !criterion.enabled ? 'opacity-40' : '',
-                ].join(' ')}
-              >
-                {/* Enabled toggle */}
-                <Toggle
-                  id={`enabled-${criterion.id}`}
-                  checked={criterion.enabled}
-                  onChange={(val) => updateCriterion(criterion.id, { enabled: val })}
-                  label={`Enable ${criterion.label}`}
-                />
-
-                {/* Label */}
-                <label
-                  htmlFor={`value-${criterion.id}`}
-                  className="flex-1 text-sm text-ink select-none"
-                >
-                  {criterion.label}
-                </label>
-
-                {/* Value control */}
-                {criterion.type === 'number' ? (
-                  <input
-                    id={`value-${criterion.id}`}
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={criterion.value}
-                    disabled={!criterion.enabled}
-                    onChange={(e) => {
-                      const raw = e.target.value
-                      updateCriterion(criterion.id, {
-                        value: raw === '' ? '' : Number(raw),
-                      })
-                    }}
-                    onBlur={(e) => {
-                      if (e.target.value === '' || Number.isNaN(criterion.value)) {
-                        updateCriterion(criterion.id, { value: 0 })
-                      }
-                    }}
-                    className="glass-input w-24 px-3 py-1.5 text-sm disabled:opacity-50"
-                    aria-label={`Value for ${criterion.label}`}
-                  />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Toggle
-                      id={`value-${criterion.id}`}
-                      checked={Boolean(criterion.value)}
-                      onChange={(val) => updateCriterion(criterion.id, { value: val })}
-                      label={`Required state for ${criterion.label}`}
-                    />
-                    <span className="text-sm text-muted">
-                      {criterion.value ? 'Required' : 'Not required'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Remove */}
-                <button
-                  type="button"
-                  onClick={() => removeCriterion(criterion.id)}
-                  aria-label={`Remove ${criterion.label}`}
-                  className="flex-shrink-0 rounded-md p-1 text-muted transition hover:text-danger-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M6 6l8 8M14 6l-8 8" />
-                  </svg>
-                </button>
-              </li>
+          <ul className="space-y-2" role="list">
+            {draft.formSchema.map((f, i) => (
+              <FieldEditorRow
+                key={f.id}
+                field={f}
+                index={i}
+                total={draft.formSchema.length}
+                error={fieldErrors[f.id]}
+                onChange={(p) => patchField(i, p)}
+                onMove={(dir) => moveField(i, dir)}
+                onRemove={() => removeField(i)}
+              />
             ))}
           </ul>
         )}
       </div>
+    </section>
+  )
+}
 
-      {/* Section 2 — Waiver types */}
-      <div className="glass-card p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Waiver types</h2>
-        {waivers.length === 0 ? (
-          <p className="text-sm text-muted">No waiver types defined.</p>
+// ── Master list ─────────────────────────────────────────────────────────────
+export function RubricBuilder() {
+  const [waivers, setWaivers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(null) // null = list | { waiver } | { waiver: null } for new
+
+  const load = useCallback(() => {
+    setLoading(true)
+    fetchAllWaivers()
+      .then((w) => { setWaivers(w); setLoading(false) })
+      .catch((e) => { setError(e?.message ?? 'Failed to load forms'); setLoading(false) })
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  if (editing !== null) {
+    return (
+      <FormEditor
+        waiver={editing.waiver}
+        onCancel={() => setEditing(null)}
+        onSaved={() => { setEditing(null); load() }}
+      />
+    )
+  }
+
+  return (
+    <section className="fade-up space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Forms</h1>
+          <p className="mt-1 text-sm text-muted">
+            Each waiver form students can apply with. Click a form to edit its questions and set when it opens and closes.
+          </p>
+        </div>
+        <button type="button" onClick={() => setEditing({ waiver: null })}
+          className="flex-shrink-0 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700">
+          New form
+        </button>
+      </div>
+
+      {error && <p className="text-sm text-danger-600 dark:text-danger-400" role="alert">{error}</p>}
+
+      <div className="glass-card divide-y divide-hairline">
+        {loading ? (
+          <p className="p-5 text-sm text-muted">Loading…</p>
+        ) : waivers.length === 0 ? (
+          <p className="p-5 text-sm text-muted">No forms yet. Create one to get started.</p>
         ) : (
-          <ul className="divide-y divide-hairline" role="list">
-            {waivers.map((waiver) => (
-              <li
-                key={waiver.id}
-                className={[
-                  'flex items-center gap-4 py-3',
-                  !waiver.active ? 'opacity-40' : '',
-                ].join(' ')}
+          waivers.map((w) => {
+            const status = waiverWindowStatus(w)
+            const fieldCount = w.formSchema?.length ?? 0
+            const window = w.openAt || w.closeAt ? `${w.openAt ?? '—'} → ${w.closeAt ?? '—'}` : 'Always open'
+            return (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => setEditing({ waiver: w })}
+                className="flex w-full items-center gap-4 p-4 text-left transition hover:bg-glass-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-inset"
               >
-                {/* Active toggle */}
-                <Toggle
-                  id={`active-${waiver.id}`}
-                  checked={waiver.active}
-                  onChange={(val) => updateWaiver(waiver.id, { active: val })}
-                  label={`${waiver.active ? 'Deactivate' : 'Activate'} ${waiver.name}`}
-                />
-
-                {/* Name + description */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{waiver.name}</p>
-                  {waiver.description && (
-                    <p className="text-xs text-muted mt-0.5 truncate">{waiver.description}</p>
-                  )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{w.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted">
+                    {window} · {fieldCount} question{fieldCount === 1 ? '' : 's'}
+                  </p>
                 </div>
-
-                {/* Status badge */}
-                <span
-                  className={[
-                    'flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-                    waiver.active
-                      ? 'bg-success-50 text-success-700 dark:text-success-300'
-                      : 'bg-scrim text-muted',
-                  ].join(' ')}
-                >
-                  {waiver.active ? 'Active' : 'Inactive'}
-                </span>
-
-                {/* Required docs badge */}
-                {Array.isArray(waiver.requiredDocs) && waiver.requiredDocs.length > 0 && (
-                  <span
-                    className="flex-shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300"
-                    title={waiver.requiredDocs.join(', ')}
-                  >
-                    {waiver.requiredDocs.length} doc{waiver.requiredDocs.length !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                <StatusBadge status={status} />
+                <svg className="h-4 w-4 flex-shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 5l6 5-6 5" />
+                </svg>
+              </button>
+            )
+          })
         )}
       </div>
     </section>

@@ -1,91 +1,66 @@
-import { SlideFrame } from '../SlideKit'
+import { SlideFrame, ShotFrame } from '../SlideKit'
 
-// Compliance & security beat — the procurement gatekeeper. On white.
-// Layout choice: a clean two-column checklist, NOT another grid of filled tiles
-// (Stakes / Before-After / Pricing already own the boxed-grid look). A checklist
-// performs the message — "we tick every box procurement cares about" — and reads
-// calm and trustworthy instead of busy. FERPA leads and is the single blue accent;
-// the other five items stay quiet and neutral. One bold label + one short line each.
-const ITEMS = [
+// Compliance & security beat — the procurement / IT gatekeeper. On white.
+// Research-backed trust slide: show REAL product UI as proof, not badge soup.
+// Three actual screens, each mapped to a named FERPA obligation, then a lean
+// control-badge strip. "Show, don't tell" — these are screens their security
+// reviewer can click through, which is what closes the deal.
+const PROOF = [
   {
-    label: 'FERPA-aligned',
-    line: 'Student data handled to FERPA standards, end to end.',
-    lead: true,
+    src: '/shots/audit-activity.png',
+    addr: 'app.schedule-ai / Audit Trail',
+    label: 'Access trail',
+    line: 'Every record access — who, what, when, which device — logged and exportable.',
   },
   {
-    label: 'Full audit trail',
-    line: 'Every change is logged, attributed, and reviewable.',
+    src: '/shots/audit-ai.png',
+    addr: 'app.schedule-ai / AI Reasoning',
+    label: 'Explainable AI',
+    line: 'Every AI decision carries its confidence and per-rule scoring. No black box.',
   },
   {
-    label: 'Graduation-requirement checks',
-    line: 'District rules enforced automatically on every plan.',
-  },
-  {
-    label: 'Waiver types',
-    line: 'District-specific exceptions, supported out of the box.',
-  },
-  {
-    label: 'Row-level security',
-    line: 'Each school’s data isolated at the database, via RLS.',
-  },
-  {
-    label: 'Role-based access',
-    line: 'Counselor, admin, and district scopes, cleanly separated.',
+    src: '/shots/rubric.png',
+    addr: 'app.schedule-ai / Policy',
+    label: 'Your rules',
+    line: 'The district sets the criteria; row-level security isolates each school’s data.',
   },
 ]
 
-// Single-stroke check. Inherits color from its row (brand for FERPA, ink elsewhere).
-function Check({ className = '' }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={`h-[18px] w-[18px] ${className}`}
-      stroke="currentColor"
-      strokeWidth={1.5}
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  )
-}
+const BADGES = ['FERPA-aligned', 'Role-based access', 'Full audit trail', 'Row-level security', 'CSV / JSON export']
 
 export default function Compliance() {
   return (
     <SlideFrame
       eyebrow="Built for compliance"
-      title="FERPA-aligned, audit-ready by default."
-      kicker="Everything your district’s data, privacy, and IT teams check for — handled by default, not bolted on."
+      title="Proof your security team can click through."
     >
-      <ul className="grid grid-cols-1 gap-x-12 gap-y-7 md:grid-cols-2">
-        {ITEMS.map((item) => (
-          <li key={item.label} data-anim className="flex items-start gap-4">
-            <span
-              className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
-                item.lead
-                  ? 'border-brand-200 bg-brand-50 text-brand-600'
-                  : 'border-border bg-panel text-ink'
-              }`}
-            >
-              <Check />
-            </span>
-            <div>
-              <p
-                className={`font-display text-lg font-semibold leading-snug tracking-tight ${
-                  item.lead ? 'text-brand-600' : 'text-ink'
-                }`}
-              >
-                {item.label}
-              </p>
-              <p className="mt-1.5 max-w-[34ch] text-[15px] leading-relaxed text-muted">
-                {item.line}
-              </p>
-            </div>
-          </li>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {PROOF.map((p) => (
+          <figure key={p.label} className="flex flex-col">
+            <ShotFrame src={p.src} alt={p.line} addr={p.addr} size="sm" />
+            <figcaption className="mt-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-brand-600">{p.label}</p>
+              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">{p.line}</p>
+            </figcaption>
+          </figure>
         ))}
-      </ul>
+      </div>
+
+      {/* Lean control-badge strip — supporting the screenshots, not replacing them.
+          Named standards only (no "bank-grade"/padlock soup). */}
+      <div data-anim className="mt-9 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        {BADGES.map((b) => (
+          <span
+            key={b}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted"
+          >
+            <svg viewBox="0 0 24 24" className="h-3 w-3 text-good" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            {b}
+          </span>
+        ))}
+      </div>
     </SlideFrame>
   )
 }

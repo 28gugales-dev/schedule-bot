@@ -26,6 +26,11 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const EMPTY_FILTERS = { query: '', category: '', actorId: '', from: '', to: '' }
 
+// The actor filter is for narrowing by *who decided* — only staff who can act on
+// requests belong here. Students (subjects of the log) and the AI System actor
+// are excluded so the dropdown reads as a roster of decision-makers.
+const DECISION_ROLES = new Set(['counselor', 'registrar', 'admin'])
+
 // The "Counselor Decisions" and "Student Submissions" tabs are this same grid
 // locked to one audit category and given a column set tuned to that slice, so
 // all three audit ledgers share one fetch/filter/export path.
@@ -272,7 +277,7 @@ export function ActivityLog({ params, setParams, isEnterprise = false, search = 
           aria-label="Filter by actor"
         >
           <option value="">All actors</option>
-          {facets.actors.map((a) => (
+          {facets.actors.filter((a) => DECISION_ROLES.has(a.role)).map((a) => (
             <option key={a.id} value={a.id}>{a.name} · {roleLabel(a.role)}</option>
           ))}
         </select>
