@@ -437,6 +437,78 @@ export async function getDocumentUrl(path, expiresIn = 300) {
   return data.signedUrl
 }
 
+// ---- Shared resource library (staff-only; see migration 0007) --------------
+// Private 'resources' bucket with FLAT keys (a shared shelf, not per-user). RLS on
+// public.resources + the bucket gates all of this to counselors.
+const RES_BUCKET = 'resources'
+
+function rowToResource(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    category: r.category ?? 'other',
+    description: r.description ?? '',
+    fileName: r.file_name ?? null,
+    path: r.storage_path ?? null,
+    size: r.size ?? 0,
+    contentType: r.content_type ?? null,
+    uploadedBy: r.uploaded_by ?? null,
+    createdAt: r.created_at ?? null,
+  }
+}
+
+export async function fetchResources() {
+  const data = unwrap(await supabase.from('resources').select('*').order('created_at', { ascending: false }))
+  return (data ?? []).map(rowToResource)
+}
+
+// Upload the bytes (if any) then insert the metadata row. A note-only entry (no
+// file) is allowed — title + description with a null path.
+export async function createResource({ title, category, description, file } = {}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in.')
+  let path = null
+  let fileName = null
+  let size = 0
+  let contentType = null
+  if (file) {
+    fileName = file.name ?? 'file'
+    path = `${crypto.randomUUID()}-${safeKeySegment(fileName)}`
+    const { error } = await supabase.storage.from(RES_BUCKET).upload(path, file, { upsert: false })
+    if (error) throw new Error(error.message)
+    size = file.size ?? 0
+    contentType = file.type || null
+  }
+  const insertRow = {
+    title: title?.trim() || fileName || 'Untitled resource',
+    category: category || 'other',
+    description: description?.trim() || '',
+    file_name: fileName,
+    storage_path: path,
+    size,
+    content_type: contentType,
+    uploaded_by: user.id,
+  }
+  const row = unwrap(await supabase.from('resources').insert(insertRow).select('*').single())
+  return rowToResource(row)
+}
+
+export async function deleteResource(id, path = null) {
+  if (path) {
+    // Best-effort object removal; the row delete is the source of truth.
+    await supabase.storage.from(RES_BUCKET).remove([path])
+  }
+  unwrap(await supabase.from('resources').delete().eq('id', id))
+  return { ok: true, id }
+}
+
+export async function getResourceUrl(path, expiresIn = 300) {
+  if (!path) return null
+  const { data, error } = await supabase.storage.from(RES_BUCKET).createSignedUrl(path, expiresIn)
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
 // ---- Data rights: export (DSA 6.2 access / data return) --------------------
 // Student SAR: a copy of everything we hold about the signed-in student. RLS
 // already scopes both reads to the caller's own rows.

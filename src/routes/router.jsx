@@ -9,6 +9,7 @@ import { WaiverIntake } from '../features/student-portal/WaiverIntake.jsx'
 import { MyRequests } from '../features/student-portal/MyRequests.jsx'
 import { ReviewQueue } from '../features/admin-review/ReviewQueue.jsx'
 import { FormBuilder } from '../features/admin-review/FormBuilder.jsx'
+import { ResourcesPage } from '../features/admin-resources/ResourcesPage.jsx'
 import { BatchSyncDashboard } from '../features/admin-review/BatchSyncDashboard.jsx'
 import { AuditPage } from '../features/audit/AuditPage.jsx'
 import { RejectedHistory } from '../features/admin-review/RejectedHistory.jsx'
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
           // Back-compat: the old route was /admin/rubric — keep it pointing at the
           // unified Form Builder so existing links/bookmarks don't 404.
           { path: 'rubric', element: <FormBuilder /> },
+          { path: 'resources', element: <ResourcesPage /> },
           { path: 'batch', element: <BatchSyncDashboard /> },
           { path: 'rejected', element: <RejectedHistory /> },
           { path: 'students/:studentId', element: <StudentProfile /> },

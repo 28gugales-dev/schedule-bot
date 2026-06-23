@@ -97,6 +97,12 @@ const IconAi = () => (
     <path d="M12.5 11.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4Z" />
   </svg>
 )
+const IconResources = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.5 4a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4Z" />
+    <line x1="5" y1="9" x2="11" y2="9" />
+  </svg>
+)
 const IconOverview = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="5" height="5" rx="1" />
@@ -114,6 +120,7 @@ export const NAV = {
   admin: [
     { to: '/admin', label: 'Review Queue', end: true, section: 'Review', icon: <IconQueue /> },
     { to: '/admin/forms', label: 'Form Builder', section: 'Review', icon: <IconForm /> },
+    { to: '/admin/resources', label: 'Resources', section: 'Review', icon: <IconResources /> },
     { to: '/admin/rejected', label: 'Rejected', section: 'Review', icon: <IconRejected /> },
     { to: '/admin/team', label: 'Team', end: true, section: 'Team', icon: <IconTeam /> },
     { to: '/admin/batch', label: 'Batch Sync', section: 'Sync', icon: <IconBatch /> },

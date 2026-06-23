@@ -233,6 +233,80 @@ export async function getDocumentUrl(path, expiresIn = 300) {
   return null
 }
 
+// ---- Shared resource library (staff-only) ----------------------------------
+// Kept in its OWN localStorage key with a lazy seed, deliberately outside the
+// version-gated ensureSeeded() hydration so adding it can't disturb the other
+// stores. Real mode delegates to supabaseApi (table + private bucket).
+const LS_RES = `${NS}.resources`
+const SEED_RESOURCES = [
+  { id: 'res-seed-1', title: '2026–27 Course Catalog', category: 'courseList', description: 'Master list of every course offered next year, with section codes and credit values.', fileName: 'course-catalog-2026.pdf', path: null, url: '/mock/resources/course-catalog-2026.pdf', size: 482000, contentType: 'application/pdf', uploadedBy: 'demo-counselor', createdAt: '2026-05-20T15:00:00.000Z' },
+  { id: 'res-seed-2', title: 'Prerequisite Matrix', category: 'prereqs', description: 'Which courses unlock which — the full prereq dependency grid counselors check before approving an override.', fileName: 'prereq-matrix.xlsx', path: null, url: '/mock/resources/prereq-matrix.xlsx', size: 91000, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedBy: 'demo-counselor', createdAt: '2026-05-18T12:30:00.000Z' },
+  { id: 'res-seed-3', title: 'Waiver Eligibility Policy', category: 'policy', description: 'District rules governing when each waiver type may be granted. Reference this for edge cases.', fileName: 'eligibility-policy.pdf', path: null, url: '/mock/resources/eligibility-policy.pdf', size: 158000, contentType: 'application/pdf', uploadedBy: 'demo-counselor', createdAt: '2026-04-30T09:15:00.000Z' },
+]
+let resourcesStore = null
+function ensureResources() {
+  if (resourcesStore) return
+  const stored = lsRead(LS_RES)
+  resourcesStore = Array.isArray(stored) ? stored : SEED_RESOURCES.map((r) => ({ ...r }))
+  if (!Array.isArray(stored)) lsWrite(LS_RES, resourcesStore)
+}
+
+export async function fetchResources() {
+  if (isSupabaseConfigured) return sb.fetchResources()
+  await delay()
+  ensureResources()
+  return clone(resourcesStore)
+}
+
+export async function createResource({ title, category, description, file } = {}, actor = null) {
+  if (isSupabaseConfigured) return sb.createResource({ title, category, description, file })
+  await delay(500)
+  ensureResources()
+  const created = {
+    id: `res-${Date.now()}`,
+    title: (title ?? '').trim() || file?.name || 'Untitled resource',
+    category: category || 'other',
+    description: (description ?? '').trim(),
+    fileName: file?.name ?? null,
+    path: null,
+    url: file ? `/mock/resources/${encodeURIComponent(file.name)}` : null,
+    size: file?.size ?? 0,
+    contentType: file?.type || null,
+    uploadedBy: actor?.id ?? 'demo-counselor',
+    createdAt: new Date().toISOString(),
+  }
+  resourcesStore = [created, ...resourcesStore]
+  lsWrite(LS_RES, resourcesStore)
+  await safeAudit({
+    action: 'resource.create',
+    actor: actor ?? DEFAULT_ACTOR,
+    summary: `Added shared resource "${created.title}"`,
+    after: clone(created),
+  })
+  return clone(created)
+}
+
+export async function deleteResource(id, path = null, actor = null) {
+  if (isSupabaseConfigured) return sb.deleteResource(id, path)
+  await delay(300)
+  ensureResources()
+  const before = resourcesStore.find((r) => r.id === id) ?? null
+  resourcesStore = resourcesStore.filter((r) => r.id !== id)
+  lsWrite(LS_RES, resourcesStore)
+  await safeAudit({
+    action: 'resource.delete',
+    actor: actor ?? DEFAULT_ACTOR,
+    summary: `Removed shared resource "${before?.title ?? id}"`,
+    before: before ? clone(before) : undefined,
+  })
+  return { ok: true, id }
+}
+
+export async function getResourceUrl(path, expiresIn = 300) {
+  if (isSupabaseConfigured) return sb.getResourceUrl(path, expiresIn)
+  return null
+}
+
 // Only active waiver types are offered to students.
 export async function fetchAvailableWaivers() {
   if (isSupabaseConfigured) return sb.fetchAvailableWaivers()

@@ -14,6 +14,7 @@ import {
   validateSchema,
   makeUniqueId,
 } from '../../utils/formSchema.js'
+import { parseRubricImport } from '../../utils/rubricImport.js'
 import { FieldRenderer } from '../forms/FieldRenderer.jsx'
 import { FieldConfigPanel } from './FieldConfigPanel.jsx'
 import { Toggle } from '../../components/ui/Toggle.jsx'
@@ -213,11 +214,44 @@ function RequiredDocsEditor({ value, onChange }) {
 
 // ── Rubric section (per-form criteria) ───────────────────────────────────────
 
-function RubricEditor({ criteria, onChange }) {
+function RubricEditor({ criteria, onChange, onImport }) {
   const [showAdd, setShowAdd] = useState(false)
   const [label, setLabel] = useState('')
   const [type, setType] = useState('number')
   const [value, setValue] = useState('')
+  const [importMsg, setImportMsg] = useState(null)
+  const [importErr, setImportErr] = useState(null)
+  const importRef = useRef(null)
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (importRef.current) importRef.current.value = '' // allow re-importing the same file
+    if (!file) return
+    setImportMsg(null)
+    setImportErr(null)
+    let text
+    try {
+      text = await file.text()
+    } catch {
+      setImportErr('Could not read that file.')
+      return
+    }
+    const parsed = parseRubricImport(text, file.name)
+    if (!parsed.ok) {
+      setImportErr(parsed.error)
+      return
+    }
+    // Replacing hand-tuned rules is destructive — confirm before clobbering.
+    if (parsed.criteria.length > 0 && criteria.length > 0) {
+      if (!window.confirm(`Replace the current ${criteria.length} rule${criteria.length === 1 ? '' : 's'} with ${parsed.criteria.length} imported rule${parsed.criteria.length === 1 ? '' : 's'}?`)) return
+    }
+    onImport(parsed)
+    const parts = []
+    if (parsed.criteria.length) parts.push(`${parsed.criteria.length} rule${parsed.criteria.length === 1 ? '' : 's'}`)
+    if (parsed.requiredDocs.length) parts.push(`${parsed.requiredDocs.length} required doc${parsed.requiredDocs.length === 1 ? '' : 's'}`)
+    const skip = parsed.skipped ? ` · ${parsed.skipped} row${parsed.skipped === 1 ? '' : 's'} skipped` : ''
+    setImportMsg(`Imported ${parts.join(' + ')}${skip}.`)
+  }
 
   const update = (id, patch) => onChange(criteria.map((c) => (c.id === id ? { ...c, ...patch } : c)))
   const remove = (id) => onChange(criteria.filter((c) => c.id !== id))
@@ -240,15 +274,43 @@ function RubricEditor({ criteria, onChange }) {
           These rules drive this form&apos;s automated AI recommendation. Toggle a rule off to ignore it for this form;
           edit a threshold to tune it. Added rules beyond the built-in set are recorded for reviewers but not machine-scored.
         </p>
-        <button
-          type="button"
-          onClick={() => setShowAdd((v) => !v)}
-          aria-expanded={showAdd}
-          className="flex-shrink-0 glass-input rounded-lg px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-glass-hover"
-        >
-          {showAdd ? 'Cancel' : '+ Add rule'}
-        </button>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <input
+            ref={importRef}
+            type="file"
+            accept=".csv,.json,.txt"
+            onChange={handleImportFile}
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          <button
+            type="button"
+            onClick={() => importRef.current?.click()}
+            title="Import rules + required docs from a CSV or JSON file"
+            className="glass-input rounded-lg px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-glass-hover"
+          >
+            Import
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAdd((v) => !v)}
+            aria-expanded={showAdd}
+            className="glass-input rounded-lg px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-glass-hover"
+          >
+            {showAdd ? 'Cancel' : '+ Add rule'}
+          </button>
+        </div>
       </div>
+
+      {(importMsg || importErr) && (
+        <p
+          role="status"
+          className={['text-xs', importErr ? 'text-danger-600 dark:text-danger-400' : 'text-success-700 dark:text-success-300'].join(' ')}
+        >
+          {importErr || importMsg}
+        </p>
+      )}
 
       {showAdd && (
         <div className="flex flex-wrap items-end gap-3 rounded-xl bg-scrim p-3 ring-1 ring-hairline">
@@ -897,7 +959,18 @@ export function FormBuilder() {
             {activeSection === 'rubric' && (
               <div className="space-y-4">
                 <h2 className="text-base font-semibold text-ink">Rubric / logic</h2>
-                <RubricEditor criteria={draft.criteria ?? []} onChange={(next) => patchDraft({ criteria: next })} />
+                <RubricEditor
+                  criteria={draft.criteria ?? []}
+                  onChange={(next) => patchDraft({ criteria: next })}
+                  onImport={(parsed) => {
+                    // Criteria replace (the import is the new rubric); required docs
+                    // union so a criteria-only file never silently clears doc flags.
+                    const docs = [...new Set([...(draft.requiredDocs ?? []), ...parsed.requiredDocs])]
+                    const patch = { requiredDocs: docs }
+                    if (parsed.criteria.length > 0) patch.criteria = parsed.criteria
+                    patchDraft(patch)
+                  }}
+                />
               </div>
             )}
 
