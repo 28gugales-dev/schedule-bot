@@ -12,6 +12,7 @@ import { evaluateAgainstRubric } from '../utils/schedulingLogic.js'
 import { freezeRuleVersion } from '../utils/ruleVersion.js'
 import { priorityOrderQueue } from '../utils/priorityQueue.js'
 import { slugifyWaiverId } from '../utils/formSchema.js'
+import { recordAuditEvent, actorFromAuth } from './audit.js'
 
 const STATUS_BY_DECISION = { admit: 'approved', deny: 'denied', flag: 'flagged' }
 
@@ -44,6 +45,10 @@ function rowToSubmission(r) {
     counselorNote: r.counselor_note ?? undefined,
     formAnswers: r.form_answers ?? {},
     formSchemaSnapshot: r.form_schema_snapshot ?? [],
+    consentGivenAt: r.consent_given_at ?? null,
+    consentVersion: r.consent_version ?? null,
+    withdrawnAt: r.withdrawn_at ?? null,
+    deletionRequestedAt: r.deletion_requested_at ?? null,
   }
 }
 
@@ -152,6 +157,7 @@ export async function fetchWaiverTypeForm(waiverTypeId) {
 export async function submitWaiver(payload) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in.')
+  if (payload.consentGiven !== true) throw new Error('Consent to the FERPA disclosure is required before submitting.')
 
   // Compute the AI recommendation client-side against the active rubric (rubric
   // persistence is out of this slice — use the default criteria set).
@@ -180,6 +186,8 @@ export async function submitWaiver(payload) {
     documents: payload.documents ?? [],
     form_answers: payload.formAnswers ?? {},
     form_schema_snapshot: wt?.form_schema ?? [],
+    consent_given_at: new Date().toISOString(),
+    consent_version: payload.consentVersion ?? null,
     recommendation,
     rule_version: freezeRuleVersion(RUBRIC_CRITERIA),
     student_snapshot: {
@@ -214,7 +222,34 @@ export async function fetchReviewQueue() {
   const data = unwrap(
     await supabase.from('requests').select('*').eq('status', 'submitted').order('submitted_at', { ascending: false }),
   )
+  await logBulkDisclosure(data)
   return priorityOrderQueue(data.map(rowToQueueRow))
+}
+
+// FERPA §99.32 disclosure log. The counselor's bulk reads of student records are
+// a "disclosure" event. Actor is derived from the session (auth.getUser),
+// never a client arg. Fire-and-forget: the recordAuditEvent promise is NOT
+// awaited (so the read isn't blocked), but its rejection is swallowed via
+// .catch — an unawaited reject would otherwise escape the surrounding try/catch
+// as an unhandled rejection. The try/catch still guards the synchronous setup
+// (getUser + map). NOT called from fetchRequestStatus — that is the student
+// self-poll path (would log on every 2s poll + be rejected by the
+// counselor-only INSERT policy).
+async function logBulkDisclosure(data) {
+  if (!data?.length) return
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    recordAuditEvent({
+      action: 'record.view.bulk',
+      actor: actorFromAuth(user, 'counselor'),
+      summary: `Counselor viewed ${data.length} student record(s)`,
+      after: { studentIds: data.map((r) => r.student_id) },
+    }).catch(() => {
+      /* disclosure logging must never error the counselor read */
+    })
+  } catch {
+    /* disclosure logging must never block the counselor read */
+  }
 }
 
 // ---- Counselor: decision ---------------------------------------------------
@@ -235,5 +270,30 @@ export async function fetchRejectedRequests() {
   const data = unwrap(
     await supabase.from('requests').select('*').eq('status', 'denied').order('decided_at', { ascending: false }),
   )
+  await logBulkDisclosure(data)
   return data.map((r) => ({ ...rowToQueueRow(r), decision: 'deny', counselorNote: r.counselor_note ?? '', deniedAt: r.decided_at }))
+}
+
+// ---- Student: withdraw / deletion-request ----------------------------------
+// withdrawRequest mirrors the RLS USING gate (.eq('status','submitted')) so an
+// already-decided race returns 0 rows, not an error.
+export async function withdrawRequest(requestId) {
+  unwrap(
+    await supabase
+      .from('requests')
+      .update({ status: 'withdrawn', withdrawn_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .eq('status', 'submitted'),
+  )
+  return { ok: true, requestId, status: 'withdrawn' }
+}
+
+export async function requestRequestDeletion(requestId) {
+  unwrap(
+    await supabase
+      .from('requests')
+      .update({ deletion_requested_at: new Date().toISOString() })
+      .eq('id', requestId),
+  )
+  return { ok: true, requestId }
 }

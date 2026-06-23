@@ -185,7 +185,7 @@ ensureSeeded()
 // requests, without ever mutating the stored status (keeps it reload-safe — a
 // reseed/reload re-derives from the same timestamp). Seeded submissions carry
 // old timestamps, so they correctly read as 'counselor-review' while pending.
-const TERMINAL_STATUSES = new Set(['approved', 'denied', 'flagged'])
+const TERMINAL_STATUSES = new Set(['approved', 'denied', 'flagged', 'withdrawn'])
 function deriveDisplayStatus(request) {
   if (!request) return request
   if (TERMINAL_STATUSES.has(request.status)) return request
@@ -340,6 +340,10 @@ export async function submitWaiver(payload, actor = null) {
   if (isSupabaseConfigured) return sb.submitWaiver(payload, actor)
   await delay(600)
 
+  if (payload.consentGiven !== true) {
+    throw new Error('Consent to the FERPA disclosure is required before submitting.')
+  }
+
   if (!canSubmit(payload.studentId)) {
     throw new Error('Too many submissions — please wait before trying again.')
   }
@@ -365,6 +369,8 @@ export async function submitWaiver(payload, actor = null) {
     formSchemaSnapshot,
     status: 'submitted',
     submittedAt: new Date().toISOString(),
+    consentGivenAt: new Date().toISOString(),
+    consentVersion: payload.consentVersion ?? null,
   }
   submissions = [request, ...submissions]
 
@@ -440,6 +446,47 @@ export async function fetchMyRequests() {
   if (isSupabaseConfigured) return sb.fetchMyRequests()
   await delay()
   return clone(submissions).map((s) => deriveDisplayStatus(s))
+}
+
+// Student withdraws their own still-pending request. Submitted-only: an
+// already-decided row is a no-op (never an error), mirroring the real RLS gate.
+// Demo also drops the row from the counselor queue (the real backend's
+// fetchReviewQueue filters status='submitted' so it leaves automatically).
+export async function withdrawRequest(requestId) {
+  if (isSupabaseConfigured) return sb.withdrawRequest(requestId)
+  await delay(300)
+  const i = submissions.findIndex((s) => s.id === requestId)
+  if (i >= 0 && submissions[i].status === 'submitted') {
+    submissions[i] = { ...submissions[i], status: 'withdrawn', withdrawnAt: new Date().toISOString() }
+    queue = queue.filter((r) => r.id !== requestId)
+    persist()
+    await safeAudit({
+      action: 'request.withdraw',
+      actor: { id: submissions[i].studentId, role: 'student' },
+      requestId,
+      summary: `Withdrew ${WAIVER_NAME(submissions[i].waiverTypeId)} request`,
+    })
+  }
+  return { ok: true, requestId, status: 'withdrawn' }
+}
+
+// Student flags their request for deletion (counselor/admin acts on it later).
+// Status is never changed by this call.
+export async function requestRequestDeletion(requestId) {
+  if (isSupabaseConfigured) return sb.requestRequestDeletion(requestId)
+  await delay(300)
+  const i = submissions.findIndex((s) => s.id === requestId)
+  if (i >= 0) {
+    submissions[i] = { ...submissions[i], deletionRequestedAt: new Date().toISOString() }
+    persist()
+    await safeAudit({
+      action: 'request.deletion_requested',
+      actor: { id: submissions[i].studentId, role: 'student' },
+      requestId,
+      summary: `Requested deletion of ${WAIVER_NAME(submissions[i].waiverTypeId)} request`,
+    })
+  }
+  return { ok: true, requestId }
 }
 
 // ---- Admin / counselor portal -------------------------------------------

@@ -118,7 +118,7 @@ describe('custom-fields parity + isolation', () => {
     const answers = { condition: 'knee recovery' }
     const { requestId } = await api.submitWaiver({
       studentId: 'S-T25', waiverTypeId: 'medical-exemption', documents: [], courseList: [],
-      formAnswers: answers,
+      formAnswers: answers, consentGiven: true,
     })
     const queue = await api.fetchReviewQueue()
     const qRow = queue.find((r) => r.id === requestId)
@@ -135,7 +135,7 @@ describe('custom-fields parity + isolation', () => {
   it('T26 supabase: submitWaiver writes form_answers + frozen snapshot to the requests insert', async () => {
     const sb = await import('../supabaseApi.js')
     const answers = { condition: 'knee recovery' }
-    await sb.submitWaiver({ waiverTypeId: 'medical-exemption', documents: [], courseList: [], formAnswers: answers })
+    await sb.submitWaiver({ waiverTypeId: 'medical-exemption', documents: [], courseList: [], formAnswers: answers, consentGiven: true })
     expect(h.state.insertedRequest.form_answers).toEqual(answers)
     expect(h.state.insertedRequest.form_schema_snapshot).toEqual(
       h.state.waiverRows[0].form_schema,
@@ -181,7 +181,7 @@ describe('custom-fields parity + isolation', () => {
     const sb = await import('../supabaseApi.js')
 
     const { requestId } = await api.submitWaiver({
-      studentId: 'S-T27', waiverTypeId: 'medical-exemption', documents: [], courseList: [], formAnswers: { condition: 'x' },
+      studentId: 'S-T27', waiverTypeId: 'medical-exemption', documents: [], courseList: [], formAnswers: { condition: 'x' }, consentGiven: true,
     })
     const demoRow = (await api.fetchReviewQueue()).find((r) => r.id === requestId)
 
@@ -202,7 +202,7 @@ describe('custom-fields parity + isolation', () => {
     await api.submitWaiver({
       studentId: 'S-T16', waiverTypeId: 'medical-exemption', documents: [], courseList: ['Algebra'],
       transcriptData: { gpa: 3.5, studentGrade: 11 },
-      formAnswers: { condition: 'should NOT leak', secret: 'nope' },
+      formAnswers: { condition: 'should NOT leak', secret: 'nope' }, consentGiven: true,
     })
     expect(evaluateAgainstRubric).toHaveBeenCalled()
     const arg = evaluateAgainstRubric.mock.calls[0][0]
@@ -216,7 +216,7 @@ describe('custom-fields parity + isolation', () => {
     await sb.submitWaiver({
       waiverTypeId: 'medical-exemption', documents: [], courseList: ['Algebra'],
       transcriptData: { gpa: 3.5, studentGrade: 11 },
-      formAnswers: { condition: 'should NOT leak' },
+      formAnswers: { condition: 'should NOT leak' }, consentGiven: true,
     })
     const arg = evaluateAgainstRubric.mock.calls[0][0]
     expect('formAnswers' in arg).toBe(false)
@@ -225,7 +225,7 @@ describe('custom-fields parity + isolation', () => {
 
   it('T17 demo: the engine arg is byte-identical with vs without a populated formAnswers sibling', async () => {
     const api = await import('../api.js')
-    const base = { studentId: 'S-T17a', waiverTypeId: 'medical-exemption', documents: [], courseList: ['Algebra'], transcriptData: { gpa: 3.5, studentGrade: 11 } }
+    const base = { studentId: 'S-T17a', waiverTypeId: 'medical-exemption', documents: [], courseList: ['Algebra'], transcriptData: { gpa: 3.5, studentGrade: 11 }, consentGiven: true }
     await api.submitWaiver({ ...base })
     const without = evaluateAgainstRubric.mock.calls[0][0]
     evaluateAgainstRubric.mockClear()
