@@ -16,3 +16,4 @@ npm-debug.log*
 
 # generated graphify knowledge-graph output (onboarding artifact, not source)
 graphify-out/
+.vercel
