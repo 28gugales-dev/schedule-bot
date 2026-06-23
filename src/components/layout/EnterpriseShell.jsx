@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
 import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
-import { SkinToggle } from '../../features/skin/SkinToggle.jsx'
 import { NAV, TITLE, useCollapsibleSidebar } from './navConfig.jsx'
 
 // Inline SVG: panel-left-close / open (collapse chevrons)
@@ -58,17 +57,14 @@ export function EnterpriseShell({ portal }) {
       {/* ── Flush, bordered slate sidebar (lg+) ── */}
       <aside
         className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-border bg-surface lg:flex ${ease} ${
-          collapsed ? 'w-16' : 'w-56'
+          collapsed ? 'w-16' : 'w-52'
         }`}
       >
         {/* Brand row — fixed 56px to align with the topbar's height */}
         <div className={`flex h-14 shrink-0 items-center ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'}`}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-600 text-[13px] font-semibold text-white">
-            W
-          </div>
           {!collapsed && (
             <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="truncate text-[14px] font-semibold leading-none tracking-tight text-ink">Waiver</p>
+              <p className="truncate text-[18px] font-semibold leading-none tracking-tight text-ink">Waiver</p>
               <p className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{TITLE[portal]}</p>
             </div>
           )}
@@ -105,7 +101,7 @@ export function EnterpriseShell({ portal }) {
                     end={link.end}
                     title={collapsed ? link.label : undefined}
                     className={({ isActive }) =>
-                      `relative flex items-center rounded-md text-[13px] transition-colors ${
+                      `relative flex items-center rounded-md text-[14px] transition-colors ${
                         collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'
                       } ${
                         isActive
@@ -208,7 +204,6 @@ export function EnterpriseShell({ portal }) {
             ) : (
               <span className="hidden text-sm text-muted sm:inline">{user?.email}</span>
             )}
-            <SkinToggle />
             <ThemeToggle />
             {/* Desktop sign-out lives in the sidebar footer; this covers < lg */}
             <button

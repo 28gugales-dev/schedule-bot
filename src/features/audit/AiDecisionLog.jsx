@@ -39,6 +39,9 @@ export function AiDecisionLog({ params, setParams, isEnterprise = false, search 
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  // Bumped by Retry to re-run the fetch effect (keeps the cancellation guard).
+  const [reloadKey, setReloadKey] = useState(0)
   const [query, setQuery] = useState('')
   const [decision, setDecision] = useState('')
 
@@ -51,11 +54,13 @@ export function AiDecisionLog({ params, setParams, isEnterprise = false, search 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setError(null)
     fetchAiDecisions()
       .then((r) => { if (!cancelled) setRows(r) })
+      .catch(() => { if (!cancelled) setError('Could not load AI decisions.') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [reloadKey])
 
   const filtered = useMemo(() => {
     let out = rows
@@ -145,26 +150,42 @@ export function AiDecisionLog({ params, setParams, isEnterprise = false, search 
       </div>
 
       <div className={isEnterprise ? 'min-h-0 flex-1' : 'glass-card overflow-hidden p-1.5'}>
-        <div style={{ height: isEnterprise ? '100%' : 560, width: '100%' }}>
-          <AgGridReact
-            theme={gridTheme}
-            rowData={filtered}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            rowHeight={48}
-            headerHeight={46}
-            getRowId={(p) => p.data.id}
-            pagination
-            paginationPageSize={12}
-            paginationPageSizeSelector={[12, 25, 50]}
-            onRowClicked={(e) => open(e.data.id)}
-            rowStyle={{ cursor: 'pointer' }}
-            overlayNoRowsTemplate={
-              loading ? '<span class="text-sm text-muted">Loading…</span>'
-                      : '<span class="text-sm text-muted">No matching decisions.</span>'
-            }
-          />
-        </div>
+        {/* Error renders INSTEAD of the grid so the three states stay mutually
+            exclusive — an errored fetch leaves rows empty, which the grid's
+            no-rows overlay would otherwise misreport as a genuine empty result. */}
+        {error ? (
+          <div role="alert" className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            <p className="text-sm text-danger-700 dark:text-danger-300">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div style={{ height: isEnterprise ? '100%' : 560, width: '100%' }}>
+            <AgGridReact
+              theme={gridTheme}
+              rowData={filtered}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowHeight={48}
+              headerHeight={46}
+              getRowId={(p) => p.data.id}
+              pagination
+              paginationPageSize={12}
+              paginationPageSizeSelector={[12, 25, 50]}
+              onRowClicked={(e) => open(e.data.id)}
+              rowStyle={{ cursor: 'pointer' }}
+              overlayNoRowsTemplate={
+                loading ? '<span class="text-sm text-muted">Loading…</span>'
+                        : '<span class="text-sm text-muted">No matching decisions.</span>'
+              }
+            />
+          </div>
+        )}
       </div>
 
       {selected && (

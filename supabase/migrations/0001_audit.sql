@@ -12,8 +12,8 @@
 create table if not exists public.audit_log (
   id              text primary key,
   ts              timestamptz not null default now(),
-  category        text not null,                 -- decision | config | submission | sync
-  action          text not null,                 -- decision.admit | rubric.update | …
+  category        text not null,                 -- decision | config | submission | sync | disclosure
+  action          text not null,                 -- decision.admit | rubric.update | record.view | …
   actor           jsonb not null,                -- { id, name, role }   (WHO)
   device          jsonb,                         -- { id, label, ua }    (WHICH DEVICE)
   student         jsonb,                          -- { id, name }         (STUDENT AFFECTED)
@@ -45,23 +45,51 @@ create table if not exists public.ai_decisions (
   confidence      numeric,                        -- 0..1
   rationale       text,
   checks          jsonb not null default '[]',    -- per-criterion reasoning
-  score_breakdown jsonb,                          -- { base, items:[{label,delta}] }
+  score_breakdown jsonb,                           -- { base, items:[{label,delta}] }
   inputs_snapshot jsonb                            -- what the evaluator saw
 );
 
 create index if not exists ai_decisions_ts_idx      on public.ai_decisions (ts desc);
 create index if not exists ai_decisions_request_idx on public.ai_decisions (request_id);
 
--- ── Row-level security ────────────────────────────────────────────────────────
--- Audit data is append-only and counselor/admin-scoped. The client (anon key)
--- may READ; inserts should come from a trusted context (an Edge Function using
--- the service role, or a policy keyed on a staff role claim). Tighten these to
--- your auth model before production — the read policy below is permissive for a
--- demo swap-in. Audit rows are never updated or deleted.
-alter table public.audit_log   enable row level security;
+-- ── Row-level security (HARDENED) ─────────────────────────────────────────────
+-- Audit data is append-only and counselor-only.
+--   SELECT : counselors only  (private.is_counselor() -> profiles.role='admin').
+--   INSERT : counselors only via the client (authenticated JWT). audit.js writes
+--            through the browser client (audit.js:190,207), NOT the service role,
+--            so the gate must be is_counselor(), not service-role-only. The
+--            service role bypasses RLS, so any future Edge Function still writes.
+--   No UPDATE / DELETE policies => those ops are denied under RLS (append-only).
+-- Students / anon can neither read nor write.
+-- NOTE: this gate is only sufficient once 0003_ferpa_hardening.sql's profiles
+-- role-lock is applied (an escalated student would otherwise satisfy
+-- is_counselor()). Ship them together.
+alter table public.audit_log    enable row level security;
 alter table public.ai_decisions enable row level security;
 
-create policy "audit read"  on public.audit_log    for select using (true);
-create policy "audit insert" on public.audit_log   for insert with check (true);
-create policy "ai read"      on public.ai_decisions for select using (true);
-create policy "ai insert"    on public.ai_decisions for insert with check (true);
+-- drop legacy permissive names (in case an older copy was ever applied):
+drop policy if exists "audit read"   on public.audit_log;
+drop policy if exists "audit insert" on public.audit_log;
+drop policy if exists "ai read"      on public.ai_decisions;
+drop policy if exists "ai insert"    on public.ai_decisions;
+-- drop new names so re-runs are clean:
+drop policy if exists "audit_log_select_counselor"    on public.audit_log;
+drop policy if exists "audit_log_insert_counselor"    on public.audit_log;
+drop policy if exists "ai_decisions_select_counselor" on public.ai_decisions;
+drop policy if exists "ai_decisions_insert_counselor" on public.ai_decisions;
+
+create policy "audit_log_select_counselor"
+  on public.audit_log for select to authenticated
+  using ( private.is_counselor() );
+
+create policy "audit_log_insert_counselor"
+  on public.audit_log for insert to authenticated
+  with check ( private.is_counselor() );
+
+create policy "ai_decisions_select_counselor"
+  on public.ai_decisions for select to authenticated
+  using ( private.is_counselor() );
+
+create policy "ai_decisions_insert_counselor"
+  on public.ai_decisions for insert to authenticated
+  with check ( private.is_counselor() );

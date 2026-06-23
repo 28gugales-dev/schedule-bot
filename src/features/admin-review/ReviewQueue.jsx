@@ -143,6 +143,10 @@ export function ReviewQueue() {
   // Enterprise grid: global quick-filter text (driven by the toolbar search box).
   const [quickFilter, setQuickFilter] = useState('')
   const reqRef = useRef(0)
+  // Ids in the order the grid currently DISPLAYS them (sort + quick-filter
+  // applied) — captured while the grid is mounted so "auto-advance to next"
+  // can follow the order the counselor actually sees, not the raw array order.
+  const displayedIdsRef = useRef([])
 
   // ── Auto-dismiss toast ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -200,26 +204,55 @@ export function ReviewQueue() {
     }
   }, [])
 
-  // ── Submit decision (admit / deny / flag — all terminal: clear the queue row) ─
+  // ── Submit decision (admit / deny / flag) ───────────────────────────────────
+  // AWAIT the write before mutating the UI. On success: drop the row, toast, and
+  // advance the cockpit to the next pending request (auto-advance review flow).
+  // On failure: keep the row, error toast, do NOT advance — `submitting` flips
+  // back so the acting card's buttons re-enable for a retry.
   const handleDecision = useCallback(async (decision, note) => {
+    const decidingId = selectedId
+    const name = queue.find(r => r.id === decidingId)?.student.name ?? 'Student'
     setSubmitting(true)
-    const name = queue.find(r => r.id === selectedId)?.student.name ?? 'Student'
     try {
-      await submitDecision(selectedId, decision, note, actorFromAuth(user, role))
+      await submitDecision(decidingId, decision, note, actorFromAuth(user, role))
     } catch {
-      // Non-fatal: optimistic removal stands; batch sync will reconcile.
+      setSubmitting(false)
+      setToast({ kind: 'danger', text: `Couldn't save ${name}'s decision — try again.` })
+      return
     }
-    setQueue(prev => prev.filter(r => r.id !== selectedId))
-    setSelectedId(null)
-    setOneRoster(null)
-    setSubmitting(false)
+    // Pick the NEXT request in the grid's displayed (sorted/filtered) order, so
+    // advancing matches what the counselor sees. Fall back to raw array order
+    // only if the displayed order wasn't captured.
+    const order = displayedIdsRef.current
+    const pos = order.indexOf(decidingId)
+    let nextId = null
+    if (pos !== -1) {
+      for (let i = pos + 1; i < order.length; i++) {
+        if (order[i] !== decidingId) { nextId = order[i]; break }
+      }
+    }
+    let next = nextId ? queue.find(r => r.id === nextId) ?? null : null
+    if (!next && pos === -1) {
+      const idx = queue.findIndex(r => r.id === decidingId)
+      next = idx >= 0 ? queue[idx + 1] ?? null : null
+    }
+    setQueue(prev => prev.filter(r => r.id !== decidingId))
     const TOAST = {
       admit: { kind: 'success', text: `Admitted ${name} — queued for batch sync.` },
       deny:  { kind: 'danger',  text: `Denied ${name}.` },
       flag:  { kind: 'warning', text: `Flagged ${name} for escalation.` },
     }
     setToast(TOAST[decision] ?? TOAST.deny)
-  }, [selectedId, queue, user, role])
+    // Advance to the next request (reuses openDetail → refetches its OneRoster +
+    // resets submitting/loadingRoster) or return to the grid when none remain.
+    if (next) {
+      openDetail(next)
+    } else {
+      setSelectedId(null)
+      setOneRoster(null)
+      setSubmitting(false)
+    }
+  }, [selectedId, queue, user, role, openDetail])
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const remaining = queue.length
@@ -349,6 +382,14 @@ export function ReviewQueue() {
     p.api.sizeColumnsToFit()
   }, [isEnterprise])
 
+  // Snapshot the displayed row order after any sort / filter / data change so
+  // handleDecision can advance to the next VISIBLE request (see displayedIdsRef).
+  const captureOrder = useCallback((p) => {
+    const ids = []
+    p.api.forEachNodeAfterFilterAndSort((n) => { if (n.data) ids.push(n.data.id) })
+    displayedIdsRef.current = ids
+  }, [])
+
   const defaultColDef = useMemo(() => ({
     sortable: true,
     resizable: true,
@@ -373,6 +414,7 @@ export function ReviewQueue() {
     return (
       <>
         <ReviewDetail
+          key={selectedRequest.id}
           request={selectedRequest}
           waiverName={waiverMap[selectedRequest.waiverTypeId] ?? selectedRequest.waiverTypeId}
           oneRoster={oneRoster}
@@ -431,6 +473,7 @@ export function ReviewQueue() {
                 defaultColDef={defaultColDef}
                 onFirstDataRendered={fitColumns}
                 onGridSizeChanged={fitColumns}
+                onModelUpdated={captureOrder}
                 rowHeight={ROW_H}
                 headerHeight={HEADER_H}
                 getRowId={p => p.data.id}

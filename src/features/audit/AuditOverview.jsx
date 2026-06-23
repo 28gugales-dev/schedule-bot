@@ -22,16 +22,39 @@ function Tile({ label, value, sub, tone = 'ink' }) {
 export function AuditOverview({ onJump }) {
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState([])
+  const [error, setError] = useState(null)
+  // Bumped by Retry to re-run the effect (keeps the cancellation guard intact).
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchAuditStats(), fetchAuditLog()]).then(([s, log]) => {
-      if (cancelled) return
-      setStats(s)
-      setRecent(log.slice(0, 6))
-    })
+    setError(null)
+    Promise.all([fetchAuditStats(), fetchAuditLog()])
+      .then(([s, log]) => {
+        if (cancelled) return
+        setStats(s)
+        setRecent(log.slice(0, 6))
+      })
+      .catch(() => { if (!cancelled) setError('Could not load the audit overview.') })
     return () => { cancelled = true }
-  }, [])
+  }, [reloadKey])
+
+  // Error must be checked before the loading sentinel — a caught failure leaves
+  // stats null, which would otherwise read as a perpetual "Loading…".
+  if (error) {
+    return (
+      <div role="alert" className="glass-card flex flex-col items-center gap-3 p-8 text-center">
+        <p className="text-sm text-danger-700 dark:text-danger-300">{error}</p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="glass-input rounded-xl px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-glass-hover"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   if (!stats) {
     return <div className="glass-card p-8 text-center text-sm text-muted">Loading…</div>

@@ -5,6 +5,7 @@ import { fetchBatchSyncQueue, triggerBatchICPush } from '../../services/api.js';
 import { useAuth } from '../../features/auth/AuthProvider.jsx';
 import { useSkin } from '../../features/skin/SkinProvider.jsx';
 import { actorFromAuth } from '../../services/audit.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.jsx';
 
 export function BatchSyncDashboard() {
   const { user, role } = useAuth();
@@ -19,6 +20,9 @@ export function BatchSyncDashboard() {
   const [countdown, setCountdown] = useState(60);
   const [confirmation, setConfirmation] = useState(null);
   const [error, setError] = useState(null);
+  // Gate the MANUAL "Force Sync Now" button behind a confirm. The automatic
+  // 60s countdown push is the intended scheduled job and is NOT gated.
+  const [forceConfirmOpen, setForceConfirmOpen] = useState(false);
 
   // Keep the interval/zero-effect pointed at the latest runSync without
   // re-creating the interval on every render.
@@ -46,8 +50,11 @@ export function BatchSyncDashboard() {
     if (syncing) return; // overlap guard — never start a second sync
 
     const pendingNow = queue.filter(item => !item.synced).length;
-    // Auto-trigger with an empty queue: reset silently, no push, no toast.
-    if (isAuto && pendingNow === 0) {
+    // Nothing to push: reset the countdown silently, no push, no toast. Covers
+    // the auto-tick AND a manual confirm that lands after an auto-sync already
+    // drained the queue while the confirm dialog was open (avoids a "0 waiver(s)"
+    // toast). The manual button is disabled at pendingNow === 0 anyway.
+    if (pendingNow === 0) {
       setCountdown(60);
       return;
     }
@@ -188,7 +195,7 @@ export function BatchSyncDashboard() {
         </div>
         <button
           type="button"
-          onClick={() => runSync(false)}
+          onClick={() => setForceConfirmOpen(true)}
           disabled={syncing || pendingCount === 0}
           className="shrink-0 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -279,6 +286,15 @@ export function BatchSyncDashboard() {
       )}
     </section>
     {topbarChrome}
+    <ConfirmDialog
+      open={forceConfirmOpen}
+      title="Force sync now?"
+      message={`Force-sync ${pendingCount} approved waiver(s) to Infinite Campus now?`}
+      confirmLabel="Force sync"
+      cancelLabel="Cancel"
+      onCancel={() => setForceConfirmOpen(false)}
+      onConfirm={() => { setForceConfirmOpen(false); runSync(false); }}
+    />
     </>
   );
 }

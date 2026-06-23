@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { actionMeta } from '../../services/audit.schema.js'
 import {
   fmtDateTime,
@@ -8,6 +7,7 @@ import {
   roleLabel,
   DecisionPill,
 } from './auditShared.jsx'
+import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 
 function Row({ label, children }) {
   return (
@@ -69,12 +69,8 @@ function Snapshot({ title, data }) {
 }
 
 export function AuditEventDetail({ event, onClose, onViewAi, onViewStudent }) {
-  // Close on Escape — drawer convention.
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus trap handles Escape, focus cycling, and focus restore on close.
+  const dialogRef = useFocusTrap(true, { onClose })
 
   const meta = actionMeta(event.action)
   const isDecision = meta.category === 'decision'
@@ -88,10 +84,11 @@ export function AuditEventDetail({ event, onClose, onViewAi, onViewStudent }) {
 
       {/* Panel */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Audit event detail"
-        className="glass-panel animate-toast-in relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-highlight custom-scrollbar"
+        aria-labelledby="audit-event-detail-title"
+        className="glass-panel animate-toast-in relative flex h-full w-[calc(100%-2rem)] flex-col overflow-y-auto border-l border-highlight custom-scrollbar sm:max-w-md"
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hairline bg-glass-strong px-5 py-4 backdrop-blur-xl">
@@ -101,7 +98,7 @@ export function AuditEventDetail({ event, onClose, onViewAi, onViewStudent }) {
           </div>
           <button
             type="button" onClick={onClose} aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-scrim hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-scrim hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
               <path d="M4 4l8 8M12 4l-8 8" />
@@ -110,7 +107,7 @@ export function AuditEventDetail({ event, onClose, onViewAi, onViewStudent }) {
         </div>
 
         <div className="flex flex-col gap-5 px-5 py-5">
-          <p className="font-display text-lg font-semibold leading-snug text-ink">{event.summary}</p>
+          <p id="audit-event-detail-title" className="font-display text-lg font-semibold leading-snug text-ink">{event.summary}</p>
 
           {/* Who / device / when */}
           <div className="flex flex-col gap-4">

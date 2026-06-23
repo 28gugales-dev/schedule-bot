@@ -1,20 +1,24 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchAvailableWaivers, uploadStudentDocuments, submitWaiver } from '../../services/api.js'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { extractTextFromFile } from '../../utils/pdfText.js'
 import { parseTranscriptData } from '../../utils/schedulingLogic.js'
 import { parseCourseListText } from '../../utils/courseListParser.js'
 import { saveTranscript, getSavedTranscripts, saveCourseList, getSavedCourseLists } from '../../services/transcriptStore.js'
+import { buildDefaults, validateForm } from '../../utils/formSchema.js'
 import { UploadZone } from './UploadZone.jsx'
 import { WaiverSelectGrid } from './WaiverSelectGrid.jsx'
 import { RequestTracker } from './RequestTracker.jsx'
 import { CourseSwapPanel } from './CourseSwapPanel.jsx'
 import { CourseListEntry } from './CourseListEntry.jsx'
+import { FieldRenderer } from '../forms/FieldRenderer.jsx'
 
 const EMPTY_COURSE_BOXES = Array(7).fill('')
 
-// Guided student intake: Documents -> Waiver type -> Review & submit -> Tracker.
-const STEPS = ['Documents', 'Waiver type', 'Review & submit']
+// Guided student intake: Documents -> Waiver type -> [Additional questions] -> Review & submit -> Tracker.
+// Steps are keyed (not index-gated) because the "Additional questions" step is
+// conditional on the selected waiver type carrying a non-empty formSchema; an
+// index shift would otherwise break the Review step's gating (see steps useMemo).
 
 // Waiver types where the student is naming a course to drop/replace.
 const SWAP_WAIVER_IDS = new Set(['prereq-override', 'grad-substitution', 'schedule-conflict', 'late-add-drop'])
@@ -27,14 +31,14 @@ function deserializeParsedTranscript(saved) {
   return { ...saved, completed: new Set(saved.completed ?? []) }
 }
 
-function WizardSteps({ current, onStepClick }) {
+function WizardSteps({ steps, current, onStepClick }) {
   return (
     <ol className="flex flex-wrap gap-2">
-      {STEPS.map((label, i) => {
+      {steps.map(({ key, label }, i) => {
         const done = i < current
         const isCurrent = i === current
         return (
-          <li key={label}>
+          <li key={key}>
             <button
               type="button"
               onClick={() => done && onStepClick(i)}
@@ -45,7 +49,7 @@ function WizardSteps({ current, onStepClick }) {
                 isCurrent
                   ? 'bg-brand-600 text-white'
                   : done
-                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100'
+                    ? 'cursor-pointer bg-brand-50 text-brand-700 hover:bg-brand-100 dark:text-brand-300'
                     : 'cursor-default bg-black/[0.04] text-muted',
               ].join(' ')}
             >
@@ -70,14 +74,14 @@ function RecognizedCourseChips({ recognized = [], unrecognized = [] }) {
           key={`${r.matched}-${i}`}
           title={r.exact ? 'Exact match' : `Closest match (${Math.round(r.similarity * 100)}% similar)`}
           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            r.exact ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            r.exact ? 'bg-success-50 text-success-700 dark:text-success-300' : 'bg-warning-50 text-warning-700 dark:text-warning-300'
           }`}
         >
           {r.matched}{!r.exact && ' ~'}
         </span>
       ))}
       {unrecognized.map((raw, i) => (
-        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted">
+        <span key={`unk-${i}`} title="No catalog match found" className="rounded-full bg-elevated px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">
           {raw} ?
         </span>
       ))}
@@ -89,11 +93,11 @@ function PreviousDocSelect({ label, saved, onApply }) {
   if (!saved.length) return null
   return (
     <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm">
-      <span className="text-brand-700">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
+      <span className="text-brand-700 dark:text-brand-300">Found a previous {label} — <strong>{saved[0].label}</strong>. Apply?</span>
       <select
         defaultValue=""
         onChange={(e) => e.target.value && onApply(saved.find((s) => s.id === e.target.value))}
-        className="ml-auto rounded-md border border-brand-300 bg-white px-2 py-1 text-xs"
+        className="glass-input ml-auto rounded-md px-2 py-1 text-xs"
       >
         <option value="" disabled>Choose…</option>
         {saved.map((s) => (
@@ -127,6 +131,28 @@ export function WaiverIntake() {
   const [savedTranscripts, setSavedTranscripts] = useState(() => getSavedTranscripts(studentId))
   const [savedCourseLists, setSavedCourseLists] = useState(() => getSavedCourseLists(studentId))
   const [swap, setSwap] = useState({ fromCourse: null, toCourse: null })
+  // Custom dynamic-form answers + displayed validation errors for the
+  // conditional "Additional questions" step. Errors are committed only on a
+  // failed Continue (non-nagging), and a field's error clears as the student edits.
+  const [customAnswers, setCustomAnswers] = useState({})
+  const [customErrors, setCustomErrors] = useState({})
+
+  // The "Found a previous …" banner should only offer documents saved in an
+  // EARLIER session — not the file the student just uploaded this session (which
+  // saveTranscript/persistCourseList append immediately). Snapshot the ids that
+  // existed at mount and only surface those in the banner.
+  const priorTranscriptIds = useRef(null)
+  if (priorTranscriptIds.current === null) priorTranscriptIds.current = new Set(savedTranscripts.map((s) => s.id))
+  const priorCourseListIds = useRef(null)
+  if (priorCourseListIds.current === null) priorCourseListIds.current = new Set(savedCourseLists.map((s) => s.id))
+  const priorTranscripts = useMemo(
+    () => savedTranscripts.filter((s) => priorTranscriptIds.current.has(s.id)),
+    [savedTranscripts],
+  )
+  const priorCourseLists = useMemo(
+    () => savedCourseLists.filter((s) => priorCourseListIds.current.has(s.id)),
+    [savedCourseLists],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -156,6 +182,37 @@ export function WaiverIntake() {
     () => parseCourseListText(courseListEntries.filter((e) => e.trim()).join('\n')),
     [courseListEntries],
   )
+
+  // The "Additional questions" step exists only when the chosen waiver type
+  // carries a non-empty custom form schema. Steps are objects {key,label} so
+  // all gating keys off `currentKey` (identity), never an integer index —
+  // inserting/removing this step shifts the Review index and index-gating
+  // would silently break the Review step. (spec §5a, trap verified.)
+  const hasCustomFields = (selectedWaiver?.formSchema?.length ?? 0) > 0
+  const steps = useMemo(
+    () => [
+      { key: 'documents', label: 'Documents' },
+      { key: 'waiver', label: 'Waiver type' },
+      ...(hasCustomFields ? [{ key: 'custom', label: 'Additional questions' }] : []),
+      { key: 'review', label: 'Review & submit' },
+    ],
+    [hasCustomFields],
+  )
+  const currentKey = steps[step]?.key
+  const isLastStep = step === steps.length - 1
+
+  // Clear the previous type's answers/errors whenever the chosen type changes,
+  // and re-seed defaults from the new type's schema (no uncontrolled flips).
+  useEffect(() => {
+    setCustomAnswers(buildDefaults(selectedWaiver?.formSchema ?? []))
+    setCustomErrors({})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWaiverId])
+  // If the custom step disappears (type changed to one with no schema) while
+  // the user is on/after it, clamp the step index into the new range.
+  useEffect(() => {
+    setStep((s) => Math.min(s, steps.length - 1))
+  }, [steps.length])
 
   const handleTranscriptFiles = useCallback(async (files) => {
     setTranscript(files)
@@ -195,25 +252,37 @@ export function WaiverIntake() {
     setSavedCourseLists(getSavedCourseLists(studentId))
   }, [studentId, courseListEntries])
 
-  // Step gating: docs step needs a transcript (uploaded or applied previous)
-  // plus at least one recognized course; waiver step needs a pick, plus a
-  // from/to course pair for swap-style waivers.
+  // Live per-step validity for the custom step — derived, not stored. Displayed
+  // errors (customErrors) are a separate, deferred commit (Task 29 handleContinue).
+  const customLiveErrors =
+    currentKey === 'custom'
+      ? validateForm(selectedWaiver?.formSchema ?? [], customAnswers)
+      : {}
+
+  // Step gating, keyed by step identity (NOT integer index — the custom step is
+  // conditional, so indices shift). docs: transcript + ≥1 recognized course;
+  // waiver: a pick + (for swap types) a from/to pair; custom: zero validation
+  // errors; review: always advanceable (submit handles the rest).
   const canAdvance =
-    step === 0
+    currentKey === 'documents'
       ? Boolean(transcriptFileName) && courseListData.courseNames.length > 0
-      : step === 1
+      : currentKey === 'waiver'
         ? Boolean(selectedWaiverId) && (!needsSwap || (swap.fromCourse && swap.toCourse))
-        : true
+        : currentKey === 'custom'
+          ? Object.keys(customLiveErrors).length === 0
+          : true
 
   // Why "Continue" is disabled — surfaced to the user instead of a dead button.
   const advanceHint =
-    step === 0
+    currentKey === 'documents'
       ? 'Upload your transcript and enter your course list to continue.'
-      : step === 1
+      : currentKey === 'waiver'
         ? needsSwap
           ? 'Select a waiver type and a course swap to continue.'
           : 'Select a waiver type to continue.'
-        : ''
+        : currentKey === 'custom'
+          ? 'Answer the required questions to continue.'
+          : ''
 
   const handleSubmit = useCallback(async () => {
     setSubmitting(true)
@@ -246,9 +315,35 @@ export function WaiverIntake() {
     }
   }, [transcript, supporting, selectedWaiverId, note, studentId, courseListData, swap, transcriptData])
 
+  const handleContinue = useCallback(() => {
+    if (currentKey === 'documents') persistCourseList()
+    if (currentKey === 'custom') {
+      const errs = validateForm(selectedWaiver?.formSchema ?? [], customAnswers)
+      if (Object.keys(errs).length > 0) {
+        setCustomErrors(errs)
+        // Focus the first invalid field's error region for screen readers /
+        // keyboard users. FieldRenderer renders <p id={`${id}-err`} role="alert">.
+        const firstId = (selectedWaiver?.formSchema ?? [])
+          .map((f) => f.id)
+          .find((id) => errs[id])
+        if (firstId) {
+          requestAnimationFrame(() => {
+            document.getElementById(`${firstId}-err`)?.scrollIntoView({ block: 'center' })
+            document.getElementById(firstId)?.focus?.()
+          })
+        }
+        return
+      }
+      setCustomErrors({})
+    }
+    setStep((s) => Math.min(steps.length - 1, s + 1))
+  }, [currentKey, persistCourseList, selectedWaiver, customAnswers, steps.length])
+
   const reset = () => {
     setStep(0)
     setTranscript([])
+    setTranscriptData(null)
+    setTranscriptFileName(null)
     setCourseListEntries(EMPTY_COURSE_BOXES)
     setSupporting([])
     setSelectedWaiverId(null)
@@ -256,6 +351,8 @@ export function WaiverIntake() {
     setSubmittedId(null)
     setError(null)
     setSwap({ fromCourse: null, toCourse: null })
+    setCustomAnswers({})
+    setCustomErrors({})
   }
 
   // Post-submit: confirmation + live tracker.
@@ -272,7 +369,7 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={reset}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80"
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover"
         >
           Start another request
         </button>
@@ -289,12 +386,12 @@ export function WaiverIntake() {
         </p>
       </div>
 
-      <WizardSteps current={step} onStepClick={setStep} />
+      <WizardSteps steps={steps} current={step} onStepClick={setStep} />
 
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 ring-1 ring-danger-100"
+          className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-sm text-danger-700 dark:text-danger-300 ring-1 ring-danger-100"
         >
           <svg
             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -309,10 +406,10 @@ export function WaiverIntake() {
         </div>
       )}
 
-      {step === 0 && (
+      {currentKey === 'documents' && (
         <div className="glass-card space-y-6 p-5">
           <div>
-            <PreviousDocSelect label="transcript" saved={savedTranscripts} onApply={applySavedTranscript} />
+            <PreviousDocSelect label="transcript" saved={priorTranscripts} onApply={applySavedTranscript} />
             <UploadZone
               label="Transcript (PDF)"
               hint="Required. Your official or unofficial transcript."
@@ -325,14 +422,16 @@ export function WaiverIntake() {
             {transcriptData && (
               <>
                 <p className="mt-3 text-xs font-medium text-ink">
-                  Recognized courses {transcriptData.studentGrade ? `· Grade ${transcriptData.studentGrade}` : ''} {transcriptData.gpa ? `· GPA ${transcriptData.gpa}` : ''}
+                  {transcriptData.recognized?.length > 0 ? 'Recognized courses' : 'Transcript read'}
+                  {transcriptData.studentGrade ? ` · Grade ${transcriptData.studentGrade}` : ''}
+                  {transcriptData.gpa ? ` · GPA ${transcriptData.gpa}` : ''}
                 </p>
                 <RecognizedCourseChips recognized={transcriptData.recognized} unrecognized={transcriptData.unrecognized} />
               </>
             )}
           </div>
           <div>
-            <PreviousDocSelect label="course list" saved={savedCourseLists} onApply={applySavedCourseList} />
+            <PreviousDocSelect label="course list" saved={priorCourseLists} onApply={applySavedCourseList} />
             <p className="text-sm font-medium text-ink mb-1">Course list</p>
             <p className="text-xs text-muted mb-3">
               Required. Type each current/planned course — one box per period. Add more for special cases.
@@ -351,7 +450,7 @@ export function WaiverIntake() {
         </div>
       )}
 
-      {step === 1 && (
+      {currentKey === 'waiver' && (
         <div className="glass-card space-y-5 p-5">
           {waiversLoading ? (
             <p className="text-sm text-muted">Loading waiver types…</p>
@@ -376,7 +475,34 @@ export function WaiverIntake() {
         </div>
       )}
 
-      {step === 2 && (
+      {currentKey === 'custom' && (
+        <div className="glass-card space-y-5 p-5">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Additional questions</h2>
+            <p className="mt-1 text-sm text-muted">
+              This waiver type asks for a few more details.
+            </p>
+          </div>
+          <FieldRenderer
+            fields={selectedWaiver?.formSchema ?? []}
+            answers={customAnswers}
+            errors={customErrors}
+            onChange={(id, value) => {
+              setCustomAnswers((prev) => ({ ...prev, [id]: value }))
+              // Clear this field's displayed error as the student edits it
+              // (non-nagging: errors return only on the next failed Continue).
+              setCustomErrors((prev) => {
+                if (!prev[id]) return prev
+                const next = { ...prev }
+                delete next[id]
+                return next
+              })
+            }}
+          />
+        </div>
+      )}
+
+      {currentKey === 'review' && (
         <div className="glass-card space-y-5 p-5">
           <div>
             <h2 className="text-base font-semibold text-ink">Review</h2>
@@ -425,23 +551,20 @@ export function WaiverIntake() {
         <button
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0 || submitting}
-          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/80 disabled:opacity-40"
+          disabled={currentKey === 'documents' || submitting}
+          className="glass-input rounded-xl px-4 py-2 text-sm font-medium text-ink transition hover:bg-glass-hover disabled:opacity-40"
         >
           Back
         </button>
 
-        {step < 2 ? (
+        {!isLastStep ? (
           <div className="flex items-center gap-3">
             {!canAdvance && advanceHint && (
               <span className="hidden text-xs text-muted sm:inline">{advanceHint}</span>
             )}
             <button
               type="button"
-              onClick={() => {
-                if (step === 0) persistCourseList()
-                setStep((s) => Math.min(STEPS.length - 1, s + 1))
-              }}
+              onClick={handleContinue}
               disabled={!canAdvance}
               className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >

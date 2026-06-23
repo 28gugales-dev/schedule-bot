@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../features/auth/AuthProvider.jsx'
 import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
-import { SkinToggle } from '../../features/skin/SkinToggle.jsx'
 import { NAV, TITLE, useCollapsibleSidebar } from './navConfig.jsx'
 
 // Inline SVG: panel-left-close (collapse — chevrons point left)
@@ -65,19 +64,16 @@ export function GlassShell({ portal }) {
           so we use the same flat glass-card as the main content for consistency.) ── */}
       <aside
         className={`fixed left-3 top-3 bottom-3 z-30 hidden lg:flex ${ease} ${
-          collapsed ? 'w-16' : 'w-56'
+          collapsed ? 'w-16' : 'w-52'
         }`}
       >
         <div className="glass-card h-full w-full overflow-hidden" style={{ borderRadius: '22px' }}>
           <div className={`flex h-full flex-col ${collapsed ? 'px-2' : 'px-3'}`}>
             {/* Brand + collapse toggle */}
             <div className={`flex h-16 items-center ${collapsed ? 'justify-center' : 'gap-2.5 px-1.5'}`}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-[0_4px_12px_-2px_rgba(0,113,227,0.5)]">
-                W
-              </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate font-display text-[19px] font-semibold leading-none tracking-tight text-ink">
+                  <p className="truncate font-display text-[23px] font-semibold leading-none tracking-tight text-ink">
                     Waiver
                   </p>
                   <p className="mt-1 truncate font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-muted">{TITLE[portal]}</p>
@@ -104,7 +100,7 @@ export function GlassShell({ portal }) {
                   end={link.end}
                   title={collapsed ? link.label : undefined}
                   className={({ isActive }) =>
-                    `group flex items-center rounded-xl text-[13px] font-medium transition-colors ${
+                    `group flex items-center rounded-xl text-[14px] font-medium transition-colors ${
                       collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2.5'
                     } ${
                       isActive
@@ -211,7 +207,6 @@ export function GlassShell({ portal }) {
             ) : (
               <span className="hidden text-sm text-muted sm:inline">{user?.email}</span>
             )}
-            <SkinToggle />
             <ThemeToggle />
             {/* Sign out lives in the sidebar footer on desktop; kept here for mobile (sidebar hidden < lg) */}
             <button

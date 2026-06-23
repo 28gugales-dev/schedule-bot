@@ -7,13 +7,13 @@ const BASE_ROWS = 7
 function MatchBadge({ raw, match }) {
   if (!raw.trim()) return <span className="text-xs text-muted">—</span>
   if (!match) {
-    return <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted">No catalog match</span>
+    return <span className="rounded-full bg-elevated px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">No catalog match</span>
   }
   return (
     <span
       title={match.exact ? 'Exact match' : `Closest match (${Math.round(match.similarity * 100)}% similar)`}
       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-        match.exact ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+        match.exact ? 'bg-success-50 text-success-700 dark:text-success-300' : 'bg-warning-50 text-warning-700 dark:text-warning-300'
       }`}
     >
       {match.course.name}{!match.exact && ` (~${Math.round(match.similarity * 100)}%)`}
@@ -75,10 +75,10 @@ export function CourseListEntry({ values, onChange }) {
                 onFocus={() => setOpenIndex(i)}
                 onBlur={() => handleBlur(i)}
                 placeholder="Course name…"
-                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="glass-input w-full px-3 py-1.5 text-sm"
               />
               {suggestions.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-slate-200">
+                <ul className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-lg bg-elevated py-1 text-sm shadow-lg ring-1 ring-border">
                   {suggestions.map((name) => (
                     <li key={name}>
                       <button
@@ -100,7 +100,7 @@ export function CourseListEntry({ values, onChange }) {
               onClick={() => removeRow(i)}
               disabled={rows.length <= 1}
               aria-label="Remove this course"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-rose-50 hover:text-rose-600 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-danger-50 hover:text-danger-600 dark:hover:text-danger-300 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted"
             >
               −
             </button>
@@ -110,7 +110,7 @@ export function CourseListEntry({ values, onChange }) {
       <button
         type="button"
         onClick={addRow}
-        className="mt-1 flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 transition"
+        className="mt-1 flex items-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-xs font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 transition"
       >
         + Add a course
       </button>

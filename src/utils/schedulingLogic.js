@@ -17,7 +17,13 @@ export function parseTranscriptData(transcriptText) {
     studentGrade,
     attendanceRate,
     courses,
-    completed: new Set(completedCourses.keys()),
+    // "completed" means a PASSED course — used for prerequisite satisfaction
+    // (ruleEngine prereq rule, swap eligibility). Current-schedule courses
+    // parsed from a "PERIOD COURSE" layout carry mark: null (in progress, not
+    // graded), so exclude them: being enrolled in a prerequisite is not passing it.
+    completed: new Set(
+      [...completedCourses.entries()].filter(([, info]) => info.mark !== null).map(([name]) => name),
+    ),
     recognized,
     unrecognized,
   }
@@ -67,9 +73,12 @@ export function evaluateAgainstRubric(studentData, criteria) {
       case 'prior-credit': {
         const prereqName = swapCourse?.prerequisite
         const candidates = prereqName ? [prereqName, ...getEquivalents(prereqName).map((e) => e.course)] : []
-        const courses = studentData.courses ?? []
-        const record = candidates.length ? courses.find((c) => candidates.includes(c.name)) : null
-        const passed = record ? record.mark >= 70 : courses.length > 0 ? courses.some((c) => c.mark >= 70) : null
+        // Only courses with a numeric mark count as evidence — current-schedule
+        // courses (parsed from a "PERIOD COURSE" schedule) carry mark: null and
+        // are "no data on file", not a failing prior grade.
+        const graded = (studentData.courses ?? []).filter((c) => typeof c.mark === 'number')
+        const record = candidates.length ? graded.find((c) => candidates.includes(c.name)) : null
+        const passed = record ? record.mark >= 70 : graded.length > 0 ? graded.some((c) => c.mark >= 70) : null
         checks.push({ id: rule.id, label: passed === null ? `${rule.label} (no transcript on file)` : rule.label, passed })
         break
       }
