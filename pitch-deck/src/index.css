@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SCHEDULE AI — PITCH DECK DESIGN TOKENS
+ *
+ * Standard professional pitch-deck look: clean white slides, structured text
+ * boxes, one brand accent (system blue, from the product). Conventional and
+ * readable — the kind of deck you'd present to a school board.
+ * ═════════════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Type — the pairing from your screenshot:
+   *  display → Hanken Grotesk bold (clean grotesque headlines + big numbers)
+   *  sans    → Hanken Grotesk (body + UI)
+   *  serif   → Newsreader italic (light-blue emphasis accent words)
+   *  mono    → JetBrains Mono (eyebrow labels + slide numbers)
+   * (Bricolage Grotesque is still loaded — swap --font-display to it to compare.) */
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Brand — Apple system blue (product anchor: 600 = #0071e3) */
+  --color-brand-50: #eaf3fd;
+  --color-brand-100: #d4e6fb;
+  --color-brand-200: #aed0f6;
+  --color-brand-300: #7eb4f0;
+  --color-brand-400: #4a93ea;
+  --color-brand-500: #0a84ff;
+  --color-brand-600: #0071e3;
+  --color-brand-700: #0058b8;
+  --color-brand-800: #0a4794;
+  --color-brand-900: #0d3a76;
+
+  /* Surfaces — white page, light filled text boxes */
+  --color-canvas: #ffffff;
+  --color-panel: #f5f7fa;
+  --color-panel-2: #eceff4;
+  --color-border: #e3e7ee;
+  --color-border-strong: #cfd6e0;
+
+  /* Text */
+  --color-ink: #14171f;
+  --color-muted: #586173;
+  --color-faint: #8c97a8;
+
+  /* Functional accents */
+  --color-warm: #d9480f;
+  --color-good: #0f9d58;
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--color-brand-600);
+  color: #fff;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
