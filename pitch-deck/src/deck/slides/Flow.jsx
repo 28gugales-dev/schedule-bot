@@ -8,7 +8,8 @@ import { gsap, useGSAP } from '../anim'
  * Reference A, elevated: a horizontal connector SPINE links the stages; icon
  * medallions ALTERNATE above/below the spine in a gentle zigzag, each joined by a
  * short curved stub; numbered markers ride the spine. Two input medallions on the
- * far left CURVE-MERGE onto the spine (the app accepts either input), and step 4
+ * far left CURVE-MERGE onto the spine (transcript + course list both feed the
+ * same parsing step), and step 4
  * is a DECISION diamond on the spine — the human anchor, warmer than the machine
  * nodes — whose approved path continues to the final node. Reference B's smooth
  * bezier elegance is imported as a soft brand-tinted glow under every connector.
@@ -46,7 +47,7 @@ const SPINE_Y = 200
 // Y-amplitudes were tuned against a real render so every label fits 1280×720.
 const C = {
   inTop: { x: 128, y: 152 }, // input A — Transcript PDF (above)
-  inBot: { x: 128, y: 248 }, // input B — Infinite Campus roster (below)
+  inBot: { x: 128, y: 248 }, // input B — course list (below)
   merge: { x: 300, y: SPINE_Y }, // marker 1 — the merge point on the spine
   s2: { x: 480, y: 148 }, // Reads it automatically (above)
   s3: { x: 690, y: 252 }, // Builds a compliant plan (below)
@@ -92,11 +93,13 @@ const ICONS = {
       <path d="M9 13h6M9 16.5h4" />
     </>
   ),
-  sis: (
+  courseList: (
     <>
-      <ellipse cx="12" cy="6" rx="7" ry="3" />
-      <path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6" />
-      <path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+      <circle cx="6" cy="8" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="12" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="16" r="0.6" fill="currentColor" stroke="none" />
     </>
   ),
   read: (
@@ -322,9 +325,9 @@ export default function Flow() {
           />
           <Medallion
             at={C.inBot}
-            icon={ICONS.sis}
-            title="Infinite Campus roster"
-            sub="…or pull straight from the SIS"
+            icon={ICONS.courseList}
+            title="Course list"
+            sub="Seven boxes, one per period — typed, not uploaded"
             place="below"
             lead="Input B"
           />
@@ -335,17 +338,17 @@ export default function Flow() {
             n={2}
             icon={ICONS.read}
             title="Reads it automatically"
-            sub="Parses courses, credits, GPA. Zero data entry."
+            sub="Parses courses, GPA, attendance — fuzzy-matched against the catalog."
             place="above"
           />
 
-          {/* ── STAGE 3 — builds a compliant plan (below the spine) ── */}
+          {/* ── STAGE 3 — runs the rule engine (below the spine) ── */}
           <Medallion
             at={C.s3}
             n={3}
             icon={ICONS.plan}
-            title="Builds a compliant plan"
-            sub="Checks grad requirements + live seats in seconds."
+            title="Runs the rule engine"
+            sub="Prerequisites, grade level, live seats, schedule conflicts — checked instantly."
             place="below"
           />
 
@@ -355,7 +358,7 @@ export default function Flow() {
             n={4}
             icon={ICONS.approve}
             title="Counselor approves"
-            sub="Sees the AI recommendation + confidence — makes the final call."
+            sub="Sees the AI's call, confidence score, and a check-by-check breakdown."
           />
 
           {/* ── STAGE 5 — pushes to Infinite Campus (above the spine) ── */}

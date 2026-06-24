@@ -37,7 +37,7 @@ export const slides = [
     id: 'flow',
     label: 'How it works',
     Component: Flow,
-    notes: `Walk the line left to right, one node at a time. Two inputs merge into one pipeline: "drop a transcript PDF, OR pull the roster straight from Infinite Campus — either works." Then: it reads the record automatically (no data entry), builds a graduation-compliant plan against live seat availability (seconds, not hours). Stop on the warm diamond — that's the whole pitch: it proposes, the counselor disposes. The human makes the final call, sees the AI's confidence, and can say no. Last node: the approved schedule pushes back to Infinite Campus with a full audit trail. End by pointing at the diamond again, then: "let me just show you live."`,
+    notes: `Walk the line left to right, one node at a time. Two inputs merge into one pipeline: "drop a transcript PDF, and type in the course list — seven boxes, one per period." Then: it reads the record automatically — fuzzy-matches every course against the catalog, zero manual lookup. Next it runs the rule engine: prerequisites, grade level, live seat counts, and schedule conflicts, checked instantly. Stop on the warm diamond — that's the whole pitch: it proposes, the counselor disposes. The human makes the final call, sees the AI's recommendation and confidence broken down check-by-check, and can say no. Last node: the approved schedule pushes back to Infinite Campus with a full audit trail. End by pointing at the diamond again, then: "let me just show you live."`,
   },
   {
     id: 'beforeafter',
