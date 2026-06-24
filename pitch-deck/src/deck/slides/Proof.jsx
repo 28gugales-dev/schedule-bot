@@ -8,6 +8,14 @@ const BEFORE_SEC = 150
 const AFTER_SEC = 12.5
 const afterHeight = Math.max(14, Math.round((AFTER_SEC / BEFORE_SEC) * BAR_MAX_PX))
 
+// Quiet-period stat: a full month-long freeze compressed down, deliberately
+// at a fraction of the raw ~12x per-waiver speedup above — real-world
+// turnaround still has staffing/policy overhead the algorithm doesn't touch,
+// so 5x is the credible, conservative number for the end-to-end window.
+const QUIET_PERIOD_DAYS = 30
+const PROCESS_SPEEDUP = 5
+const FAST_DAYS = Math.round(QUIET_PERIOD_DAYS / PROCESS_SPEEDUP)
+
 function Bar({ value, height, label, tone }) {
   const textColor = tone === 'warm' ? 'text-warm' : 'text-good'
   const barColor = tone === 'warm' ? 'bg-warm/80' : 'bg-good'
@@ -47,7 +55,8 @@ export default function Proof() {
         </div>
 
         <p data-anim className="mt-8 max-w-[52ch] text-lg leading-relaxed text-muted md:text-xl">
-          The same careful review — without the hours of manual work behind it.
+          Current quiet period is one month long. With Schedule AI it takes only{' '}
+          <span className="font-semibold text-good">{FAST_DAYS} days</span>.
         </p>
       </div>
     </SlideRoot>

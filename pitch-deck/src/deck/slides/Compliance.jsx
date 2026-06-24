@@ -1,66 +1,55 @@
-import { SlideFrame, ShotFrame } from '../SlideKit'
+import { SlideRoot, ShotFrame } from '../SlideKit'
 
 // Compliance & security beat — the procurement / IT gatekeeper. On white.
-// Research-backed trust slide: show REAL product UI as proof, not badge soup.
-// Three actual screens, each mapped to a named FERPA obligation, then a lean
-// control-badge strip. "Show, don't tell" — these are screens their security
-// reviewer can click through, which is what closes the deal.
-const PROOF = [
-  {
-    src: '/shots/audit-activity.png',
-    addr: 'app.schedule-ai / Audit Trail',
-    label: 'Access trail',
-    line: 'Every record access — who, what, when, which device — logged and exportable.',
-  },
-  {
-    src: '/shots/audit-ai.png',
-    addr: 'app.schedule-ai / AI Reasoning',
-    label: 'Explainable AI',
-    line: 'Every AI decision carries its confidence and per-rule scoring. No black box.',
-  },
-  {
-    src: '/shots/rubric.png',
-    addr: 'app.schedule-ai / Policy',
-    label: 'Your rules',
-    line: 'The district sets the criteria; row-level security isolates each school’s data.',
-  },
-]
+// Focused on the single strongest proof point — the access trail — shown
+// large on the right; beside it (not just below the title) on the left:
+// eyebrow + title + copy + control badges. Built on SlideRoot directly
+// (not SlideFrame) so the title can live INSIDE the left column and the
+// image can center against the whole title+copy block, not just the copy.
+const ACCESS_TRAIL = {
+  src: '/shots/audit-activity.png',
+  addr: 'app.schedule-ai / Audit Trail',
+  line: 'Every record access — who, what, when, which device — logged and exportable. Nothing happens to a student\'s data without a trace.',
+}
 
 const BADGES = ['FERPA-aligned', 'Role-based access', 'Full audit trail', 'Row-level security', 'CSV / JSON export']
 
 export default function Compliance() {
   return (
-    <SlideFrame
-      eyebrow="Built for compliance"
-      title="Proof your security team can click through."
-    >
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {PROOF.map((p) => (
-          <figure key={p.label} className="flex flex-col">
-            <ShotFrame src={p.src} alt={p.line} addr={p.addr} size="sm" />
-            <figcaption className="mt-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-brand-600">{p.label}</p>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">{p.line}</p>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+    <SlideRoot>
+      <div className="mx-auto flex h-full max-w-[1480px] flex-col justify-center px-16 py-16">
+        <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12">
+          <div data-anim className="md:col-span-4">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.26em] text-brand-600">
+              Built for compliance
+            </p>
+            <h2 className="mt-3 font-display text-4xl font-semibold leading-[1.06] tracking-tight text-ink md:text-[2.75rem]">
+              Proof your security team can click through.
+            </h2>
 
-      {/* Lean control-badge strip — supporting the screenshots, not replacing them.
-          Named standards only (no "bank-grade"/padlock soup). */}
-      <div data-anim className="mt-9 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-        {BADGES.map((b) => (
-          <span
-            key={b}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted"
-          >
-            <svg viewBox="0 0 24 24" className="h-3 w-3 text-good" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            {b}
-          </span>
-        ))}
+            <p className="mt-7 font-mono text-[11px] uppercase tracking-[0.24em] text-good">Access trail</p>
+            <p className="mt-2 text-base leading-relaxed text-muted">{ACCESS_TRAIL.line}</p>
+
+            <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2">
+              {BADGES.map((b) => (
+                <span
+                  key={b}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3 text-good" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  {b}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div data-anim className="md:col-span-8">
+            <ShotFrame src={ACCESS_TRAIL.src} alt={ACCESS_TRAIL.line} addr={ACCESS_TRAIL.addr} size="lg" />
+          </div>
+        </div>
       </div>
-    </SlideFrame>
+    </SlideRoot>
   )
 }
