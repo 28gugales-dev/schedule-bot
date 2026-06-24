@@ -1,33 +1,54 @@
 import { SlideFrame, Box, Grid, Em } from '../SlideKit'
 
-// Before / After ROI beat — real per-waiver numbers: 2–3 minutes to review a
-// waiver by hand vs. 10–15 seconds with Schedule AI. Ranges shown honestly; the
-// midpoint multiplier (~12×) ties the seconds back to a term's worth of waivers.
+// Data-security beat — the infra/procurement trust slide. Four concrete,
+// named facts (not badge soup): FERPA, SOC 2 Type II + ISO 27001 hosting,
+// AES-256 at rest / TLS in transit, and Google OAuth (no passwords stored).
+const FACTS = [
+  {
+    eyebrow: 'Student records',
+    stat: 'FERPA',
+    sub: 'compliant by design',
+    line: 'Access controls, audit trails, and data minimization built in throughout — not bolted on.',
+  },
+  {
+    eyebrow: 'Hosting infrastructure',
+    stat: 'SOC 2 Type II',
+    sub: '+ ISO 27001 certified',
+    line: 'Student data lives on infrastructure independently audited to both standards.',
+  },
+  {
+    eyebrow: 'Encryption',
+    stat: 'AES-256',
+    sub: 'at rest · TLS in transit',
+    line: 'Every record, every transfer — encrypted end to end, always.',
+  },
+  {
+    eyebrow: 'Sign-in',
+    stat: 'Google OAuth',
+    sub: 'school accounts only',
+    line: 'Students and staff log in with their existing school Google account. We never see or store a password.',
+  },
+]
+
 export default function BeforeAfter() {
   return (
-    <SlideFrame eyebrow="Before / After" title="Minutes per waiver — down to seconds.">
+    <SlideFrame eyebrow="Data security" title="Built on infrastructure your IT team already trusts.">
       <Grid cols={2}>
-        {/* BEFORE — the manual reality. Warm accent = the cost. */}
-        <Box>
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-warm">By hand</p>
-          <div className="mt-5 font-display text-6xl font-semibold tracking-tight tnum text-warm">2&ndash;3 min</div>
-          <p className="mt-4 text-base leading-relaxed text-muted">to review a waiver, manually</p>
-        </Box>
-
-        {/* AFTER — Schedule AI. Accent panel + green = the win. */}
-        <Box accent>
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-good">With Schedule AI</p>
-          <div className="mt-5 font-display text-6xl font-semibold tracking-tight tnum text-good">10&ndash;15 sec</div>
-          <p className="mt-4 text-base leading-relaxed text-muted">per waiver, reviewed by you</p>
-        </Box>
+        {FACTS.map((f) => (
+          <Box key={f.stat}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-good">{f.eyebrow}</p>
+            <div className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink md:text-4xl">{f.stat}</div>
+            <p className="mt-1 font-mono text-[12px] tracking-tight text-muted">{f.sub}</p>
+            <p className="mt-3 text-[13.5px] leading-relaxed text-muted">{f.line}</p>
+          </Box>
+        ))}
       </Grid>
 
-      {/* The punch line — honest midpoint multiplier, tied to volume. */}
       <p
         data-anim
         className="mt-10 text-center font-display text-2xl font-medium leading-snug tracking-tight text-ink md:text-[1.75rem]"
       >
-        About <Em>12&times; faster</Em> per waiver — hours of a counselor&apos;s term, back.
+        Security your <Em>IT director</Em> signs off on, not just your counselors.
       </p>
     </SlideFrame>
   )

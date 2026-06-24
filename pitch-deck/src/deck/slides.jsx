@@ -41,10 +41,10 @@ export const slides = [
   },
   {
     id: 'beforeafter',
-    label: 'Before / After',
+    label: 'Data security',
     Component: BeforeAfter,
     tone: 'blue',
-    notes: `Let the two numbers do the work. 2–3 minutes to review a waiver by hand, 10–15 seconds with Schedule AI — about 12× faster. The line that matters: multiply that across a term's waivers and it's hours of a counselor's time back. (2–3 min is the real manual figure; the seconds is our measured run.)`,
+    notes: `This is the slide that gets you past IT and procurement, not just the counselors. Four concrete facts, not badge soup: FERPA-compliant by design — access controls and audit trails built in, not bolted on. Hosting infrastructure is independently certified to both SOC 2 Type II and ISO 27001. Every record is AES-256 encrypted at rest and TLS in transit, end to end. And sign-in is Google OAuth only — students and staff use their existing school account, and we never see or store a password. Land on: "this is security your IT director signs off on."`,
   },
   {
     id: 'proof',
