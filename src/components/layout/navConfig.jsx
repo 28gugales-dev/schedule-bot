@@ -120,9 +120,9 @@ export const NAV = {
   admin: [
     { to: '/admin', label: 'Review Queue', end: true, section: 'Review', icon: <IconQueue /> },
     { to: '/admin/forms', label: 'Form Builder', section: 'Review', icon: <IconForm /> },
-    { to: '/admin/resources', label: 'Resources', section: 'Review', icon: <IconResources /> },
     { to: '/admin/rejected', label: 'Rejected', section: 'Review', icon: <IconRejected /> },
     { to: '/admin/team', label: 'Team', end: true, section: 'Team', icon: <IconTeam /> },
+    { to: '/admin/resources', label: 'Resources', section: 'Team', icon: <IconResources /> },
     { to: '/admin/batch', label: 'Batch Sync', section: 'Sync', icon: <IconBatch /> },
     { to: '/admin/audit', label: 'Activity', end: true, section: 'Audit', icon: <IconActivity /> },
     { to: '/admin/audit/decisions', label: 'Counselor Decisions', section: 'Audit', icon: <IconDecision /> },

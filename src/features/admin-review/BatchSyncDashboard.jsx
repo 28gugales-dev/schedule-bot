@@ -63,8 +63,16 @@ export function BatchSyncDashboard() {
       setSyncing(true);
       setError(null);
       const result = await triggerBatchICPush(actorFromAuth(user, role));
-      setQueue(prev => prev.map(item => ({ ...item, synced: true })));
-      setConfirmation(`Pushed ${result.pushedCount} waiver(s) to Infinite Campus`);
+      // Re-fetch the REAL per-row state instead of optimistically flipping every
+      // row to synced — in manual_ui_export mode records land in 'imported'
+      // (handed to the registrar), and some may supersede/fail. Show the truth.
+      const refreshed = await fetchBatchSyncQueue();
+      setQueue(refreshed);
+      const parts = [`${result.pushedCount} pushed`];
+      if (result.inFlight) parts.push(`${result.inFlight} in flight`);
+      if (result.superseded) parts.push(`${result.superseded} superseded`);
+      if (result.failed) parts.push(`${result.failed} failed`);
+      setConfirmation(`${parts.join(' · ')} — Infinite Campus`);
     } catch {
       setError("Sync failed — couldn't reach Infinite Campus. Try again.");
     } finally {

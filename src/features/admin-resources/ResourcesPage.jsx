@@ -132,6 +132,9 @@ function UploadCard({ onAdd, busy }) {
 function ResourceRow({ resource, onOpen, onDelete }) {
   const [opening, setOpening] = useState(false)
   const hasFile = Boolean(resource.url || resource.path)
+  // Absolute http(s) URLs (e.g. a SharePoint workbook) open directly via a real
+  // anchor — reliable new-tab behaviour, no popup-blocker/SPA-router glitch.
+  const externalUrl = /^https?:\/\//i.test(resource.url ?? '') ? resource.url : null
 
   const open = async () => {
     setOpening(true)
@@ -149,7 +152,16 @@ function ResourceRow({ resource, onOpen, onDelete }) {
         <p className="text-sm font-medium text-ink">{resource.title}</p>
         {resource.description && <p className="mt-0.5 text-xs text-muted">{resource.description}</p>}
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
-          {hasFile ? (
+          {externalUrl ? (
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-brand-700 transition hover:underline dark:text-brand-300"
+            >
+              {resource.fileName || 'Open file'}
+            </a>
+          ) : hasFile ? (
             <button
               type="button"
               onClick={open}

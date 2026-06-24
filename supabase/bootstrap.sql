@@ -772,3 +772,149 @@ create policy "resources_counselor_all" on storage.objects
   using (bucket_id = 'resources' and private.is_counselor())
   with check (bucket_id = 'resources' and private.is_counselor());
 
+
+-- ████████████████████████████████████████████████████████████████████████
+-- ███ 0008_one_roster.sql — IC OneRoster pull cache (field-minimized)
+-- ████████████████████████████████████████████████████████████████████████
+create table if not exists public.one_roster (
+  student_id         uuid primary key references public.profiles(id) on delete cascade,
+  sis_id             text,
+  school_sourced_id  text,
+  gpa                numeric(3,2),
+  attendance_rate    int,
+  grade_level        int,
+  enrollment_status  text,
+  last_sync          timestamptz,
+  completed_courses  jsonb not null default '[]'::jsonb,
+  current_schedule   jsonb not null default '[]'::jsonb,
+  updated_at         timestamptz not null default now()
+);
+create index if not exists one_roster_sis_id_idx on public.one_roster (sis_id);
+alter table public.one_roster enable row level security;
+drop policy if exists "one_roster_select_counselor" on public.one_roster;
+create policy "one_roster_select_counselor" on public.one_roster
+  for select to authenticated using (private.is_counselor());
+-- No insert/update/delete policy => writes are service-role (oneroster-pull) only.
+
+
+-- ████████████████████████████████████████████████████████████████████████
+-- ███ 0009_batch_sync_queue.sql — IC push queue + push_state machine
+-- ████████████████████████████████████████████████████████████████████████
+create table if not exists public.batch_sync_queue (
+  id                   uuid primary key default gen_random_uuid(),
+  request_id           uuid references public.requests(id) on delete cascade,
+  student_id           uuid references public.profiles(id) on delete set null,
+  student_name         text,
+  waiver_name          text,
+  from_course          text,
+  to_course            text,
+  approved_at          timestamptz not null default now(),
+  push_state           text not null default 'queued'
+                       check (push_state in
+                         ('queued','claimed','exported','imported','confirmed','failed','superseded')),
+  idempotency_key      text,
+  ic_record_ref        text,
+  user_sourced_id      text,
+  class_sourced_id     text,
+  school_sourced_id    text,
+  term_sourced_id      text,
+  attempts             int not null default 0,
+  last_error           text,
+  claimed_at           timestamptz,
+  exported_at          timestamptz,
+  confirmed_at         timestamptz,
+  revalidated_decision text,
+  revalidated_at       timestamptz,
+  created_at           timestamptz not null default now()
+);
+create index if not exists batch_sync_queue_push_state_idx on public.batch_sync_queue (push_state);
+create index if not exists batch_sync_queue_request_idx     on public.batch_sync_queue (request_id);
+create unique index if not exists batch_sync_queue_idem_active_uq
+  on public.batch_sync_queue (idempotency_key)
+  where idempotency_key is not null
+    and push_state in ('queued','claimed','exported','imported','confirmed');
+alter table public.batch_sync_queue enable row level security;
+drop policy if exists "batch_sync_queue_select_counselor" on public.batch_sync_queue;
+create policy "batch_sync_queue_select_counselor" on public.batch_sync_queue
+  for select to authenticated using (private.is_counselor());
+drop policy if exists "batch_sync_queue_insert_counselor_queued" on public.batch_sync_queue;
+create policy "batch_sync_queue_insert_counselor_queued" on public.batch_sync_queue
+  for insert to authenticated
+  with check (private.is_counselor() and push_state = 'queued');
+-- No update/delete policy => push_state transitions are service-role (edge fn) only.
+
+
+-- ████████████████████████████████████████████████████████████████████████
+-- ███ 0011_seat_holds.sql — atomic soft seat holds + claim_seat() RPC
+-- ████████████████████████████████████████████████████████████████████████
+create table if not exists public.seat_holds (
+  id          uuid primary key default gen_random_uuid(),
+  course      text not null,
+  period      int  not null,
+  request_id  uuid references public.requests(id) on delete cascade,
+  student_id  uuid references public.profiles(id) on delete set null,
+  held_at     timestamptz not null default now(),
+  expires_at  timestamptz,
+  released    boolean not null default false,
+  unique (course, period, request_id)
+);
+create index if not exists seat_holds_course_period_idx
+  on public.seat_holds (course, period) where not released;
+alter table public.seat_holds enable row level security;
+drop policy if exists "seat_holds_select_counselor" on public.seat_holds;
+create policy "seat_holds_select_counselor" on public.seat_holds
+  for select to authenticated using (private.is_counselor());
+
+create or replace function public.claim_seat(
+  p_course text, p_period int, p_request_id uuid, p_student_id uuid, p_capacity int default 30
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_active int; v_exists boolean;
+begin
+  if not private.is_counselor() then
+    raise exception 'not authorized to claim a seat' using errcode = '42501';
+  end if;
+  perform pg_advisory_xact_lock(hashtext(p_course || '|' || p_period::text));
+  select exists (
+    select 1 from public.seat_holds
+    where course = p_course and period = p_period and request_id = p_request_id and not released
+      and (expires_at is null or expires_at > now())
+  ) into v_exists;
+  if v_exists then return jsonb_build_object('claimed', true, 'idempotent', true); end if;
+  select count(*) into v_active from public.seat_holds
+  where course = p_course and period = p_period and not released
+    and (expires_at is null or expires_at > now());
+  if v_active >= p_capacity then return jsonb_build_object('claimed', false, 'seats_left', 0); end if;
+  insert into public.seat_holds (course, period, request_id, student_id, expires_at)
+  values (p_course, p_period, p_request_id, p_student_id, now() + interval '14 days')
+  on conflict (course, period, request_id)
+    do update set released = false, held_at = now(), expires_at = excluded.expires_at;
+  return jsonb_build_object('claimed', true, 'seats_left', p_capacity - v_active - 1);
+end; $$;
+revoke execute on function public.claim_seat(text, int, uuid, uuid, int) from public, anon;
+grant execute on function public.claim_seat(text, int, uuid, uuid, int) to authenticated;
+
+create or replace function public.release_seat_hold(p_request_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not private.is_counselor() then
+    raise exception 'not authorized to release a seat' using errcode = '42501';
+  end if;
+  update public.seat_holds set released = true where request_id = p_request_id and not released;
+end; $$;
+revoke execute on function public.release_seat_hold(uuid) from public, anon;
+grant execute on function public.release_seat_hold(uuid) to authenticated;
+
+
+-- ████████████████████████████████████████████████████████████████████████
+-- ███ ic-exports — private bucket for ephemeral PII push artifacts
+-- ████████████████████████████████████████████████████████████████████████
+-- Written by the sync-to-infinite-campus edge function (service role, RLS-exempt).
+-- NO authenticated policy => browser clients cannot list/read it; access is only
+-- via short-lived signed URLs the edge function mints. Auto-push delta artifacts are
+-- DELETED at end of run; manual worklists are retained for the registrar (signed URL)
+-- with a scheduled TTL purge as a tracked follow-up (breach-response-policy.md —
+-- minimize PII at rest). Also mirrored as numbered migration 0012_ic_exports_bucket.sql.
+insert into storage.buckets (id, name, public)
+values ('ic-exports', 'ic-exports', false)
+on conflict (id) do nothing;
+

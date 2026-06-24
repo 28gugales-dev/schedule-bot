@@ -1,0 +1,1556 @@
+{
+"physical science": {
+"name": "Physical Science",
+"code": "30305y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"algebra: concepts & connections": {
+"name": "Algebra: Concepts & Connections",
+"code": "200605y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"spanish ii": {
+"name": "Spanish II*",
+"code": "50715y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"biology": {
+"name": "Biology",
+"code": "30105y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"algebra: concepts & connections & support": {
+"name": "Algebra: Concepts & Connections & Support",
+"code": "200605y/  200615y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"spanish ii/iii": {
+"name": "Spanish II/III (2 pds)*",
+"code": "50711s/50721s",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"biology honors": {
+"name": "Biology Honors",
+"code": "30115y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"accel adv algebra: concept & connections": {
+"name": "Accel Adv Algebra: Concept & Connections*",
+"code": "200725y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"spanish iii": {
+"name": "Spanish III*",
+"code": "50725y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"chemistry": {
+"name": "Chemistry *",
+"code": "30135y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"geometry: concept & connections": {
+"name": "Geometry: Concept & Connections",
+"code": "200625y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"spanish iv": {
+"name": "Spanish IV*",
+"code": "50735y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"chemistry honors": {
+"name": "Chemistry Honors *",
+"code": "30145y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"geom: concepts & connections & support": {
+"name": "Geom: Concepts & Connections & Support",
+"code": "200625y/   200635y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"spanish v": {
+"name": "Spanish V*",
+"code": "50745y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"biology ii": {
+"name": "Biology II *",
+"code": "30195y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"geom: concepts & connections honors": {
+"name": "Geom: Concepts & Connections Honors*",
+"code": "200675y",
+"gradeMin": 9,
+"gradeMax": 9,
+"category": "Academic Course Offerings"
+},
+"ap spanish lang": {
+"name": "AP Spanish Lang*",
+"code": "50065y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"earth systems": {
+"name": "Earth Systems",
+"code": "30165y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"advanced algebra: concepts & conn": {
+"name": "Advanced Algebra: Concepts & Conn*",
+"code": "200645y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap spanish literature": {
+"name": "AP Spanish Literature*",
+"code": "50095y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"environmental science": {
+"name": "Environmental Science",
+"code": "30185y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"advanced algebra: concepts & connections honors": {
+"name": "Advanced Algebra: Concepts & Connections Honors*",
+"code": "200685y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Academic Course Offerings"
+},
+"french i": {
+"name": "French I",
+"code": "50105y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"forensic science": {
+"name": "Forensic Science *",
+"code": "30445y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"pre-calculus": {
+"name": "Pre-Calculus*",
+"code": "200735y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"french ii": {
+"name": "French II*",
+"code": "50115y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"physics": {
+"name": "Physics*",
+"code": "30345y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap pre-calculus": {
+"name": "AP Pre-Calculus*",
+"code": "200745y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"french iii": {
+"name": "French III*",
+"code": "50125y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap physics 1": {
+"name": "AP Physics 1*",
+"code": "30065y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"calculus": {
+"name": "Calculus*",
+"code": "20315y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"french iv": {
+"name": "French IV*",
+"code": "50135y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap physics c mechanics": {
+"name": "AP Physics C Mechanics*",
+"code": "30055y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap calculus ab": {
+"name": "AP Calculus AB*",
+"code": "20135y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap french": {
+"name": "AP French*",
+"code": "50005y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap physics c mechanics: e&m": {
+"name": "AP Physics C Mechanics: E&M*",
+"code": "30095y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap calculus bc": {
+"name": "AP Calculus BC*",
+"code": "20145y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german i": {
+"name": "German I",
+"code": "50205y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap environmental science": {
+"name": "AP Environmental Science*",
+"code": "30025y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap calculus ab/bc": {
+"name": "AP Calculus AB/BC (2 periods)*",
+"code": "20131s/ 20141s",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german ii": {
+"name": "German II*",
+"code": "50215y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap chemistry": {
+"name": "AP Chemistry*",
+"code": "30015y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap statistics": {
+"name": "AP Statistics*",
+"code": "20165y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german iii": {
+"name": "German III*",
+"code": "50225y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap biology": {
+"name": "AP Biology*",
+"code": "30005y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"statistical reasoning": {
+"name": "Statistical Reasoning*",
+"code": "20025y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german ii/iii": {
+"name": "German II/III (2 periods)*",
+"code": "50211s/50221s",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"epidemiology": {
+"name": "Epidemiology",
+"code": "30555y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"adv math decision making": {
+"name": "Adv Math Decision Making*",
+"code": "20745y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german iv": {
+"name": "German IV*",
+"code": "50235y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap research": {
+"name": "AP Research (Acceptance only from AP Seminar)",
+"code": "30605y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"college readiness math": {
+"name": "College Readiness Math*",
+"code": "20195y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"german v": {
+"name": "German V*",
+"code": "50245y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap german": {
+"name": "AP German",
+"code": "50035y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"latin i": {
+"name": "Latin I",
+"code": "50605y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"latin ii": {
+"name": "Latin II*",
+"code": "50615y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"world history": {
+"name": "World History",
+"code": "40575y",
+"gradeMin": 10,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"latin iii": {
+"name": "Latin III*",
+"code": "50625y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap world history": {
+"name": "AP World History*",
+"code": "40135y",
+"gradeMin": 10,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"literature & composition i": {
+"name": "Literature & Composition I",
+"code": "10125y",
+"gradeMin": 9,
+"gradeMax": 9,
+"category": "Academic Course Offerings"
+},
+"latin iv": {
+"name": "Latin IV*",
+"code": "50635y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"us history": {
+"name": "US History",
+"code": "40375y",
+"gradeMin": 11,
+"gradeMax": 11,
+"category": "Academic Course Offerings"
+},
+"literature & composition i honors": {
+"name": "Literature & Composition I Honors",
+"code": "10135y",
+"gradeMin": 9,
+"gradeMax": 9,
+"category": "Academic Course Offerings"
+},
+"ap us history": {
+"name": "AP US History*",
+"code": "40125y",
+"gradeMin": 11,
+"gradeMax": 11,
+"category": "Academic Course Offerings"
+},
+"literature & composition ii": {
+"name": "Literature & Composition II",
+"code": "10145y",
+"gradeMin": 10,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"government/economics": {
+"name": "Government/Economics",
+"code": "40005s/40205s",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"literature & composition ii honors": {
+"name": "Literature & Composition II Honors",
+"code": "10155y",
+"gradeMin": 10,
+"gradeMax": 10,
+"category": "Academic Course Offerings"
+},
+"ap government": {
+"name": "AP Government*",
+"code": "40035y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"american literature": {
+"name": "American Literature",
+"code": "100505y",
+"gradeMin": 11,
+"gradeMax": 11,
+"category": "Academic Course Offerings"
+},
+"ap macroconomics": {
+"name": "AP Macroconomics*",
+"code": "40085y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap english lang & comp": {
+"name": "AP English Lang & Comp*",
+"code": "10225y",
+"gradeMin": 11,
+"gradeMax": 11,
+"category": "Academic Course Offerings"
+},
+"ap micro/macroeconomics": {
+"name": "AP Micro/Macroeconomics*",
+"code": "40095s/40085s",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"advanced composition": {
+"name": "Advanced Composition",
+"code": "10305y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap lit/comp": {
+"name": "AP Lit/Comp*",
+"code": "10315y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"multicultural lit & comp": {
+"name": "Multicultural Lit & Comp",
+"code": "10885y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Academic Course Offerings"
+},
+"ap human geography": {
+"name": "AP Human Geography",
+"code": "40075y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"journalism i": {
+"name": "@Journalism I",
+"code": "10715y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"ap psychology": {
+"name": "AP Psychology",
+"code": "40115y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"journalism ii": {
+"name": "@Journalism II",
+"code": "10735y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"ap european history": {
+"name": "AP European History",
+"code": "40025y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"journalism iii": {
+"name": "@Journalism III",
+"code": "10755y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"personal financial literacy": {
+"name": "Personal Financial Literacy",
+"code": "40465s",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"journalism iv": {
+"name": "@Journalism IV",
+"code": "10775y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"sociology": {
+"name": "Sociology",
+"code": "40315s",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"world geography/ us history in film": {
+"name": "World Geography/ US History in Film",
+"code": "40475s/40395s",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"ap seminar": {
+"name": "@AP Seminar",
+"code": "40155y",
+"gradeMin": 11,
+"gradeMax": 11,
+"category": "General Electives"
+},
+"personal fitness/health": {
+"name": "Personal Fitness/Health",
+"code": "60175s/60105s",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"driver ed/personal financial literacy": {
+"name": "Driver Ed/Personal Financial Literacy",
+"code": "60325s/40465s",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"driver ed/sociology": {
+"name": "Driver Ed/Sociology",
+"code": "60325s/40315s",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"driver ed/gen pe ii": {
+"name": "Driver Ed/Gen PE II",
+"code": "60325s/60075s",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"general pe ii": {
+"name": "General PE II",
+"code": "60075y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"adv. weight training": {
+"name": "Adv. Weight Training",
+"code": "60045y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"physical conditioning": {
+"name": "Physical Conditioning (Walking)",
+"code": "60205y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"adv. physical conditioning": {
+"name": "Adv. Physical Conditioning (Walking)",
+"code": "60025y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"principles of athletic training": {
+"name": "Principles of Athletic Training",
+"code": "60335y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"office aide": {
+"name": "@Office Aide",
+"code": "90315y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"peer facilitator": {
+"name": "@Peer Facilitator",
+"code": "90035y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "General Electives"
+},
+"intro to software technology": {
+"name": "Intro to Software Technology",
+"code": "708325y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"foundations of engineering": {
+"name": "Foundations of Engineering",
+"code": "703045y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"marketing principles": {
+"name": "Marketing Principles",
+"code": "702745y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"ap computer science prin.": {
+"name": "AP Computer Science Prin.",
+"code": "708305y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"engineering concepts": {
+"name": "Engineering Concepts",
+"code": "703065y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"marketing & entrepreneurship or ap business": {
+"name": "Marketing & Entrepreneurship or AP Business",
+"code": "702855y / 700695y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"ap computer science a": {
+"name": "AP Computer Science A",
+"code": "702305y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"engineering applications": {
+"name": "Engineering Applications",
+"code": "703115y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"marketing management": {
+"name": "Marketing Management",
+"code": "702845y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"engineering research": {
+"name": "Engineering Research",
+"code": "703105y",
+"gradeMin": 12,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"fashion, merchandising, ret": {
+"name": "Fashion, Merchandising, Ret",
+"code": "702825y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"intro to sports ent. marketing": {
+"name": "Intro to Sports Ent. Marketing",
+"code": "702755y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"promotion and digital mktg": {
+"name": "Promotion and Digital Mktg",
+"code": "702875y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"adv. fashion, merch, retail": {
+"name": "Adv. Fashion, Merch, Retail",
+"code": "702835y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"adv. sports ent. marketing": {
+"name": "Adv. Sports Ent. Marketing",
+"code": "702795y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"integrated mktg comm": {
+"name": "Integrated Mktg Comm",
+"code": "702885y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"intro to business and tech": {
+"name": "Intro to Business and Tech",
+"code": "700605y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"ap business": {
+"name": "AP Business",
+"code": "700695y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"accounting i": {
+"name": "Accounting I",
+"code": "700525y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"legal env. of business": {
+"name": "Legal Env. of Business",
+"code": "700335y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"accounting ii": {
+"name": "Accounting II",
+"code": "700535y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"entrepreneurship": {
+"name": "Entrepreneurship",
+"code": "700635y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"basic agriculture science": {
+"name": "Basic Agriculture Science",
+"code": "700105y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"legal environment of business": {
+"name": "Legal Environment of Business",
+"code": "700335y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"general horticulture/ plant sci": {
+"name": "General Horticulture/ Plant Sci",
+"code": "700035y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"computer science principles": {
+"name": "Computer Science Principles",
+"code": "708235y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"human resources principles": {
+"name": "Human Resources Principles",
+"code": "700645y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"turf management": {
+"name": "Turf Management",
+"code": "709405y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"prog, games, app and society": {
+"name": "Prog, Games, App and Society",
+"code": "708245y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"examining the teaching prof.": {
+"name": "Examining the Teaching Prof.",
+"code": "709505y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"intro to culinary arts": {
+"name": "Intro to Culinary Arts",
+"code": "702155y",
+"gradeMin": 9,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"audio & video tech & film i": {
+"name": "Audio & Video Tech & Film I",
+"code": "700775y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"contemporary issues in edu.": {
+"name": "Contemporary Issues in Edu.",
+"code": "709511s",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"culinary arts i & ii block": {
+"name": "Culinary Arts I & II Block",
+"code": "702111s / 702121s",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"audio & video tech & film ii": {
+"name": "Audio & Video Tech & Film II",
+"code": "700785y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"teaching practicum": {
+"name": "Teaching Practicum (2 periods)",
+"code": "709521s",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"audio & video tech & film iii": {
+"name": "Audio & Video Tech & Film III",
+"code": "700795y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"pastry & baking i & ii block": {
+"name": "Pastry & Baking I & II Block",
+"code": "704111s / 704121s",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"wbl 1 period internship": {
+"name": "@WBL 1 period Internship",
+"code": "07701y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"intro to healthcare": {
+"name": "Intro to Healthcare",
+"code": "702235y",
+"gradeMin": 9,
+"gradeMax": 10,
+"category": "Career Tech Pathways"
+},
+"wbl 2 periods internship": {
+"name": "@WBL 2 periods Internship",
+"code": "07702y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"essentials of healthcare": {
+"name": "Essentials of Healthcare *",
+"code": "702505y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"wbl 3 periods internship": {
+"name": "@WBL 3 periods Internship",
+"code": "07703y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"mental health professional": {
+"name": "Mental Health Professional",
+"code": "702595y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"wbl mentorship": {
+"name": "@WBL Mentorship",
+"code": "07711y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"essentials of biotechnology": {
+"name": "Essentials of Biotechnology",
+"code": "702535y",
+"gradeMin": 10,
+"gradeMax": 11,
+"category": "Career Tech Pathways"
+},
+"application of biotechnology": {
+"name": "Application of Biotechnology",
+"code": "702285y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Career Tech Pathways"
+},
+"visual arts i": {
+"name": "Visual Arts I",
+"code": "800335y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"drama- musical theater- audition required for intermediate and advanced classes": {
+"name": "Drama- Musical Theater- Audition Required for Intermediate and Advanced Classes",
+"code": "804002",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"visual arts ii": {
+"name": "Visual Arts II",
+"code": "800345y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"drama- acting- audition required for intermediate and advanced classes": {
+"name": "Drama- Acting- Audition Required for Intermediate and Advanced Classes",
+"code": "804001",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"visual arts iii": {
+"name": "Visual Arts III",
+"code": "800355y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"theatre arts/tech theatre i": {
+"name": "Theatre Arts/Tech Theatre I",
+"code": "804155y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"photography i": {
+"name": "Photography I",
+"code": "800255y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"photography ii": {
+"name": "Photography II",
+"code": "800265y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"jewelry i": {
+"name": "Jewelry I",
+"code": "800225y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"jewelry ii": {
+"name": "Jewelry II",
+"code": "805225y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"jewelry iii": {
+"name": "Jewelry III",
+"code": "805235y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"band- audition required": {
+"name": "Band- Audition Required",
+"code": "80000",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"ap studio 2d": {
+"name": "@AP Studio 2D",
+"code": "800015y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"ethnic music studies i flag-line / color guard": {
+"name": "Ethnic Music Studies I Flag-Line / Color Guard",
+"code": "803055y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"ap studio 3d": {
+"name": "@AP Studio 3D",
+"code": "800025y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"intermediate jazz i": {
+"name": "Intermediate Jazz I",
+"code": "801545y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"ap drawing": {
+"name": "@AP Drawing",
+"code": "800035y",
+"gradeMin": 11,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"chorus- audition required for intermediate and advanced classes": {
+"name": "Chorus- Audition Required for Intermediate and Advanced Classes",
+"code": "802000",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"beg music theory/composition": {
+"name": "Beg Music Theory/Composition",
+"code": "801455y",
+"gradeMin": 9,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"int. music theory/composition ii": {
+"name": "Int. Music Theory/Composition II",
+"code": "801465y",
+"gradeMin": 10,
+"gradeMax": 12,
+"category": "Fine Arts"
+},
+"algebra: concepts & connections support": {
+"name": "Algebra: Concepts & Connections Support",
+"code": "200635y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"spanish ii/spanish iii": {
+"name": "Spanish II/Spanish III (2 pds)**",
+"code": "50711s/50721s",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"geometry: concepts & connections": {
+"name": "Geometry: Concepts & Connections",
+"code": "200625y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"geometry: concepts & connections honors": {
+"name": "Geometry: Concepts & Connections Honors",
+"code": "200675y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"accel advanced algebra: concepts & connections": {
+"name": "Accel Advanced Algebra: Concepts & Connections",
+"code": "200725y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"german ii/german iii": {
+"name": "German II/German III (2 pds)**",
+"code": "50211s/50221s",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"intro to business & technology": {
+"name": "Intro to Business & Technology",
+"code": "700605y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"ethnic music studies i": {
+"name": "Ethnic Music Studies I (Flag Line)",
+"code": "803085y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"tech theater i": {
+"name": "Tech Theater I",
+"code": "804155y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"audio & video technology & film i": {
+"name": "Audio & Video Technology & Film I",
+"code": "700775y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"examining teaching profession": {
+"name": "Examining Teaching Profession",
+"code": "709505y",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"driver ed/gen pe i": {
+"name": "Driver Ed/Gen PE I",
+"code": "60325s/60065s",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"health/personal fitness": {
+"name": "Health/Personal Fitness",
+"code": "60175s/60105s",
+"gradeMin": null,
+"gradeMax": null,
+"category": "9th Grade Course Offerings"
+},
+"ap american lit/lang": {
+"name": "AP American Lit/Lang",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib french hl": {
+"name": "IB French HL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap literature": {
+"name": "AP Literature",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib french sl": {
+"name": "IB French SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib english a lit hl year one": {
+"name": "IB English A Lit HL Year One",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib german hl": {
+"name": "IB German HL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib english a lit hl year two": {
+"name": "IB English A Lit HL Year Two",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap spanish": {
+"name": "AP Spanish",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib german sl": {
+"name": "IB German SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap spanish lit": {
+"name": "AP Spanish Lit",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib latin hl": {
+"name": "IB Latin HL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib latin sl": {
+"name": "IB Latin SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib spanish hl": {
+"name": "IB Spanish HL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"honors chemistry": {
+"name": "Honors Chemistry",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib spanish sl": {
+"name": "IB Spanish SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap physics c: e&m": {
+"name": "AP Physics C: E&M",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap enviromental science": {
+"name": "AP Enviromental Science",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"capstone": {
+"name": "Capstone",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib biology hl year one": {
+"name": "IB Biology HL Year One",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib biology hl year two": {
+"name": "IB Biology HL Year Two",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib chemistry sl": {
+"name": "IB Chemistry SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap comparative government": {
+"name": "AP Comparative Government",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib physics hl year 1": {
+"name": "IB Physics HL Year 1",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap microeconomics": {
+"name": "AP Microeconomics",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"programming/games/apps": {
+"name": "Programming/Games/Apps",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib physics hl year 2": {
+"name": "IB Physics HL Year 2",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap macroeconomics": {
+"name": "AP Macroeconomics",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap computer science principles": {
+"name": "AP Computer Science Principles",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ap computer science- a": {
+"name": "AP Computer Science- A",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib history sl- 20th century": {
+"name": "IB History SL- 20th Century",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib computer science": {
+"name": "IB Computer Science",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib psychology sl": {
+"name": "IB Psychology SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"adv algebra: concepts and connections": {
+"name": "Adv Algebra: Concepts and Connections",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib theory of knowledge a": {
+"name": "IB Theory of Knowledge A",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib theory of knowledge b": {
+"name": "IB Theory of Knowledge B",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib theatre": {
+"name": "IB Theatre",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"amdm": {
+"name": "AMDM (Advanced Math Decision Making)",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib math application & interpretations sl": {
+"name": "IB Math Application & Interpretations SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib math analysis & approaches": {
+"name": "IB Math Analysis & Approaches",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "Rigor"
+},
+"ib personal & prof skills a": {
+"name": "IB Personal & Prof Skills A",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "IB"
+},
+"ib visual arts sl & hl": {
+"name": "IB Visual Arts SL & HL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "IB"
+},
+"ib personal & prof skills b": {
+"name": "IB Personal & Prof Skills B",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "IB"
+},
+"ib business & mgmt sl": {
+"name": "IB Business & Mgmt SL",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "IB"
+},
+"ib film": {
+"name": "IB Film",
+"code": null,
+"gradeMin": null,
+"gradeMax": null,
+"category": "IB"
+}
+}

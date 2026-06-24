@@ -242,13 +242,24 @@ const SEED_RESOURCES = [
   { id: 'res-seed-1', title: '2026–27 Course Catalog', category: 'courseList', description: 'Master list of every course offered next year, with section codes and credit values.', fileName: 'course-catalog-2026.pdf', path: null, url: '/mock/resources/course-catalog-2026.pdf', size: 482000, contentType: 'application/pdf', uploadedBy: 'demo-counselor', createdAt: '2026-05-20T15:00:00.000Z' },
   { id: 'res-seed-2', title: 'Prerequisite Matrix', category: 'prereqs', description: 'Which courses unlock which — the full prereq dependency grid counselors check before approving an override.', fileName: 'prereq-matrix.xlsx', path: null, url: '/mock/resources/prereq-matrix.xlsx', size: 91000, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedBy: 'demo-counselor', createdAt: '2026-05-18T12:30:00.000Z' },
   { id: 'res-seed-3', title: 'Waiver Eligibility Policy', category: 'policy', description: 'District rules governing when each waiver type may be granted. Reference this for edge cases.', fileName: 'eligibility-policy.pdf', path: null, url: '/mock/resources/eligibility-policy.pdf', size: 158000, contentType: 'application/pdf', uploadedBy: 'demo-counselor', createdAt: '2026-04-30T09:15:00.000Z' },
+  { id: 'res-seed-4', title: 'SFHS Course Digest', category: 'courseList', description: 'South Forsyth HS master course digest — every course, section, and credit value. Live SharePoint workbook.', fileName: 'Open in SharePoint', path: null, url: 'https://forsythk12org-my.sharepoint.com/:x:/g/personal/smccloy_forsythk12_org/IQDgFBhIy7gYSq-PnmD37-eJATZJB0CFdgqiucyF019dOr0?rtime=Qz_NKcLR3kg', size: 0, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedBy: 'demo-counselor', createdAt: '2026-06-01T10:00:00.000Z' },
 ]
 let resourcesStore = null
 function ensureResources() {
   if (resourcesStore) return
   const stored = lsRead(LS_RES)
-  resourcesStore = Array.isArray(stored) ? stored : SEED_RESOURCES.map((r) => ({ ...r }))
-  if (!Array.isArray(stored)) lsWrite(LS_RES, resourcesStore)
+  if (Array.isArray(stored)) {
+    // Merge in any NEW seed resources by id so returning demo browsers pick up
+    // seeds added after their first visit (e.g. the SFHS Course Digest link),
+    // without clobbering user-added/-deleted resources.
+    const storedIds = new Set(stored.map((r) => r.id))
+    const missingSeeds = SEED_RESOURCES.filter((s) => !storedIds.has(s.id)).map((r) => ({ ...r }))
+    resourcesStore = missingSeeds.length ? [...missingSeeds, ...stored] : stored
+    if (missingSeeds.length) lsWrite(LS_RES, resourcesStore)
+  } else {
+    resourcesStore = SEED_RESOURCES.map((r) => ({ ...r }))
+    lsWrite(LS_RES, resourcesStore)
+  }
 }
 
 export async function fetchResources() {
@@ -673,8 +684,11 @@ export async function fetchReviewQueue() {
   }))
 }
 
-// Authoritative SIS record for a student, pulled from the OneRoster API.
+// Authoritative SIS record for a student, pulled from the OneRoster API. Real
+// mode reads the one_roster cache (refreshed by the oneroster-pull edge function);
+// demo mode serves the fixture.
 export async function fetchOneRosterRecord(studentId) {
+  if (isSupabaseConfigured) return sb.fetchOneRosterRecord(studentId)
   await delay(300)
   const record = ONE_ROSTER[studentId]
   return record ? clone(record) : null
@@ -876,13 +890,23 @@ export async function updateRubricCriteria(nextCriteria, nextWaivers, actor = nu
 // ---- Batch sync (Infinite Campus) ---------------------------------------
 
 export async function fetchBatchSyncQueue() {
+  if (isSupabaseConfigured) return sb.fetchBatchSyncQueue()
   await delay()
   return clone(batch)
 }
 
-// Force-push the unsynced approved waivers to Infinite Campus. Real version
-// calls a server-side edge function holding the IC credentials — never client.
+// Force-push the unsynced approved waivers to Infinite Campus.
+//
+// Real mode: delegates to the sync-to-infinite-campus edge function, which holds
+// the IC credentials, re-validates each record against a FRESH OneRoster pull, and
+// transitions push_state per record. The client never touches credentials and
+// never marks a record synced — only the server-confirmed transition does that
+// (fixes the demo's "mark synced before the push" hazard below).
+//
+// Demo mode: the localStorage stub. NOTE it sets synced=true BEFORE the (fake)
+// push — acceptable for the demo, never for real mode (hence the split above).
 export async function triggerBatchICPush(actor = null) {
+  if (isSupabaseConfigured) return sb.triggerBatchICPush(actor)
   await delay(900)
   const pushed = batch.filter((b) => !b.synced)
   const syncPackage = buildSyncPackage(pushed)

@@ -1,19 +1,18 @@
 import Hook from './slides/Hook'
 import Stakes from './slides/Stakes'
 import Meet from './slides/Meet'
-import HowItWorks from './slides/HowItWorks'
-import Demo from './slides/Demo'
+import Flow from './slides/Flow'
 import BeforeAfter from './slides/BeforeAfter'
-import Compliance from './slides/Compliance'
 import Proof from './slides/Proof'
-import Pricing from './slides/Pricing'
+import Compliance from './slides/Compliance'
 import Rollout from './slides/Rollout'
+import SeeItLive from './slides/SeeItLive'
 import Close from './slides/Close'
 
 // The full Schedule AI sales deck, on white. Narrative arc (Warikoo): pain →
-// cost → solution → how → proof it works → trust → social proof → price →
-// rollout → ask. `label` shows in the chrome + notes; `notes` are the presenter's
-// spoken talking points (press N).
+// cost → solution → how → proof it works → trust → social proof → rollout → live
+// → ask. `label` shows in the chrome + notes; `notes` are the presenter's spoken
+// talking points (press N).
 export const slides = [
   {
     id: 'hook',
@@ -35,16 +34,10 @@ export const slides = [
     notes: `Now the turn. Say the promise in one sentence and stop: "Schedule AI reads the transcript, builds a graduation-compliant schedule in seconds, and you make the final call." Emphasize "final call" — counselors fear being replaced; this keeps them in control. Pause here before the demo.`,
   },
   {
-    id: 'how',
+    id: 'flow',
     label: 'How it works',
-    Component: HowItWorks,
-    notes: `Keep it to three sentences — one per step. The point of this slide is "no data entry, no rule-checking by hand, and you still approve everything." If someone worries about accuracy, that's step three: it proposes, the counselor disposes.`,
-  },
-  {
-    id: 'demo',
-    label: 'See it in action',
-    Component: Demo,
-    notes: `This is where you stop talking and play the recording (or run it live). Narrate the flow once: "Here's a real transcript going in… courses and GPA parsed… a compliant schedule out… and the audit view that shows why." Let the product carry the slide. (Placeholder frame until the real screen-capture is dropped in.)`,
+    Component: Flow,
+    notes: `Walk the line left to right, one node at a time. Two inputs merge into one pipeline: "drop a transcript PDF, OR pull the roster straight from Infinite Campus — either works." Then: it reads the record automatically (no data entry), builds a graduation-compliant plan against live seat availability (seconds, not hours). Stop on the warm diamond — that's the whole pitch: it proposes, the counselor disposes. The human makes the final call, sees the AI's confidence, and can say no. Last node: the approved schedule pushes back to Infinite Campus with a full audit trail. End by pointing at the diamond again, then: "let me just show you live."`,
   },
   {
     id: 'beforeafter',
@@ -54,29 +47,29 @@ export const slides = [
     notes: `Let the two numbers do the work. 2–3 minutes to review a waiver by hand, 10–15 seconds with Schedule AI — about 12× faster. The line that matters: multiply that across a term's waivers and it's hours of a counselor's time back. (2–3 min is the real manual figure; the seconds is our measured run.)`,
   },
   {
+    id: 'proof',
+    label: 'The difference',
+    Component: Proof,
+    notes: `State the core claim plainly and let it land: a waiver that took two to three minutes to review by hand now takes ten to fifteen seconds — the same careful review, without the manual hours. No quote, no testimonial (no deployed schools yet); the metric itself is the proof.`,
+  },
+  {
     id: 'compliance',
     label: 'Built for compliance',
     Component: Compliance,
     notes: `This slide is for the procurement and IT people in the room, not the counselors. Lead with FERPA and stop there if they nod. The rest — audit trail, RLS, role-based access — is there so their security review has nothing to flag. Calm and brief; you're removing objections, not selling.`,
   },
   {
-    id: 'proof',
-    label: 'The difference',
-    Component: Proof,
-    tone: 'blue',
-    notes: `State the core claim plainly and let it land: a waiver that took two to three minutes to review by hand now takes ten to fifteen seconds — the same careful review, without the manual hours. No quote, no testimonial (no deployed schools yet); the metric itself is the proof.`,
-  },
-  {
-    id: 'pricing',
-    label: 'Pricing & ROI',
-    Component: Pricing,
-    notes: `Don't sell the price — sell the math. Say one number and stop: roughly twelve hundred a year per counselor, everything included. Then flip it: it gives each of them about forty hours back a term. At their loaded hourly rate, the seat is paid off in the first week. You're not asking for budget, you're handing back time. (All figures are placeholders — swap in their real seat count and loaded hourly cost before you walk in.)`,
-  },
-  {
     id: 'rollout',
     label: 'Rollout',
     Component: Rollout,
     notes: `Make adoption feel small. "Live in a week, one counselor at a time, at your pace." The word that lands with cautious districts is "Ongoing — Support": they're not buying software and being left alone, they get a named contact and a security review.`,
+  },
+  {
+    id: 'seeitlive',
+    label: 'See it live',
+    Component: SeeItLive,
+    tone: 'blue',
+    notes: `Stop talking. This is the handoff — alt-tab into the real app and walk the exact flow you just drew on the diagram: a real transcript going in, courses and GPA parsed, a compliant schedule out, the AI recommendation with its confidence, your approval, the push back to Infinite Campus. Don't narrate features — narrate the same five steps in the same order. Let the live product close the gap between "here's how it works" and "here it is working."`,
   },
   {
     id: 'close',

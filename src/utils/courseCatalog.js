@@ -1,16 +1,64 @@
-// Parses courses.tsv into a catalog + directed prerequisite graph.
+// Parses courses.tsv into a catalog + directed prerequisite graph, enriched with
+// the 2026-27 SFHS Course Digest (course codes, grade ranges, category) — see
+// src/data/courseDigest.json, generated from the official digest spreadsheet.
 import coursesTsv from '../../courses.tsv?raw'
+import courseDigest from '../data/courseDigest.json'
 import { bestFuzzyMatch, rankByRelevance } from './levenshtein.js'
+
+// Normalise a course name to the same key shape the digest is keyed by, so a
+// courses.tsv row ("Chemistry *") matches its digest entry ("Chemistry").
+function digestKey(name) {
+  return String(name ?? '')
+    .toLowerCase()
+    .replace(/[*@†‡]/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/\d+\s*periods?\s*in\s*schedule/g, '') // drop "2 Periods in Schedule" suffix
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-*]+|[\s\-*]+$/g, '')
+}
+
+// Hand maintained aliases: courses.tsv name (normalised) -> digest key, for the
+// handful the digest abbreviates or annotates differently. Without these the row
+// still works but misses its code/grade/category metadata.
+const DIGEST_ALIASES = {
+  'ap macroeconomics': 'ap micro/macroeconomics',
+  'ap computer science principles': 'ap computer science prin.',
+  'fashion, merchandising, retailing': 'fashion, merchandising, ret',
+  'drama-musical theater': 'drama- musical theater- audition required for intermediate and advanced classes',
+  'drama-acting': 'drama- acting- audition required for intermediate and advanced classes',
+  band: 'band- audition required',
+  chorus: 'chorus- audition required for intermediate and advanced classes',
+}
+
+function lookupDigest(name) {
+  const key = digestKey(name)
+  // Prefer a direct, fully-coded digest entry; only fall back to the alias target
+  // when there's no direct hit (or the direct hit is a code-less name-only stub).
+  const direct = courseDigest[key]
+  if (direct?.code) return direct
+  return courseDigest[DIGEST_ALIASES[key] ?? key] ?? direct ?? null
+}
 
 function parseTsv(raw) {
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0)
   const [, ...rows] = lines // skip header
   const parsed = rows.map((line) => {
     const [name, minGrade, prerequisite] = line.split('\t').map((c) => c.trim())
+    // Enrich with the digest entry when its normalised name (or alias) matches.
+    const digest = lookupDigest(name)
+    const tsvMin = Number(minGrade)
     return {
       name,
-      minGrade: Number(minGrade),
+      // courses.tsv is authoritative for minGrade; backfill from the digest grade
+      // range start only when the tsv value is missing/0.
+      minGrade: tsvMin || digest?.gradeMin || 0,
+      // Upper grade bound — digest-only; null means "no ceiling".
+      maxGrade: digest?.gradeMax ?? null,
       prerequisite: prerequisite && prerequisite.toLowerCase() !== 'none' ? prerequisite : null,
+      code: digest?.code ?? null,
+      category: digest?.category ?? null,
+      // Soft signal: present in the current-year digest. Not an eligibility gate.
+      offered: Boolean(digest),
     }
   })
   // courses.tsv has at least one literal duplicate row (e.g. "AP Research");

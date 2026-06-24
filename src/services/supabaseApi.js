@@ -353,7 +353,117 @@ export async function submitDecision(requestId, decision, note = '') {
       .update({ status, counselor_note: note, decided_by: user?.id ?? null, decided_at: new Date().toISOString() })
       .eq('id', requestId),
   )
+  // Bridge the approval into the IC push queue + claim a soft seat hold. The demo
+  // path (api.js) does this inline; real mode previously did NOT — this is the
+  // missing wire. Best-effort: the DECISION is the primary action and must never
+  // be undone by a queue/hold hiccup (e.g. the 0009/0011 migrations not yet
+  // applied), so the bridge is wrapped and its failure is swallowed like audit.
+  if (decision === 'admit') await enqueueForIcPush(requestId).catch(() => {})
+  if (decision === 'deny') await supabase.rpc('release_seat_hold', { p_request_id: requestId }).then(undefined, () => {})
   return { ok: true, requestId, decision }
+}
+
+// Insert a 'queued' batch_sync_queue row for an approved request and claim a soft
+// seat hold for the target course. RLS lets a counselor INSERT only 'queued' rows;
+// all later push_state transitions are made server-side by the edge function.
+async function enqueueForIcPush(requestId) {
+  const { data: req } = await supabase.from('requests').select('*').eq('id', requestId).maybeSingle()
+  if (!req) return
+  const snap = req.student_snapshot ?? null
+  // Idempotent enqueue: skip if this request is already queued/in-flight.
+  const { data: existing } = await supabase
+    .from('batch_sync_queue').select('id').eq('request_id', requestId)
+    .in('push_state', ['queued', 'claimed', 'exported', 'imported', 'confirmed']).maybeSingle()
+  if (existing) return
+
+  // Backfill the IC student/school keys from the pull cache when present. The TARGET
+  // section key (class_sourced_id) is genuinely unknown without IC section data, so
+  // it stays null — which routes the record to the manual_ui_export worklist (the
+  // safe default) rather than an auto-push it can't address. idempotency_key is set
+  // only once all three keys exist (a real-district, fully-mapped record).
+  const { data: roster } = await supabase
+    .from('one_roster').select('sis_id, school_sourced_id').eq('student_id', req.student_id).maybeSingle()
+
+  await supabase.from('batch_sync_queue').insert({
+    request_id: requestId,
+    student_id: req.student_id,
+    student_name: snap?.name ?? req.student_id,
+    waiver_name: req.waiver_type_id,
+    from_course: req.from_course ?? null,
+    to_course: req.to_course ?? null,
+    user_sourced_id: roster?.sis_id ?? null,
+    school_sourced_id: roster?.school_sourced_id ?? null,
+    push_state: 'queued',
+  })
+
+  // Soft seat hold on the TARGET course (the one being JOINED — where
+  // over-allocation happens), best-effort. The real seat authority is IC Max
+  // Students, reconciled at push. Period is a coarse placeholder (0) until real IC
+  // section data resolves the target period — documented as a course-level hold.
+  if (req.to_course) {
+    await supabase.rpc('claim_seat', {
+      p_course: req.to_course, p_period: 0, p_request_id: requestId, p_student_id: req.student_id, p_capacity: 30,
+    }).then(undefined, () => {})
+  }
+}
+
+// ---- Batch sync to Infinite Campus -----------------------------------------
+// Read the push queue. Maps the push_state machine back to a demo-compatible
+// { synced } boolean while also surfacing the richer state. 'done' = handed off:
+// in the DEFAULT manual_ui_export mode the terminal success state is 'imported'
+// (handed to the registrar), not 'confirmed' (auto-push ack) — collapsing to
+// confirmed-only would mark every manual record pending forever.
+export async function fetchBatchSyncQueue() {
+  const data = unwrap(
+    await supabase.from('batch_sync_queue').select('*').order('approved_at', { ascending: false }),
+  )
+  return data.map((r) => ({
+    id: r.id,
+    student: r.student_name ?? r.student_id,
+    waiver: r.waiver_name ?? r.waiver_type_id ?? '',
+    approvedAt: r.approved_at,
+    synced: r.push_state === 'confirmed' || r.push_state === 'imported',
+    pushState: r.push_state,
+    lastError: r.last_error ?? null,
+  }))
+}
+
+// Trigger a push run. All credential-holding work + push_state transitions happen
+// server-side in the edge function; the client only invokes it and reports counts.
+export async function triggerBatchICPush() {
+  const { data, error } = await supabase.functions.invoke('sync-to-infinite-campus', { body: {} })
+  if (error) throw new Error(error.message)
+  const counts = data?.counts ?? {}
+  // "Pushed" = handed off / done only (confirmed + imported). exported is still in
+  // flight; superseded/failed are not pushes. Keeps the toast honest vs the badge.
+  const pushedCount = (counts.confirmed ?? 0) + (counts.imported ?? 0)
+  return {
+    ok: !!data?.ok,
+    pushedCount,
+    inFlight: counts.exported ?? 0,
+    superseded: counts.superseded ?? 0,
+    failed: counts.failed ?? 0,
+    counts,
+    transportMode: data?.transportMode ?? null,
+    worklistUrl: data?.worklistUrl ?? null,
+  }
+}
+
+// Authoritative student snapshot from the one_roster cache (refreshed by the
+// oneroster-pull edge function). Mirrors the mock fetchOneRosterRecord shape.
+export async function fetchOneRosterRecord(studentId) {
+  const r = unwrap(await supabase.from('one_roster').select('*').eq('student_id', studentId).maybeSingle())
+  if (!r) return null
+  return {
+    studentId: r.sis_id ?? r.student_id,
+    gpa: r.gpa,
+    attendanceRate: r.attendance_rate,
+    gradeLevel: r.grade_level,
+    enrollmentStatus: r.enrollment_status,
+    lastSync: r.last_sync,
+    completedCourses: r.completed_courses ?? [],
+    currentSchedule: r.current_schedule ?? [],
+  }
 }
 
 // ---- Counselor: rejected history -------------------------------------------

@@ -20,6 +20,11 @@ export function buildRulesForCourse(course) {
     })
   }
 
+  // NOTE: the digest's upper grade bound (course.maxGrade) is intentionally NOT a
+  // hard rule. Those ranges are the *typical* grade, not a ceiling — e.g. Biology
+  // shows 9-10 but juniors/seniors may still take it. maxGrade is kept as catalog
+  // metadata for display/advisories only, never as an eligibility gate.
+
   return rules
 }
 
