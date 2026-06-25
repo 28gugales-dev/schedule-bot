@@ -2,11 +2,11 @@
 
 A permanent, interactive demo request for the counselor review queue —
 useful for pitches/walkthroughs without needing a real student to submit
-something first.
+something first, and with **no writes to Supabase**.
 
 **Avery Mitchell** — grade 11, South Forsyth High School. Real transcript
-data (see `avery-mitchell-transcript.pdf`): weighted GPA 4.53, 99% attendance,
-21 completed courses including **Journalism I**.
+data (see `avery-mitchell-transcript.pdf`): weighted GPA 4.53, 99%
+attendance, 21 completed courses including **Journalism I**.
 
 **The request:** Prerequisite Override — replace **Journalism I** with
 **Journalism III** (skipping the formal Journalism II prerequisite).
@@ -17,32 +17,27 @@ track-skip, and schedule all check out).
 Her current course list: Journalism I, Adv. Weight Training, AP Biology,
 AP Calculus AB, AP World History, AP Psychology, French III.
 
-## Files
+## How it works
 
-- `seed-avery-mitchell.sql` — creates everything (profile, SIS record,
-  waiver type, and the pending request). **Idempotent** — re-running it
-  never duplicates her or resets a decision a counselor already made.
-- `reset-avery-mitchell.sql` — puts her request back to pending if you
-  already admitted/denied it in a previous demo and want a clean run.
-- `avery-mitchell-transcript.pdf` — the real transcript document; upload
-  this in the student intake flow to see it parsed live, if you want to
-  demo that path too instead of (or in addition to) the seeded request.
+Her data is hardcoded in `src/services/demoSeed.js`. `services/api.js`
+overlays her request into `fetchReviewQueue()` and serves her SIS record
+from `fetchOneRosterRecord()` — regardless of whether the app is running
+against a real Supabase backend or local mock data. **Admitting or denying
+her doesn't write anywhere** (no Supabase row, no local mock array); it
+just flips an in-memory flag for the current page session. Reload the app
+or log back in and she's there again, fresh and pending — no reset script
+needed.
 
-## Setup
+`avery-mitchell-transcript.pdf` is her real transcript document — also
+usable to demo the live upload/parse flow separately, if you want to show
+that path in addition to (or instead of) the pre-seeded request.
 
-1. Open your Supabase project → **SQL Editor** → **New query**.
-2. Paste in the contents of `seed-avery-mitchell.sql` and click **Run**.
-3. Log in as a counselor — Avery Mitchell's request is in the Review Queue.
-4. Admit or deny it like any real request.
-5. Before your next demo, optionally run `reset-avery-mitchell.sql` to put
-   her back to pending.
+## Why not Supabase?
 
-## Why this needed a fake `auth.users` row
-
-`profiles`, `one_roster`, and `requests` all reference `auth.users` via
-foreign key — there's no way to seed a "student" without *some* row there,
-even though Avery never logs in herself. The script inserts one with an
-unusable password hash, purely to satisfy the foreign key chain. This is a
-direct write to an internal Supabase-managed table; reasonable for a
-demo-only record, but worth knowing about before adapting this pattern
-elsewhere.
+An earlier version of this seeded Avery directly into the real database,
+which required faking a row in Supabase's internal `auth.users` table just
+to satisfy foreign keys (`profiles`/`one_roster`/`requests` all reference
+it) — workable, but more moving parts than this needs for a pure demo
+fixture. Hardcoding her in the app layer instead means zero database
+dependency: she shows up the same way whether or not Supabase is even
+configured.
