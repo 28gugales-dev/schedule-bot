@@ -25,7 +25,11 @@ export function SlideRoot({ children, className = '' }) {
 export function SlideFrame({ eyebrow, title, children, kicker }) {
   return (
     <SlideRoot>
-      <div className="mx-auto flex h-full max-w-[1160px] flex-col justify-center px-16 py-16">
+      {/* Vertical rhythm is height-responsive: tight enough to clear the chrome
+          band on ~720–800px laptop/projector heights, generous on tall (≥880px)
+          displays so big screens don't read sparse. Horizontal padding eases in
+          on narrower widths. */}
+      <div className="mx-auto flex h-full max-w-[1160px] flex-col justify-center px-10 py-6 sm:px-14 md:px-16 [@media(min-height:880px)]:py-14">
         {(eyebrow || title) && (
           <header>
             {eyebrow && (
@@ -45,7 +49,7 @@ export function SlideFrame({ eyebrow, title, children, kicker }) {
             )}
           </header>
         )}
-        <div className="mt-12">{children}</div>
+        <div className="mt-7 [@media(max-height:760px)]:mt-4 [@media(min-height:880px)]:mt-12">{children}</div>
       </div>
     </SlideRoot>
   )
@@ -56,7 +60,7 @@ export function Box({ children, className = '', accent = false }) {
   return (
     <div
       data-anim
-      className={`rounded-xl border bg-panel p-6 ${
+      className={`rounded-xl border bg-panel p-6 [@media(max-height:760px)]:p-4 ${
         accent ? 'border-brand-200 bg-brand-50' : 'border-border'
       } ${className}`}
     >

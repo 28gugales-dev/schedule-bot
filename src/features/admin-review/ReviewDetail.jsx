@@ -501,7 +501,7 @@ function VerificationSection({ checks }) {
           const isOpen = expanded.has(check.id)
           const ok = check.passed
           return (
-            <div key={check.id} className={`overflow-hidden rounded-lg ring-1 ${ok ? 'ring-hairline' : 'ring-danger-200'}`}>
+            <div key={check.id} className={`shrink-0 overflow-hidden rounded-lg ring-1 ${ok ? 'ring-hairline' : 'ring-danger-200'}`}>
               <button
                 type="button"
                 onClick={() => toggle(check.id)}

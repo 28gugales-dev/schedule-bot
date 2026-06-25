@@ -70,8 +70,12 @@ export default function Deck() {
         ))}
       </div>
 
-      {/* slide stage — data-tone recolors every primitive via the token remap */}
-      <div key={index} data-tone={blue ? 'blue' : 'white'} className="absolute inset-0 z-10">
+      {/* slide stage — inset to a chrome-safe band so no slide's content ever
+          slides under the top progress rail (~28px) or the bottom chrome bar
+          (~56px). The full-bleed background layers (Aurora / BlueSurface) stay
+          at inset-0 behind this. data-tone recolors every primitive via the
+          token remap. */}
+      <div key={index} data-tone={blue ? 'blue' : 'white'} className="absolute inset-x-0 top-8 bottom-14 z-10">
         <Slide />
       </div>
 
