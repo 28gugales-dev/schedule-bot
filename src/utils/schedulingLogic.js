@@ -3,9 +3,8 @@ import { parseTranscriptText } from './transcriptParser.js'
 import { getCourseByName } from './courseCatalog.js'
 import { checkEligibility } from './ruleEngine.js'
 import { checkSeatAvailability } from './seatAvailability.js'
-import { hasConflict } from './conflictDetection.js'
 import { analyzeDropImpact } from './dependencyAnalysis.js'
-import { getEquivalents } from './equivalencyGraph.js'
+import { getEquivalents, sharesPathway } from './equivalencyGraph.js'
 import { explainEligibility } from './explanationEngine.js'
 
 // Parses transcript text into structured course/grade/attendance data.
@@ -57,12 +56,12 @@ export function evaluateAgainstRubric(studentData, criteria) {
   const swapElig = swapCourse ? checkEligibility(student, swapCourse, eligOptions) : null
   const seat = swapCourse ? checkSeatAvailability(studentData.toCourse) : null
 
-  // Schedule-conflict check: would the new course's period collide with the
-  // rest of the student's current/planned course list (interval overlap)?
-  const currentSchedule = (studentData.courseList ?? [])
-    .filter((name) => name !== studentData.fromCourse)
-    .map((name) => ({ course: name, period: checkSeatAvailability(name).period }))
-  const conflict = seat?.available ? hasConflict(currentSchedule, { course: studentData.toCourse, period: seat.period }) : false
+  // "Conflict" = the requested course duplicates a course/pathway already
+  // elsewhere in the schedule (excluding the slot being replaced) — not a
+  // real period collision (there's no real per-period data for the typed
+  // course list; see CourseSwapPanel for why a period-based check was wrong).
+  const restOfSchedule = (studentData.courseList ?? []).filter((name) => name !== studentData.fromCourse)
+  const conflict = hasSwap ? restOfSchedule.some((existing) => sharesPathway(existing, studentData.toCourse)) : false
 
   for (const rule of criteria.filter((c) => c.enabled)) {
     switch (rule.id) {
@@ -119,7 +118,7 @@ export function evaluateAgainstRubric(studentData, criteria) {
     checks.push({ id: 'seat', label: `Seat available for "${studentData.toCourse}"`, passed: false })
     hardFail = true
   } else if (conflict && !isScheduleConflictWaiver) {
-    checks.push({ id: 'schedule-conflict', label: `No period conflict for "${studentData.toCourse}"`, passed: false })
+    checks.push({ id: 'schedule-conflict', label: `"${studentData.toCourse}" duplicates a course/pathway already on the schedule`, passed: false })
     hardFail = true
   } else if (conflict) {
     // Schedule-conflict waiver: the conflict is the reason for the request,

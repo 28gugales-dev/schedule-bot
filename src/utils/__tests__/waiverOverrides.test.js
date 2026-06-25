@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { checkEligibility } from '../ruleEngine.js'
 import { explainEligibility } from '../explanationEngine.js'
 import { getCourseByName, trackSkipHops } from '../courseCatalog.js'
+import { sharesPathway } from '../equivalencyGraph.js'
 import { evaluateAgainstRubric } from '../schedulingLogic.js'
 
 // Prerequisite Override exists to permit a missing formal prerequisite when
@@ -131,5 +132,110 @@ describe('schedule-conflict waiver does not self-deny on the conflict it exists 
     const criteria = [{ id: 'no-conflict', label: 'No unresolved schedule conflict', enabled: true }]
     const result = evaluateAgainstRubric(studentData, criteria)
     expect(result.decision).toBeDefined()
+  })
+})
+
+// Reported bug: with a full 7-course schedule, replacing Journalism I with
+// Journalism II/III was flagged as "conflicts with another course" against
+// EVERY candidate. Root cause: the conflict check faked a "period" for each
+// schedule course via the seat-capacity hash and looked for period overlap —
+// with 7 courses occupying most/all of the 7 fake period slots, almost any
+// candidate's fake period collided with something, even though nothing in
+// reality overlapped (the course being replaced is the one leaving). Fixed
+// by checking for an actual duplicate course/pathway elsewhere in the
+// schedule instead of a fabricated period collision.
+describe('full-schedule course swap: real duplicate/pathway conflict, not fake periods', () => {
+  it('sharesPathway: same numbered sequence is a conflict (Journalism I vs III)', () => {
+    expect(sharesPathway('Journalism I', 'Journalism III')).toBe(true)
+    expect(sharesPathway('Journalism II', 'Journalism IV')).toBe(true)
+  })
+
+  it('sharesPathway: AP/Honors/base variants of the same subject are a conflict', () => {
+    expect(sharesPathway('Biology Honors', 'AP Biology')).toBe(true)
+  })
+
+  it('sharesPathway: unrelated courses are not a conflict', () => {
+    expect(sharesPathway('Journalism I', 'AP Chemistry')).toBe(false)
+    expect(sharesPathway('Spanish II', 'French II')).toBe(false)
+  })
+
+  it('replacing a course with one further down its OWN pathway is not a false conflict, even with a full 7-course schedule', () => {
+    const fullSchedule = [
+      'Journalism I', 'Algebra: Concepts & Connections', 'Biology', 'World History',
+      'Spanish I', 'Personal Fitness/Health', 'Intro to Software Technology',
+    ]
+    const studentData = {
+      studentGrade: 11,
+      gpa: 3.5,
+      attendanceRate: 0.95,
+      courses: [{ name: 'Journalism I', mark: 90 }],
+      completed: new Set(['Journalism I']),
+      waiverTypeId: 'prereq-override',
+      fromCourse: 'Journalism I',
+      toCourse: 'Journalism III',
+      courseList: fullSchedule,
+      missingDocs: [],
+    }
+    const criteria = [{ id: 'no-conflict', label: 'No unresolved schedule conflict', enabled: true }]
+    const result = evaluateAgainstRubric(studentData, criteria)
+    expect(result.checks.find((c) => c.id === 'schedule-conflict')).toBeUndefined()
+    expect(result.decision).not.toBe('deny')
+  })
+
+  it('replacing a DIFFERENT course with one that duplicates another course already in the schedule IS flagged', () => {
+    const fullSchedule = [
+      'Journalism I', 'AP Biology', 'World History', 'Spanish I',
+      'Personal Fitness/Health', 'Intro to Software Technology', 'Algebra: Concepts & Connections',
+    ]
+    const studentData = {
+      studentGrade: 11,
+      gpa: 3.5,
+      attendanceRate: 0.95,
+      courses: [{ name: 'AP Biology', mark: 90 }],
+      completed: new Set(['Biology Honors', 'AP Biology']),
+      waiverTypeId: 'grad-substitution', // not the conflict-permitting waiver
+      fromCourse: 'World History', // dropping something unrelated
+      toCourse: 'Biology Honors', // duplicates AP Biology already in the schedule
+      courseList: fullSchedule,
+      missingDocs: [],
+    }
+    const criteria = [{ id: 'no-conflict', label: 'No unresolved schedule conflict', enabled: true }]
+    const result = evaluateAgainstRubric(studentData, criteria)
+    const conflictCheck = result.checks.find((c) => c.id === 'schedule-conflict')
+    expect(conflictCheck?.passed).toBe(false)
+    expect(result.decision).toBe('deny')
+  })
+
+  it('exact user-reported schedule: replacing Journalism I with Journalism III is not flagged as conflicting with anything', () => {
+    const fullSchedule = [
+      'Journalism I',
+      'Adv. Weight Training',
+      'AP Biology',
+      'AP Calculus AB',
+      'AP World History',
+      'AP Psychology',
+      'French III',
+    ]
+    const studentData = {
+      studentGrade: 11,
+      gpa: 3.8,
+      attendanceRate: 0.96,
+      courses: [{ name: 'Journalism I', mark: 92 }],
+      completed: new Set(['Journalism I']),
+      waiverTypeId: 'prereq-override',
+      fromCourse: 'Journalism I',
+      toCourse: 'Journalism III',
+      courseList: fullSchedule,
+      missingDocs: [],
+    }
+    const criteria = [{ id: 'no-conflict', label: 'No unresolved schedule conflict', enabled: true }]
+    const result = evaluateAgainstRubric(studentData, criteria)
+
+    // None of the other 6 courses share a pathway with Journalism III, so no
+    // conflict should be raised against any of them.
+    expect(result.checks.find((c) => c.id === 'schedule-conflict')).toBeUndefined()
+    const noConflictCheck = result.checks.find((c) => c.id === 'no-conflict')
+    expect(noConflictCheck.passed).toBe(true)
+    expect(result.decision).not.toBe('deny')
   })
 })
