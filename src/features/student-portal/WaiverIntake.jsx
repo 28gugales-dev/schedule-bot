@@ -489,6 +489,7 @@ export function WaiverIntake() {
                 student={{ currentGrade: transcriptData?.studentGrade ?? 9, completed: transcriptData?.completed ?? new Set() }}
                 value={swap}
                 onChange={setSwap}
+                waiverTypeId={selectedWaiverId}
               />
             </div>
           )}

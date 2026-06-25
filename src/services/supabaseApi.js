@@ -194,7 +194,7 @@ export async function submitWaiver(payload) {
 
   const recommendation = payload.transcriptData
     ? evaluateAgainstRubric(
-        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList },
+        { ...payload.transcriptData, waiverTypeId: payload.waiverTypeId, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList },
         formCriteria,
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }

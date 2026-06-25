@@ -1,14 +1,32 @@
 import { useMemo, useState } from 'react'
-import { getCourseCatalog } from '../../utils/courseCatalog.js'
+import { getCourseCatalog, trackSkipHops } from '../../utils/courseCatalog.js'
 import { checkEligibility } from '../../utils/ruleEngine.js'
 import { checkSeatAvailability } from '../../utils/seatAvailability.js'
-import { hasConflict } from '../../utils/conflictDetection.js'
+import { sharesPathway } from '../../utils/equivalencyGraph.js'
 import { analyzeDropImpact } from '../../utils/dependencyAnalysis.js'
 
 const NONE_OPTION = '__none__'
 
-// Two-column "drop X, replace with Y" picker — right side grays out ineligible courses.
-export function CourseSwapPanel({ courseListNames = [], student, value, onChange }) {
+// Two-column "drop X, replace with Y" picker — right side grays out ineligible
+// courses. Two waiver types relax the gate they'd otherwise enforce, since
+// each exists specifically to permit the thing it would normally block:
+//   - prereq-override: missing prereq is waived within 2 forward hops of
+//     fromCourse in the prereq graph (e.g. completed Journalism I -> may
+//     request Journalism II or III, on unlisted/external credit).
+//   - schedule-conflict: a pathway/duplicate collision is shown, not
+//     disabled — that's the reason for the request, not a reason to block it.
+//
+// "Conflict" here means the candidate duplicates a course/pathway ALREADY
+// elsewhere in the schedule (excluding the slot being replaced) — NOT a real
+// class-period collision. There's no real per-period data for a student's
+// typed course list (the "Period N" box labels are just UI position), so an
+// earlier version faked periods via the seat-capacity hash — with a full
+// 7-course list that fake assignment collided with almost everything,
+// flagging every replacement as conflicting even when nothing actually
+// overlapped (e.g. replacing "Journalism I" with "Journalism III").
+export function CourseSwapPanel({ courseListNames = [], student, value, onChange, waiverTypeId }) {
+  const allowTrackSkip = waiverTypeId === 'prereq-override'
+  const allowConflictOverride = waiverTypeId === 'schedule-conflict'
   const [leftSearch, setLeftSearch] = useState('')
   const [rightSearch, setRightSearch] = useState('')
   const catalog = useMemo(() => getCourseCatalog(), [])
@@ -23,8 +41,10 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
 
   const dependencyImpact = useMemo(() => (fromCourse ? analyzeDropImpact(fromCourse) : null), [fromCourse])
 
-  const currentSchedule = useMemo(
-    () => courseListNames.filter((c) => c !== fromCourse).map((name) => ({ course: name, period: checkSeatAvailability(name).period })),
+  // The rest of the schedule once fromCourse is removed — what a candidate
+  // is actually checked against for duplication.
+  const restOfSchedule = useMemo(
+    () => courseListNames.filter((c) => c !== fromCourse),
     [courseListNames, fromCourse],
   )
 
@@ -33,21 +53,28 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
       .filter((c) => c.name.toLowerCase().includes(rightSearch.toLowerCase()))
       .map((course) => {
         const seat = checkSeatAvailability(course.name)
-        const conflict = seat.available && hasConflict(currentSchedule, { course: course.name, period: seat.period })
-        const elig = checkEligibility(student, course)
-        const eligible = seat.available && !conflict && elig.eligible
+        const duplicateOf = restOfSchedule.find((existing) => sharesPathway(existing, course.name)) ?? null
+        const conflictBlocks = Boolean(duplicateOf) && !allowConflictOverride
+        const elig = checkEligibility(student, course, { allowTrackSkip, fromCourse })
+        const eligible = seat.available && !conflictBlocks && elig.eligible
         const reasons = [
           ...(!seat.available ? ['No seats available in any period'] : []),
-          ...(conflict ? ['Conflicts with another course on your schedule'] : []),
+          ...(conflictBlocks ? [`Already have "${duplicateOf}" in this pathway`] : []),
           ...elig.failedRules.map((r) => r.label),
         ]
-        const why = !course.prerequisite
-          ? 'Intro course — no prerequisite required'
-          : `Meets prerequisite: "${course.prerequisite}"`
+        const hops = allowTrackSkip ? trackSkipHops(fromCourse, course.name) : null
+        const prereqWaived = hops != null && course.prerequisite && !student.completed.has(course.prerequisite)
+        const why = prereqWaived
+          ? `Prerequisite waived — ${hops} step${hops > 1 ? 's' : ''} ahead of "${fromCourse}"`
+          : duplicateOf && allowConflictOverride
+            ? `Overlaps "${duplicateOf}" — counselor will resolve`
+            : !course.prerequisite
+              ? 'Intro course — no prerequisite required'
+              : `Meets prerequisite: "${course.prerequisite}"`
         return { name: course.name, eligible, reasons, why, seatsLeft: seat.seatsLeft }
       })
     return rows.sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.name.localeCompare(b.name))
-  }, [catalog, rightSearch, student, currentSchedule])
+  }, [catalog, rightSearch, student, restOfSchedule, allowTrackSkip, allowConflictOverride, fromCourse])
 
   const setFrom = (name) => onChange({ fromCourse: name || null, toCourse })
   const setTo = (name) => onChange({ fromCourse, toCourse: name === NONE_OPTION ? 'None' : name })

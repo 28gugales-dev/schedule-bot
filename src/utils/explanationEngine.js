@@ -1,20 +1,31 @@
 // Explainability layer: turns a pass/fail rule check into a human-readable
 // reason with the actual values plugged in, for both passed and failed rules.
 import { buildRulesForCourse } from './ruleEngine.js'
+import { trackSkipHops } from './courseCatalog.js'
 
-export function explainEligibility(student, course) {
+// Mirrors ruleEngine.checkEligibility's track-skip override (see there for
+// why) so the explanation text agrees with the eligibility verdict instead
+// of saying "has not completed X" right next to a course it just allowed.
+export function explainEligibility(student, course, options = {}) {
   const rules = buildRulesForCourse(course)
   const reasons = []
   let eligible = true
+  const hops = options.allowTrackSkip ? trackSkipHops(options.fromCourse, course.name) : null
 
   for (const rule of rules) {
-    const met = rule.met(student)
+    let met = rule.met(student)
+    const overridden = rule.id === 'prereq' && !met && hops != null
+    if (overridden) met = true
     if (!met) eligible = false
     if (rule.id === 'prereq') {
       reasons.push({
         id: rule.id,
         passed: met,
-        text: met ? `Completed "${course.prerequisite}"` : `Has not completed "${course.prerequisite}"`,
+        text: overridden
+          ? `Prerequisite waived — ${hops} step${hops > 1 ? 's' : ''} ahead of "${options.fromCourse}" in this track`
+          : met
+            ? `Completed "${course.prerequisite}"`
+            : `Has not completed "${course.prerequisite}"`,
       })
     } else if (rule.id === 'grade') {
       reasons.push({

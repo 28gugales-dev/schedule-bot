@@ -33,6 +33,14 @@ import { waiverWindowStatus } from '../utils/waiverWindow.js'
 import * as waitlist from './waitlist.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import * as sb from './supabaseApi.js'
+import { AVERY_REQUEST, AVERY_REQUEST_ID, AVERY_STUDENT_ID, AVERY_ONE_ROSTER } from './demoSeed.js'
+
+// Avery Mitchell is a permanent, hardcoded demo record (see demoSeed.js) —
+// overlaid into the review queue regardless of backend mode. "Deciding" her
+// only flips this in-memory flag for the current session; nothing about her
+// is ever written to Supabase or to the local mock arrays, so she's back,
+// fresh and pending, the next time anyone loads the app.
+let averyDecidedThisSession = false
 
 // When Supabase is configured, the slice functions below delegate to the real
 // backend (services/supabaseApi.js); otherwise they fall through to the demo
@@ -508,7 +516,7 @@ export async function submitWaiver(payload, actor = null) {
   const missingDocs = findMissingDocs(payload.waiverTypeId, payload.documents, payload.courseList)
   const recommendation = payload.transcriptData
     ? evaluateAgainstRubric(
-        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
+        { ...payload.transcriptData, waiverTypeId: payload.waiverTypeId, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
         formCriteria,
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }
@@ -673,21 +681,26 @@ export async function deleteRequest(requestId) {
 // Priority-queue ordered (graduation risk + submission age), not raw
 // insertion order — see utils/priorityQueue.js.
 export async function fetchReviewQueue() {
-  if (isSupabaseConfigured) return sb.fetchReviewQueue()
-  await delay()
-  // Join per-request rubric verification (checks) at the read seam: real
-  // submissions already carry it on recommendation.checks (evaluateAgainstRubric);
-  // legacy seed requests fall back to the canned REVIEW_CHECKS fixture.
-  return clone(priorityOrderQueue(queue)).map((r) => ({
-    ...r,
-    checks: r.recommendation?.checks?.length ? r.recommendation.checks : REVIEW_CHECKS[r.id] ?? [],
-  }))
+  const base = isSupabaseConfigured
+    ? await sb.fetchReviewQueue()
+    : clone(priorityOrderQueue(queue)).map((r) => ({
+        // Join per-request rubric verification (checks) at the read seam: real
+        // submissions already carry it on recommendation.checks (evaluateAgainstRubric);
+        // legacy seed requests fall back to the canned REVIEW_CHECKS fixture.
+        ...r,
+        checks: r.recommendation?.checks?.length ? r.recommendation.checks : REVIEW_CHECKS[r.id] ?? [],
+      }))
+  if (averyDecidedThisSession) return base
+  const avery = clone(AVERY_REQUEST)
+  avery.checks = avery.recommendation?.checks ?? []
+  return priorityOrderQueue([avery, ...base])
 }
 
 // Authoritative SIS record for a student, pulled from the OneRoster API. Real
 // mode reads the one_roster cache (refreshed by the oneroster-pull edge function);
 // demo mode serves the fixture.
 export async function fetchOneRosterRecord(studentId) {
+  if (studentId === AVERY_STUDENT_ID) return clone(AVERY_ONE_ROSTER)
   if (isSupabaseConfigured) return sb.fetchOneRosterRecord(studentId)
   await delay(300)
   const record = ONE_ROSTER[studentId]
@@ -744,6 +757,15 @@ export async function fetchStudentRecord(studentId) {
 // the dropped course's seat (notifying anyone waitlisted for it); on deny it's
 // kept in the rejected-history log. Every outcome is written to the audit trail.
 export async function submitDecision(requestId, decision, note = '', actor = null) {
+  if (requestId === AVERY_REQUEST_ID) {
+    // Never persisted anywhere (no Supabase write, no local mock write) —
+    // just hides her for the rest of this session. Reload/re-login and
+    // she's back, pending, exactly as seeded.
+    await delay(350)
+    averyDecidedThisSession = true
+    console.info(`[demo] Avery Mitchell -> ${decision} (not persisted; resets next session)`)
+    return { ok: true, requestId, decision, nextId: null, remaining: 0 }
+  }
   if (isSupabaseConfigured) return sb.submitDecision(requestId, decision, note, actor)
   await delay(350)
   const idx = queue.findIndex((r) => r.id === requestId)
