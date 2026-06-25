@@ -508,7 +508,7 @@ export async function submitWaiver(payload, actor = null) {
   const missingDocs = findMissingDocs(payload.waiverTypeId, payload.documents, payload.courseList)
   const recommendation = payload.transcriptData
     ? evaluateAgainstRubric(
-        { ...payload.transcriptData, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
+        { ...payload.transcriptData, waiverTypeId: payload.waiverTypeId, fromCourse: payload.fromCourse, toCourse: payload.toCourse, courseList: payload.courseList, missingDocs },
         formCriteria,
       )
     : { decision: 'review', confidence: 0.5, reason: 'No transcript data available for automated evaluation.', checks: [] }

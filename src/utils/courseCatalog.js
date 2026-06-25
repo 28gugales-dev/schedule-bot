@@ -144,6 +144,29 @@ export function topologicalOrder() {
   return order
 }
 
+// How many forward hops `toCourseName` is from `fromCourseName` in the
+// prerequisite graph (1 = direct next course, 2 = the one after that), or
+// null if unreachable within maxHops. Powers the Prerequisite Override
+// "track skip" allowance: completed Journalism I -> Journalism II (1 hop)
+// or Journalism III (2 hops) are both in-track even without Journalism II
+// formally on file (e.g. covered by an unlisted summer/transfer course).
+export function trackSkipHops(fromCourseName, toCourseName, maxHops = 2) {
+  ensureLoaded()
+  if (!fromCourseName || !toCourseName) return null
+  let frontier = [fromCourseName]
+  for (let hop = 1; hop <= maxHops; hop++) {
+    const next = []
+    for (const course of frontier) {
+      for (const child of _children.get(course) ?? []) {
+        if (child === toCourseName) return hop
+        next.push(child)
+      }
+    }
+    frontier = next
+  }
+  return null
+}
+
 // Courses now unlocked (prerequisite satisfied) but not yet completed.
 export function getUnlockedCourses(completedNames) {
   ensureLoaded()

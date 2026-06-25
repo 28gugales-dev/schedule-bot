@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { getCourseCatalog } from '../../utils/courseCatalog.js'
+import { getCourseCatalog, trackSkipHops } from '../../utils/courseCatalog.js'
 import { checkEligibility } from '../../utils/ruleEngine.js'
 import { checkSeatAvailability } from '../../utils/seatAvailability.js'
 import { hasConflict } from '../../utils/conflictDetection.js'
@@ -7,8 +7,17 @@ import { analyzeDropImpact } from '../../utils/dependencyAnalysis.js'
 
 const NONE_OPTION = '__none__'
 
-// Two-column "drop X, replace with Y" picker — right side grays out ineligible courses.
-export function CourseSwapPanel({ courseListNames = [], student, value, onChange }) {
+// Two-column "drop X, replace with Y" picker — right side grays out ineligible
+// courses. Two waiver types relax the gate they'd otherwise enforce, since
+// each exists specifically to permit the thing it would normally block:
+//   - prereq-override: missing prereq is waived within 2 forward hops of
+//     fromCourse in the prereq graph (e.g. completed Journalism I -> may
+//     request Journalism II or III, on unlisted/external credit).
+//   - schedule-conflict: a period collision is shown, not disabled — that
+//     collision is the reason for the request, not a reason to block it.
+export function CourseSwapPanel({ courseListNames = [], student, value, onChange, waiverTypeId }) {
+  const allowTrackSkip = waiverTypeId === 'prereq-override'
+  const allowConflictOverride = waiverTypeId === 'schedule-conflict'
   const [leftSearch, setLeftSearch] = useState('')
   const [rightSearch, setRightSearch] = useState('')
   const catalog = useMemo(() => getCourseCatalog(), [])
@@ -34,20 +43,27 @@ export function CourseSwapPanel({ courseListNames = [], student, value, onChange
       .map((course) => {
         const seat = checkSeatAvailability(course.name)
         const conflict = seat.available && hasConflict(currentSchedule, { course: course.name, period: seat.period })
-        const elig = checkEligibility(student, course)
-        const eligible = seat.available && !conflict && elig.eligible
+        const conflictBlocks = conflict && !allowConflictOverride
+        const elig = checkEligibility(student, course, { allowTrackSkip, fromCourse })
+        const eligible = seat.available && !conflictBlocks && elig.eligible
         const reasons = [
           ...(!seat.available ? ['No seats available in any period'] : []),
-          ...(conflict ? ['Conflicts with another course on your schedule'] : []),
+          ...(conflictBlocks ? ['Conflicts with another course on your schedule'] : []),
           ...elig.failedRules.map((r) => r.label),
         ]
-        const why = !course.prerequisite
-          ? 'Intro course — no prerequisite required'
-          : `Meets prerequisite: "${course.prerequisite}"`
+        const hops = allowTrackSkip ? trackSkipHops(fromCourse, course.name) : null
+        const prereqWaived = hops != null && course.prerequisite && !student.completed.has(course.prerequisite)
+        const why = prereqWaived
+          ? `Prerequisite waived — ${hops} step${hops > 1 ? 's' : ''} ahead of "${fromCourse}"`
+          : conflict && allowConflictOverride
+            ? 'Conflicts with your schedule — counselor will resolve the period'
+            : !course.prerequisite
+              ? 'Intro course — no prerequisite required'
+              : `Meets prerequisite: "${course.prerequisite}"`
         return { name: course.name, eligible, reasons, why, seatsLeft: seat.seatsLeft }
       })
     return rows.sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.name.localeCompare(b.name))
-  }, [catalog, rightSearch, student, currentSchedule])
+  }, [catalog, rightSearch, student, currentSchedule, allowTrackSkip, allowConflictOverride, fromCourse])
 
   const setFrom = (name) => onChange({ fromCourse: name || null, toCourse })
   const setTo = (name) => onChange({ fromCourse, toCourse: name === NONE_OPTION ? 'None' : name })

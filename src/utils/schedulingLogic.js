@@ -45,9 +45,16 @@ export function evaluateAgainstRubric(studentData, criteria) {
   const checks = []
   let hardFail = false
 
+  // Two waiver types exist specifically to permit what the strict rule
+  // engine would otherwise block — without these flags, neither waiver
+  // could ever be used to do the thing it's named for.
+  const isPrereqOverride = studentData.waiverTypeId === 'prereq-override'
+  const isScheduleConflictWaiver = studentData.waiverTypeId === 'schedule-conflict'
+  const eligOptions = { allowTrackSkip: isPrereqOverride, fromCourse: studentData.fromCourse }
+
   const hasSwap = Boolean(studentData.toCourse) && studentData.toCourse !== 'None'
   const swapCourse = hasSwap ? getCourseByName(studentData.toCourse) : null
-  const swapElig = swapCourse ? checkEligibility(student, swapCourse) : null
+  const swapElig = swapCourse ? checkEligibility(student, swapCourse, eligOptions) : null
   const seat = swapCourse ? checkSeatAvailability(studentData.toCourse) : null
 
   // Schedule-conflict check: would the new course's period collide with the
@@ -83,8 +90,14 @@ export function evaluateAgainstRubric(studentData, criteria) {
         break
       }
       case 'no-conflict': {
-        const passed = seat ? seat.available && !conflict : null
-        checks.push({ id: rule.id, label: passed === null ? `${rule.label} (no course requested)` : rule.label, passed })
+        // The schedule-conflict waiver exists to request approval DESPITE a
+        // conflict, so it can't be auto-failed by the very thing it's asking
+        // permission for — left unverified (counselor decides) instead.
+        const passed = !seat ? null : isScheduleConflictWaiver ? null : seat.available && !conflict
+        const label = passed === null
+          ? `${rule.label} (${isScheduleConflictWaiver ? 'conflict expected for this waiver — counselor decides' : 'no course requested'})`
+          : rule.label
+        checks.push({ id: rule.id, label, passed })
         break
       }
       case 'within-window': {
@@ -97,7 +110,7 @@ export function evaluateAgainstRubric(studentData, criteria) {
   }
 
   if (swapCourse) {
-    const explanation = explainEligibility(student, swapCourse)
+    const explanation = explainEligibility(student, swapCourse, eligOptions)
     checks.push({ id: 'eligibility', label: `Eligible for "${studentData.toCourse}"`, passed: explanation.eligible })
     for (const reason of explanation.reasons) checks.push({ id: `reason-${reason.id}`, label: reason.text, passed: reason.passed })
     if (!explanation.eligible) hardFail = true
@@ -105,9 +118,13 @@ export function evaluateAgainstRubric(studentData, criteria) {
   if (seat && !seat.available) {
     checks.push({ id: 'seat', label: `Seat available for "${studentData.toCourse}"`, passed: false })
     hardFail = true
-  } else if (conflict) {
+  } else if (conflict && !isScheduleConflictWaiver) {
     checks.push({ id: 'schedule-conflict', label: `No period conflict for "${studentData.toCourse}"`, passed: false })
     hardFail = true
+  } else if (conflict) {
+    // Schedule-conflict waiver: the conflict is the reason for the request,
+    // not a reason to auto-deny it — flagged for the counselor, not gated.
+    checks.push({ id: 'schedule-conflict', label: `Conflicts with another course on the schedule — requires counselor approval`, passed: null })
   }
 
   // Dependency impact is informational, not a pass/fail gate.
