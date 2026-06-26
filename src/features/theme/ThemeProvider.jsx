@@ -26,6 +26,12 @@ const systemQuery = () => window.matchMedia('(prefers-color-scheme: dark)')
  * 'light' for a consistent first impression. Following the OS respects a user
  * who runs their whole machine dark; forcing light guarantees the brand's
  * intended first look. We follow the OS. Change the fallback below to flip it. */
+// Demo deployments build with VITE_FORCE_LIGHT=true so the public demo always
+// opens light (a consistent first impression even for dark-OS visitors). A user
+// can still toggle; their stored choice wins. Mirrored in index.html's boot
+// script — keep the two in sync.
+const DEFAULT_PREFERENCE = import.meta.env.VITE_FORCE_LIGHT === 'true' ? 'light' : 'system'
+
 function getStoredPreference() {
   try {
     const v = localStorage.getItem(THEME_KEY)
@@ -33,7 +39,7 @@ function getStoredPreference() {
   } catch {
     /* storage unavailable (private mode) — fall through to default */
   }
-  return 'system'
+  return DEFAULT_PREFERENCE
 }
 
 function resolvePreference(preference) {

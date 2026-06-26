@@ -30,7 +30,11 @@
         try {
           var stored = localStorage.getItem('ccc:theme');
           var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var dark = stored === 'dark' || ((stored === 'system' || !stored) && systemDark);
+          // Demo build forces a light default (synced with ThemeProvider). When
+          // VITE_FORCE_LIGHT is unset, Vite leaves the literal token, which is
+          // never 'true', so normal builds keep the follow-the-OS behavior.
+          var forceLight = '%VITE_FORCE_LIGHT%' === 'true';
+          var dark = stored === 'dark' || ((stored === 'system' || !stored) && !forceLight && systemDark);
           var resolved = dark ? 'dark' : 'light';
           document.documentElement.dataset.theme = resolved;
           document
