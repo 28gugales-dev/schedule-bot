@@ -5,6 +5,7 @@ import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
 import { ProfileMenu } from './ProfileMenu.jsx'
 import { CommandTrigger } from './CommandPalette.jsx'
 import { NAV, TITLE, useCollapsibleSidebar } from './navConfig.jsx'
+import { DemoGuide } from './DemoGuide.jsx'
 
 // Inline SVG: panel-left-close (collapse — chevrons point left)
 const IconCollapse = () => (
@@ -86,6 +87,11 @@ export function GlassShell({ portal }) {
             </div>
 
             <nav className="mt-2 flex flex-1 flex-col gap-1">
+              {demoMode && (
+                <div className="mb-2">
+                  <DemoGuide collapsed={collapsed} variant="glass" />
+                </div>
+              )}
               {links.map((link) => (
                 <NavLink
                   key={link.to}

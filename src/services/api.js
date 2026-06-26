@@ -33,14 +33,13 @@ import { waiverWindowStatus } from '../utils/waiverWindow.js'
 import * as waitlist from './waitlist.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import * as sb from './supabaseApi.js'
-import { AVERY_REQUEST, AVERY_REQUEST_ID, AVERY_STUDENT_ID, AVERY_ONE_ROSTER } from './demoSeed.js'
+import { AVERY_REQUEST, AVERY_STUDENT_ID, AVERY_ONE_ROSTER } from './demoSeed.js'
 
-// Avery Mitchell is a permanent, hardcoded demo record (see demoSeed.js) —
-// overlaid into the review queue regardless of backend mode. "Deciding" her
-// only flips this in-memory flag for the current session; nothing about her
-// is ever written to Supabase or to the local mock arrays, so she's back,
-// fresh and pending, the next time anyone loads the app.
-let averyDecidedThisSession = false
+// Avery Mitchell is a permanent, hardcoded demo record (see demoSeed.js),
+// seeded into the demo review queue as a real local row. She behaves like any
+// other demo student — deciding her writes a local audit entry and moves her
+// into decidedHistory (kept searchable), never to Supabase. A SEED_VERSION
+// bump resets her to pending.
 
 // When Supabase is configured, the slice functions below delegate to the real
 // backend (services/supabaseApi.js); otherwise they fall through to the demo
@@ -105,7 +104,7 @@ const clone = (v) => JSON.parse(JSON.stringify(v))
 // hydrate from localStorage on init and write back after every mutation. Bump
 // SEED_VERSION whenever the mockData fixtures change shape/content, so returning
 // demo browsers rebuild from the new seed instead of keeping stale cached data.
-const SEED_VERSION = '4'
+const SEED_VERSION = '5'
 const NS = 'schedulebot.api.v1'
 const LS_KEYS = {
   waivers: `${NS}.waivers`,
@@ -114,6 +113,7 @@ const LS_KEYS = {
   batch: `${NS}.batch`,
   submissions: `${NS}.submissions`,
   deniedHistory: `${NS}.deniedHistory`,
+  decidedHistory: `${NS}.decidedHistory`,
   version: `${NS}.version`,
 }
 
@@ -144,6 +144,7 @@ let queue
 let batch
 let submissions // seeded for demo; new submits prepend
 let deniedHistory
+let decidedHistory // admitted/flagged requests — kept searchable so decided students don't disappear
 
 function ensureSeeded() {
   // Reseed when storage is empty OR the cached seed predates the current
@@ -155,6 +156,7 @@ function ensureSeeded() {
   const storedBatch = lsRead(LS_KEYS.batch)
   const storedSubmissions = lsRead(LS_KEYS.submissions)
   const storedDenied = lsRead(LS_KEYS.deniedHistory)
+  const storedDecided = lsRead(LS_KEYS.decidedHistory)
 
   const hydrated =
     versionOk &&
@@ -163,7 +165,8 @@ function ensureSeeded() {
     Array.isArray(storedQueue) &&
     Array.isArray(storedBatch) &&
     Array.isArray(storedSubmissions) &&
-    Array.isArray(storedDenied)
+    Array.isArray(storedDenied) &&
+    Array.isArray(storedDecided)
 
   if (hydrated) {
     waivers = storedWaivers
@@ -172,19 +175,31 @@ function ensureSeeded() {
     batch = storedBatch
     submissions = storedSubmissions
     deniedHistory = storedDenied
+    decidedHistory = storedDecided
     return
   }
 
   // Seed from the mockData imports (the original module-init behavior) and
   // write them back, recording the version so subsequent loads hydrate.
+  // Avery Mitchell (demoSeed.js) is seeded as a real queue row so she shows up
+  // in global search + the record view, not just the queue overlay.
   waivers = WAIVER_TYPES.map((w) => ({ ...w }))
   criteria = RUBRIC_CRITERIA.map((c) => ({ ...c }))
-  queue = REVIEW_QUEUE.map((r) => ({ ...r }))
+  queue = [seedAvery(), ...REVIEW_QUEUE.map((r) => ({ ...r }))]
   batch = BATCH_SYNC_QUEUE.map((b) => ({ ...b }))
   submissions = SEED_SUBMISSIONS.map((s) => ({ ...s }))
   deniedHistory = []
+  decidedHistory = []
   persist()
   lsWrite(LS_KEYS.version, SEED_VERSION)
+}
+
+// A fresh clone of the Avery demo request with rubric checks joined at the
+// shape fetchReviewQueue expects (real seed rows already carry checks).
+function seedAvery() {
+  const avery = clone(AVERY_REQUEST)
+  avery.checks = avery.recommendation?.checks ?? []
+  return avery
 }
 
 function persist() {
@@ -194,6 +209,7 @@ function persist() {
   lsWrite(LS_KEYS.batch, batch)
   lsWrite(LS_KEYS.submissions, submissions)
   lsWrite(LS_KEYS.deniedHistory, deniedHistory)
+  lsWrite(LS_KEYS.decidedHistory, decidedHistory)
 }
 
 ensureSeeded()
@@ -690,10 +706,7 @@ export async function fetchReviewQueue() {
         ...r,
         checks: r.recommendation?.checks?.length ? r.recommendation.checks : REVIEW_CHECKS[r.id] ?? [],
       }))
-  if (averyDecidedThisSession) return base
-  const avery = clone(AVERY_REQUEST)
-  avery.checks = avery.recommendation?.checks ?? []
-  return priorityOrderQueue([avery, ...base])
+  return base
 }
 
 // Authoritative SIS record for a student, pulled from the OneRoster API. Real
@@ -717,7 +730,7 @@ export async function searchStudents(query) {
   const q = query.trim().toLowerCase()
   if (!q) return []
   const seen = new Map()
-  for (const r of [...queue, ...deniedHistory]) {
+  for (const r of [...queue, ...decidedHistory, ...deniedHistory]) {
     const s = r.student
     if (!s?.id || seen.has(s.id)) continue
     if (!String(s.name).toLowerCase().includes(q)) continue
@@ -734,11 +747,18 @@ export async function fetchStudentRecord(studentId) {
   await delay(250)
   const pending = queue.filter((r) => r.student?.id === studentId)
   const denied = deniedHistory.filter((r) => r.student?.id === studentId)
-  const snap = pending[0]?.student ?? denied[0]?.student ?? { id: studentId, name: studentId }
+  const decided = decidedHistory.filter((r) => r.student?.id === studentId)
+  const snap = pending[0]?.student ?? decided[0]?.student ?? denied[0]?.student ?? { id: studentId, name: studentId }
+  const STATUS_BY_DECISION = { admit: 'approved', flag: 'flagged' }
   const requests = [
     ...pending.map((r) => ({
       id: r.id, waiverTypeId: r.waiverTypeId, status: 'submitted',
       submittedAt: r.submittedAt, studentNote: r.studentNote ?? '',
+    })),
+    ...decided.map((r) => ({
+      id: r.id, waiverTypeId: r.waiverTypeId, status: STATUS_BY_DECISION[r.decision] ?? 'approved',
+      submittedAt: r.submittedAt, decidedAt: r.decidedAt ?? null,
+      studentNote: r.studentNote ?? '', counselorNote: r.counselorNote ?? '',
     })),
     ...denied.map((r) => ({
       id: r.id, waiverTypeId: r.waiverTypeId, status: 'denied',
@@ -757,15 +777,6 @@ export async function fetchStudentRecord(studentId) {
 // the dropped course's seat (notifying anyone waitlisted for it); on deny it's
 // kept in the rejected-history log. Every outcome is written to the audit trail.
 export async function submitDecision(requestId, decision, note = '', actor = null) {
-  if (requestId === AVERY_REQUEST_ID) {
-    // Never persisted anywhere (no Supabase write, no local mock write) —
-    // just hides her for the rest of this session. Reload/re-login and
-    // she's back, pending, exactly as seeded.
-    await delay(350)
-    averyDecidedThisSession = true
-    console.info(`[demo] Avery Mitchell -> ${decision} (not persisted; resets next session)`)
-    return { ok: true, requestId, decision, nextId: null, remaining: 0 }
-  }
   if (isSupabaseConfigured) return sb.submitDecision(requestId, decision, note, actor)
   await delay(350)
   const idx = queue.findIndex((r) => r.id === requestId)
@@ -804,6 +815,11 @@ export async function submitDecision(requestId, decision, note = '', actor = nul
   }
   if (request && decision === 'deny') {
     deniedHistory = [{ ...request, decision, counselorNote: note, deniedAt: new Date().toISOString() }, ...deniedHistory]
+  }
+  // Admits + flags leave the queue but must stay searchable (so decided
+  // students don't disappear from global search / the record view).
+  if (request && (decision === 'admit' || decision === 'flag')) {
+    decidedHistory = [{ ...request, decision, counselorNote: note, decidedAt: new Date().toISOString() }, ...decidedHistory]
   }
   // Persist unconditionally — the submissions[] status update above can run even
   // when the request wasn't in the queue (idempotent write otherwise).

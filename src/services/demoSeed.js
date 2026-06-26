@@ -3,11 +3,12 @@
 // Override to skip from Journalism I to Journalism III ("Will take the
 // course over summer through FVA.").
 //
-// Deliberately hardcoded HERE, not in Supabase: api.js overlays this record
-// into the review queue regardless of backend mode (real or local), and
-// "deciding" it never writes anywhere — admitting/denying it only flips an
-// in-memory flag for the current session, so she's always back, fresh and
-// pending, the next time anyone logs in. No real database rows involved.
+// Hardcoded HERE, not in Supabase: api.js seeds this record into the demo
+// review queue (local mock arrays only — never written to Supabase). She
+// behaves like any other demo student: deciding her writes a real local
+// audit entry, keeps her in counselor decisions + global search, and she
+// does NOT disappear. A SEED_VERSION bump (or clearing localStorage) resets
+// her to pending. No real database rows involved.
 export const AVERY_STUDENT_ID = 'demo-avery-mitchell'
 export const AVERY_REQUEST_ID = 'demo-req-avery-mitchell'
 

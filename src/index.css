@@ -461,7 +461,17 @@ body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Pulsing brand halo for the demo "Start here" guide button. The ring breathes
+   so the eye catches it first; reduced-motion users get the static styling only
+   (the rule lives inside the no-preference block below). */
+@keyframes demo-glow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--color-brand-500), 0 0 0 0 rgba(10, 132, 255, 0.0), 0 1px 8px rgba(10, 132, 255, 0.25); }
+  50%      { box-shadow: 0 0 0 1px var(--color-brand-400), 0 0 18px 2px rgba(10, 132, 255, 0.45), 0 2px 14px rgba(10, 132, 255, 0.35); }
+}
 @media (prefers-reduced-motion: no-preference) {
+  .demo-glow {
+    animation: demo-glow 2.4s var(--ease-spring, ease-in-out) infinite;
+  }
   .fade-up {
     animation: fade-up 0.5s var(--ease-spring) both;
   }

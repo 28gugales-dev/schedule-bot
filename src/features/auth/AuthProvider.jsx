@@ -13,6 +13,13 @@ const DEMO_ROLE_KEY = 'demo_role'
 export const DEMO_BYPASS_ENABLED =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO === 'true'
 
+// Explicit demo deployment (e.g. schedule-bot-demo): land straight in this
+// portal and skip the login chooser entirely. Set at BUILD time via
+// VITE_DEMO_AUTOLOGIN=admin|student. Honored ONLY in stub demo mode (no Supabase
+// env) or when the bypass is explicitly enabled — inert on the live build, so a
+// stray flag can never one-click someone into the real counselor portal.
+const DEMO_AUTOLOGIN = import.meta.env.VITE_DEMO_AUTOLOGIN || null
+
 // District email domains permitted to sign in (comma-separated env var). Empty =
 // allow all, for local/preview testing.
 //
@@ -62,12 +69,17 @@ export function AuthProvider({ children }) {
   // configured — but ONLY when the bypass is enabled (dev/explicit). In prod the
   // stored value is ignored so a stale/injected demo_role can't escalate.
   const [demoRole, setDemoRole] = useState(() => {
-    if (!DEMO_BYPASS_ENABLED) return null
-    try {
-      return localStorage.getItem(DEMO_ROLE_KEY)
-    } catch {
-      return null
+    // A manually-stored override is honored only where the bypass is allowed.
+    if (DEMO_BYPASS_ENABLED) {
+      try {
+        const stored = localStorage.getItem(DEMO_ROLE_KEY)
+        if (stored) return stored
+      } catch { /* ignore */ }
     }
+    // Explicit demo deployment: auto-enter a portal, skipping the login chooser.
+    // Never on the live (Supabase-configured) build unless the bypass is on too.
+    if (DEMO_AUTOLOGIN && (!isSupabaseConfigured || DEMO_BYPASS_ENABLED)) return DEMO_AUTOLOGIN
+    return null
   })
   // True when running without Supabase, OR when the dev-gated demo override is set.
   const effectiveDemo = demoMode || (DEMO_BYPASS_ENABLED && Boolean(demoRole))

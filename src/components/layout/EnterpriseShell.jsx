@@ -5,6 +5,7 @@ import { ThemeToggle } from '../../features/theme/ThemeToggle.jsx'
 import { ProfileMenu } from './ProfileMenu.jsx'
 import { CommandTrigger } from './CommandPalette.jsx'
 import { NAV, TITLE, useCollapsibleSidebar } from './navConfig.jsx'
+import { DemoGuide } from './DemoGuide.jsx'
 
 // Inline SVG: panel-left-close / open (collapse chevrons)
 const IconCollapse = () => (
@@ -77,6 +78,11 @@ export function EnterpriseShell({ portal }) {
 
         {/* Sectioned nav */}
         <nav className="flex-1 overflow-y-auto py-3">
+          {demoMode && (
+            <div className={`mb-4 ${collapsed ? 'px-2' : 'px-2.5'}`}>
+              <DemoGuide collapsed={collapsed} variant="enterprise" />
+            </div>
+          )}
           {sections.map((section) => (
             <div key={section} className={`mb-4 space-y-0.5 ${collapsed ? 'px-2' : 'px-2.5'}`}>
               {!collapsed ? (
