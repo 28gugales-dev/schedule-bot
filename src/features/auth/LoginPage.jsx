@@ -155,11 +155,12 @@ export function LoginPage() {
     }
   }
 
-  // Real auth: once a session resolves, leave /login — RoleLanding sends the
-  // user to the right portal based on their role.
+  // Once a user is resolved, leave /login — RoleLanding sends them to the right
+  // portal. Covers both real auth AND the demo auto-login (VITE_DEMO_AUTOLOGIN),
+  // so a direct hit on /login never shows a sign-in screen when a role is active.
   useEffect(() => {
-    if (!demoMode && user) navigate('/')
-  }, [demoMode, user, navigate])
+    if (user) navigate('/', { replace: true })
+  }, [user, navigate])
 
   return (
     <div className="fade-up relative flex min-h-screen items-center justify-center px-4">
